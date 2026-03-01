@@ -64,7 +64,7 @@ Check these accounts daily for announcements, insights, and thread summaries:
 | Pieter Levels | @levelsio | Indie dev |
 | swyx | @swyx | Latent Space |
 
-**Script:** Use `scripts/fetch_twitter.py` to fetch recent tweets from these accounts.
+**Fetching:** Via Gemini CLI web search (no Twitter API needed)
 
 ### Tier 2: Newsletters & Daily Briefs (9 publications)
 
@@ -80,7 +80,7 @@ Scan these newsletters for curated AI news:
 8. **Latent Space** - latentspace.blog
 9. **Interconnects** (Nathan Lambert)
 
-**Script:** Use `scripts/fetch_newsletters.py` to scrape latest posts.
+**Fetching:** Via blogwatcher RSS feeds
 
 ### Tier 3: Academic & Research (3 categories)
 
@@ -88,7 +88,7 @@ Scan these newsletters for curated AI news:
 2. **AI Lab Blogs** - OpenAI, Anthropic, Google DeepMind, Meta AI
 3. **LMSYS** - lmsys.org/blog
 
-**Script:** Use `scripts/fetch_arxiv.py` for latest papers.
+**Fetching:** Gemini CLI for arXiv, blogwatcher for lab blogs
 
 ## Output Format
 
@@ -126,7 +126,7 @@ Structure the brief as:
 
 ## Workflow
 
-1. **Fetch** - Run fetch scripts for all source tiers
+1. **Fetch** - Scan RSS feeds with blogwatcher
 2. **Filter** - Select high-signal items (avoid duplicates, hype)
 3. **Summarize** - Write concise summaries with "why it matters"
 4. **Format** - Structure as markdown with tables/lists
@@ -137,6 +137,8 @@ Structure the brief as:
 **Cron Expression:** `0 9 * * *` (9:00 AM Asia/Shanghai)
 
 **Delivery:** Discord channel `channel:1477516149968339127`
+
+**Save Location:** `~/ai-tech-briefs/YYYY-MM-DD-ai-tech-brief.md`
 
 ## Quality Guidelines
 
@@ -160,7 +162,7 @@ Structure the brief as:
 | Script | Purpose |
 |--------|---------|
 | `scripts/generate_brief.py` | Main orchestration (blogwatcher + Gemini CLI) |
-| `scripts/setup_blogwatcher.sh` | Initialize RSS feeds (run once) |
+| `scripts/setup_blogwatcher.sh` | Initialize RSS feeds (run once, idempotent) |
 
 **blogwatcher commands:**
 - `blogwatcher scan` - Scan all RSS feeds for new articles
@@ -168,30 +170,85 @@ Structure the brief as:
 - `blogwatcher read <id>` - Mark article as read
 - `blogwatcher blogs` - List tracked blogs
 
-## References
-
-| File | Content |
-|------|---------|
-| `references/sources.md` | Complete source list with URLs |
-| `references/arxiv_categories.md` | Relevant arXiv category codes |
-| `references/template.md` | Output template examples |
-
 ## Configuration
 
-Store in `TOOLS.md` or environment:
+**Optional config file:** `config.json` (copy from `config.example.json`)
 
-```bash
-# Optional: API keys for enhanced fetching
-TWITTER_API_KEY=xxx
-ARXIV_API_BASE=https://export.arxiv.org/api/query
+```json
+{
+  "blogwatcher_path": "~/go/bin/blogwatcher",
+  "timezone_offset": 8,
+  "gemini_timeout": 120,
+  "max_articles": 20,
+  "output_dir": "~/ai-tech-briefs"
+}
 ```
 
-## Error Handling
+**Usage:**
+```bash
+python3 scripts/generate_brief.py --config config.json --output /tmp/brief.md
+```
 
-- **API rate limits:** Retry with exponential backoff
-- **Missing sources:** Skip and note in brief
-- **Duplicate detection:** Hash-based deduplication
-- **Delivery failure:** Log error, retry next cycle
+## Troubleshooting
+
+### blogwatcher not found
+
+```bash
+# Install blogwatcher
+go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
+
+# Verify installation
+~/go/bin/blogwatcher --version
+```
+
+### Gemini CLI timeout
+
+The script has a 120-second timeout. If Gemini CLI consistently times out:
+
+1. Check your internet connection
+2. Try running `gemini "test"` manually
+3. Increase timeout in `config.json`: `"gemini_timeout": 180`
+
+### RSS feeds not updating
+
+```bash
+# Force rescan
+~/go/bin/blogwatcher scan
+
+# Check if feeds are valid
+curl -I https://tldr.tech/rss
+```
+
+### No articles found
+
+Some blogs don't have RSS feeds. The script falls back to Gemini CLI web search. Check logs:
+
+```bash
+cat ~/ai-tech-briefs/generate.log
+```
+
+### Brief generation fails
+
+1. Check log file: `~/ai-tech-briefs/generate.log`
+2. Test Gemini CLI manually: `gemini "test prompt"`
+3. Verify Python 3 is available: `python3 --version`
+
+### Duplicate articles
+
+The script has built-in deduplication using content hashing. If you see duplicates:
+
+1. Clear the seen hashes (restart the script)
+2. Check if RSS feeds are publishing duplicates
+
+### Cron job not running
+
+```bash
+# Check cron status
+openclaw cron status
+
+# Check cron logs
+openclaw cron runs --id ai-tech-daily-brief --limit 5
+```
 
 ## Testing
 
@@ -199,9 +256,23 @@ Run locally before deploying:
 
 ```bash
 cd skills/ai-tech-brief
+
+# Test mode with output
 python3 scripts/generate_brief.py --test --output /tmp/test-brief.md
+
+# View output
 cat /tmp/test-brief.md
+
+# Check logs
+cat ~/ai-tech-briefs/generate.log
 ```
+
+## References
+
+| File | Content |
+|------|---------|
+| `references/sources.md` | Complete source list with URLs |
+| `config.example.json` | Configuration template |
 
 ## Related Skills
 
@@ -211,6 +282,9 @@ cat /tmp/test-brief.md
 
 ---
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Author:** Dean (ClawCoding)  
-**Last Updated:** March 1, 2026
+**Last Updated:** March 1, 2026  
+**Changelog:**
+- v1.1: Added logging, error handling, config file, deduplication
+- v1.0: Initial release
