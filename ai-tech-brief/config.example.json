@@ -1,28 +1,43 @@
 {
   "_comment": "AI Tech Brief Configuration - Copy to config.json and customize",
-  
+
   "blogwatcher_path": "~/go/bin/blogwatcher",
   "arxiv_categories": ["cs.LG", "cs.AI", "cs.SE"],
-  
+
   "twitter_accounts": [
     "karpathy", "ilyasut", "AndrewYNg", "lilianweng",
     "DrJimFan", "jeremyphoward", "natolambert", "philduanai",
     "hwchase17", "rauchg", "levelsio", "swyx"
   ],
-  
-  "newsletters": [
-    "Ben's Bites", "TLDR AI", "Import AI", "Latent Space",
-    "Interconnects", "The Batch", "The Neuron", "Superhuman AI"
+
+  "_comment_rss_sources": "RSS URLs are resolved once and hard-coded here. Each entry has name, rss URL, and category (newsletter | ai_lab | research_org).",
+  "rss_sources": [
+    {"name": "Ben's Bites",     "rss": "https://bensbites.beehiiv.com/rss",             "category": "newsletter"},
+    {"name": "TLDR AI",         "rss": "https://tldr.tech/rss",                         "category": "newsletter"},
+    {"name": "Latent Space",    "rss": "https://latentspace.blog/rss",                  "category": "newsletter"},
+    {"name": "Interconnects",   "rss": "https://interconnects.ai/rss",                  "category": "newsletter"},
+    {"name": "The Neuron",      "rss": "https://theneuron.beehiiv.com/rss",             "category": "newsletter"},
+    {"name": "Import AI",       "rss": "https://jack-clark.net/feed/",                  "category": "newsletter"},
+    {"name": "The Batch",       "rss": "https://www.deeplearning.ai/the-batch/feed/",   "category": "newsletter"},
+    {"name": "OpenAI",          "rss": "https://openai.com/news/rss",                   "category": "ai_lab"},
+    {"name": "Anthropic",       "rss": "https://www.anthropic.com/news?format=rss",     "category": "ai_lab"},
+    {"name": "Google DeepMind", "rss": "https://deepmind.google/discover/blog/rss/",    "category": "ai_lab"},
+    {"name": "Meta AI",         "rss": "https://ai.meta.com/blog/rss/",                 "category": "ai_lab"},
+    {"name": "LMSYS",           "rss": "https://lmsys.org/blog/rss/",                   "category": "research_org"},
+    {"name": "Hugging Face",    "rss": "https://huggingface.co/blog/feed.xml",          "category": "research_org"}
   ],
-  
-  "ai_labs": ["OpenAI", "Anthropic", "Google DeepMind", "Meta AI"],
-  
-  "research_orgs": ["LMSYS", "Hugging Face"],
-  
+
+  "_comment_web_only_sources": "Sources with no RSS feed; content is fetched by Gemini CLI web search instead.",
+  "web_only_sources": [
+    {"name": "The Rundown AI",  "url": "https://therundown.ai",  "category": "newsletter"},
+    {"name": "Superhuman AI",   "url": "https://superhuman.ai",  "category": "newsletter"}
+  ],
+
   "timezone": "Asia/Shanghai",
   "timezone_offset": 8,
   "gemini_timeout": 180,
   "blogwatcher_timeout": 60,
+  "rss_check_timeout": 10,
   "max_articles": 30,
   "output_dir": "~/ai-tech-briefs",
   "log_file": "~/ai-tech-briefs/generate.log"
