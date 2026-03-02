@@ -28,11 +28,17 @@ DEFAULT_CONFIG = {
         'DrJimFan', 'jeremyphoward', 'natolambert', 'philduanai',
         'hwchase17', 'rauchg', 'levelsio', 'swyx'
     ],
+    'newsletters': [
+        "Ben's Bites", 'TLDR AI', 'Import AI', 'Latent Space', 
+        'Interconnects', 'The Batch', 'The Neuron', 'Superhuman AI'
+    ],
+    'ai_labs': ['OpenAI', 'Anthropic', 'Google DeepMind', 'Meta AI'],
+    'research_orgs': ['LMSYS', 'Hugging Face'],
     'timezone': 'Asia/Shanghai',
     'timezone_offset': 8,
-    'gemini_timeout': 120,
+    'gemini_timeout': 180,
     'blogwatcher_timeout': 60,
-    'max_articles': 20,
+    'max_articles': 30,
     'output_dir': '~/ai-tech-briefs',
     'log_file': '~/ai-tech-briefs/generate.log',
 }
@@ -57,11 +63,15 @@ class BriefGenerator:
         os.makedirs(self.config['output_dir'], exist_ok=True)
         
         self.seen_hashes = set()  # For deduplication
+        self.source_coverage = {}  # Track which sources were covered
     
     def _setup_logger(self) -> logging.Logger:
         """Setup logging to file and console."""
         logger = logging.getLogger('ai-tech-brief')
         logger.setLevel(logging.INFO)
+        
+        # Clear existing handlers
+        logger.handlers = []
         
         # File handler
         try:
@@ -164,7 +174,7 @@ class BriefGenerator:
             self.logger.error(f"Blogwatcher scan failed: {e}")
             return f"Error scanning blogs: {e}"
     
-    def get_blogwatcher_articles(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_blogwatcher_articles(self, limit: int = 30) -> List[Dict[str, Any]]:
         """Get recent articles from blogwatcher with better parsing."""
         articles = []
         try:
@@ -190,6 +200,10 @@ class BriefGenerator:
                     if current_article.get('title'):
                         if not self._is_duplicate(current_article['title'], current_article.get('url', '')):
                             articles.append(current_article)
+                            # Track source coverage
+                            blog_name = current_article.get('blog', '')
+                            if blog_name:
+                                self.source_coverage[blog_name] = self.source_coverage.get(blog_name, 0) + 1
                             if len(articles) >= limit:
                                 break
                     
@@ -215,8 +229,12 @@ class BriefGenerator:
             if current_article.get('title') and len(articles) < limit:
                 if not self._is_duplicate(current_article['title'], current_article.get('url', '')):
                     articles.append(current_article)
+                    blog_name = current_article.get('blog', '')
+                    if blog_name:
+                        self.source_coverage[blog_name] = self.source_coverage.get(blog_name, 0) + 1
             
             self.logger.info(f"Found {len(articles)} unique articles from blogwatcher")
+            self.logger.info(f"Source coverage: {self.source_coverage}")
             return articles
             
         except Exception as e:
@@ -235,7 +253,7 @@ class BriefGenerator:
                     ['gemini', '-p', prompt],
                     capture_output=True,
                     text=True,
-                    timeout=self.config.get('gemini_timeout', 120),
+                    timeout=self.config.get('gemini_timeout', 180),
                     env=env
                 )
                 
@@ -261,10 +279,10 @@ class BriefGenerator:
         return "Error: Gemini CLI failed after all retry attempts"
     
     def generate_brief_content(self, rss_articles: List[Dict[str, Any]]) -> str:
-        """Generate brief using Gemini CLI with blogwatcher context."""
+        """Generate brief using Gemini CLI with comprehensive source coverage."""
         # Format RSS articles for prompt
         article_lines = []
-        for article in rss_articles[:15]:  # Limit to 15 most recent
+        for article in rss_articles[:20]:  # Limit to 20 most recent
             title = article.get('title', 'Unknown')
             blog = article.get('blog', '')
             url = article.get('url', '')
@@ -281,36 +299,89 @@ class BriefGenerator:
         
         article_text = '\n'.join(article_lines) if article_lines else "No recent RSS articles found."
         
+        # Get source lists from config
+        twitter_accounts = self.config.get('twitter_accounts', [])
+        newsletters = self.config.get('newsletters', [])
+        ai_labs = self.config.get('ai_labs', [])
+        research_orgs = self.config.get('research_orgs', [])
+        arxiv_cats = self.config.get('arxiv_categories', [])
+        
         date_display = self.get_date_display()
         
-        prompt = f"""Generate a daily AI tech brief for {date_display}.
+        prompt = f"""Generate a comprehensive daily AI tech brief for {date_display}.
 
-RECENT RSS ARTICLES (from blogwatcher - use these as starting points):
+MANDATORY: You MUST include content from ALL of the following source categories. If you cannot find recent content from a specific source, explicitly state "No updates from [source] today."
+
+## REQUIRED SOURCE COVERAGE:
+
+### 1. Twitter/X Thought Leaders (12 accounts) - MUST CHECK EACH:
+{chr(10).join([f'- @{acc}' for acc in twitter_accounts])}
+Search for tweets from past 24-48 hours. Include notable announcements, insights, or thread summaries.
+
+### 2. Newsletters (8 publications) - MUST CHECK EACH:
+{chr(10).join([f'- {nl}' for nl in newsletters])}
+Include key stories and insights.
+
+### 3. AI Lab Blogs (4 labs) - MUST CHECK EACH:
+{chr(10).join([f'- {lab}' for lab in ai_labs])}
+Include official announcements and research updates.
+
+### 4. Research Organizations (2 orgs) - MUST CHECK EACH:
+{chr(10).join([f'- {org}' for org in research_orgs])}
+Include benchmarks, model releases, and research updates.
+
+### 5. arXiv Papers (categories: {', '.join(arxiv_cats)}) - MUST CHECK:
+List latest papers from past 48 hours with key findings.
+
+## RSS FEED DATA (already collected):
 {article_text}
 
-Research and summarize:
-1) AI Infrastructure news (training/inference, GPUs/TPUs, distributed systems)
-2) Agentic Coding developments (autonomous coding agents, AI dev tools, code generation)
-3) AI Research papers (arXiv cs.LG, cs.AI, cs.SE from past 48 hours)
+## OUTPUT FORMAT:
 
-Check these sources:
-- Twitter: @karpathy, @ilyasut, @AndrewYNg, @lilianweng, @DrJimFan, @jeremyphoward, @natolambert, @hwchase17, @rauchg, @levelsio, @swyx
-- Newsletters: Ben's Bites, TLDR AI, Import AI, Latent Space, Interconnects
-- arXiv: Latest papers in cs.LG, cs.AI, cs.SE
-- AI Labs: OpenAI, Anthropic, DeepMind, Meta AI blogs
-- LMSYS: lmsys.org/blog
+```markdown
+# 🤖 Daily AI Tech Brief - {date_display}
 
-Format as markdown with:
-- Top 3-5 stories with 'why it matters'
-- Research papers table (title, finding, link)
-- Notable tweets
-- Newsletter highlights
-- Quick links section
+## 📊 Top Stories (3-5 items)
+Must include stories from multiple source categories above.
 
-Include actual links and specific details. Make it technical but concise.
-If RSS articles above are old, focus on fresh web research."""
+### [Headline]
+- **Summary:** 1-2 sentences
+- **Why it matters:** Impact/significance
+- **Source:** [Link](url)
 
-        self.logger.info("Generating brief content with Gemini CLI...")
+## 🐦 Twitter/X Updates
+Explicitly list updates from thought leaders. If no updates, say "No significant updates today."
+
+## 📰 Newsletter Highlights
+Summarize key stories from each newsletter checked.
+
+## 🏢 AI Lab Updates
+Updates from OpenAI, Anthropic, DeepMind, Meta AI.
+
+## 🔬 Research Organization Updates
+Updates from LMSYS, Hugging Face.
+
+## 📄 New Research Papers
+| Paper | Key Finding | Link |
+|-------|-------------|------|
+| [Title] | Finding | arXiv:XXXX |
+
+## 🔗 Quick Links
+Other notable links discovered.
+
+---
+*Sources checked: Twitter (12 accounts), Newsletters (8), AI Labs (4), Research Orgs (2), arXiv*
+```
+
+IMPORTANT: 
+1. You MUST attempt to find content from ALL listed sources
+2. Use web search to check each source individually
+3. If a source has no updates, explicitly state that
+4. Do not skip any source category
+5. Make the brief comprehensive and technical
+"""
+
+        self.logger.info("Generating comprehensive brief with full source coverage...")
         return self.run_gemini(prompt)
     
     def validate_brief(self, brief: str) -> bool:
@@ -321,13 +392,53 @@ If RSS articles above are old, focus on fresh web research."""
             'http',  # Has links
         ]
         
+        # Check for source coverage mention
+        source_indicators = ['Twitter', 'Newsletter', 'Lab', 'Research', 'arXiv']
+        found_sources = sum(1 for indicator in source_indicators if indicator in brief)
+        
         for section in required_sections:
             if section not in brief:
                 self.logger.warning(f"Brief missing required element: {section}")
                 return False
         
-        self.logger.info("Brief validation passed")
+        if found_sources < 3:
+            self.logger.warning(f"Brief may be missing source coverage (only found {found_sources}/5 indicators)")
+        
+        self.logger.info(f"Brief validation passed (found {found_sources}/5 source indicators)")
         return True
+    
+    def generate_source_coverage_report(self) -> str:
+        """Generate a report of which sources were covered."""
+        lines = ["\n## 📊 Source Coverage Report\n"]
+        
+        # Twitter accounts
+        lines.append("### Twitter/X Accounts (12)")
+        for acc in self.config.get('twitter_accounts', []):
+            status = "✅" if acc in str(self.source_coverage) else "❓"
+            lines.append(f"- {status} @{acc}")
+        
+        # Newsletters
+        lines.append("\n### Newsletters (8)")
+        for nl in self.config.get('newsletters', []):
+            count = self.source_coverage.get(nl, 0)
+            status = f"✅ ({count} articles)" if count > 0 else "❌ No articles"
+            lines.append(f"- {status} {nl}")
+        
+        # AI Labs
+        lines.append("\n### AI Labs (4)")
+        for lab in self.config.get('ai_labs', []):
+            count = self.source_coverage.get(lab, 0)
+            status = f"✅ ({count} articles)" if count > 0 else "❌ No articles"
+            lines.append(f"- {status} {lab}")
+        
+        # Research orgs
+        lines.append("\n### Research Organizations (2)")
+        for org in self.config.get('research_orgs', []):
+            count = self.source_coverage.get(org, 0)
+            status = f"✅ ({count} articles)" if count > 0 else "❌ No articles"
+            lines.append(f"- {status} {org}")
+        
+        return '\n'.join(lines)
     
     def generate_brief(self, output_path: Optional[str] = None) -> str:
         """Generate the daily brief."""
@@ -336,23 +447,31 @@ If RSS articles above are old, focus on fresh web research."""
         self.logger.info("=" * 60)
         
         # Scan blogs
-        self.logger.info("\n[1/4] Scanning RSS feeds with blogwatcher...")
+        self.logger.info("\n[1/5] Scanning RSS feeds with blogwatcher...")
         scan_result = self.run_blogwatcher_scan()
         self.logger.info(scan_result)
         
         # Get articles
-        self.logger.info("\n[2/4] Fetching recent articles...")
-        rss_articles = self.get_blogwatcher_articles(limit=self.config.get('max_articles', 20))
+        self.logger.info("\n[2/5] Fetching recent articles...")
+        rss_articles = self.get_blogwatcher_articles(limit=self.config.get('max_articles', 30))
         self.logger.info(f"Found {len(rss_articles)} unique articles")
         
         # Generate content with Gemini
-        self.logger.info("\n[3/4] Generating brief with Gemini CLI...")
+        self.logger.info("\n[3/5] Generating comprehensive brief with Gemini CLI...")
         brief = self.generate_brief_content(rss_articles)
         
         # Validate
-        self.logger.info("\n[4/4] Validating brief...")
-        if not self.validate_brief(brief):
-            self.logger.warning("Brief validation failed, but continuing...")
+        self.logger.info("\n[4/5] Validating brief...")
+        is_valid = self.validate_brief(brief)
+        if not is_valid:
+            self.logger.warning("Brief validation had warnings, but continuing...")
+        
+        # Generate coverage report
+        self.logger.info("\n[5/5] Generating source coverage report...")
+        coverage_report = self.generate_source_coverage_report()
+        
+        # Append coverage report to brief
+        brief_with_coverage = brief + "\n\n" + coverage_report
         
         # Output
         if output_path:
@@ -361,15 +480,15 @@ If RSS articles above are old, focus on fresh web research."""
                 os.makedirs(output_dir, exist_ok=True)
             
             with open(output_path, 'w') as f:
-                f.write(brief)
+                f.write(brief_with_coverage)
             self.logger.info(f"\n✅ Brief saved to: {output_path}")
         else:
             self.logger.info("\n" + "=" * 60)
-            self.logger.info(brief)
+            self.logger.info(brief_with_coverage)
             self.logger.info("=" * 60)
         
         self.logger.info("Brief generation complete!")
-        return brief
+        return brief_with_coverage
 
 
 def main():

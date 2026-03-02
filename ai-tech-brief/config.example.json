@@ -3,16 +3,27 @@
   
   "blogwatcher_path": "~/go/bin/blogwatcher",
   "arxiv_categories": ["cs.LG", "cs.AI", "cs.SE"],
+  
   "twitter_accounts": [
     "karpathy", "ilyasut", "AndrewYNg", "lilianweng",
     "DrJimFan", "jeremyphoward", "natolambert", "philduanai",
     "hwchase17", "rauchg", "levelsio", "swyx"
   ],
+  
+  "newsletters": [
+    "Ben's Bites", "TLDR AI", "Import AI", "Latent Space",
+    "Interconnects", "The Batch", "The Neuron", "Superhuman AI"
+  ],
+  
+  "ai_labs": ["OpenAI", "Anthropic", "Google DeepMind", "Meta AI"],
+  
+  "research_orgs": ["LMSYS", "Hugging Face"],
+  
   "timezone": "Asia/Shanghai",
   "timezone_offset": 8,
-  "gemini_timeout": 120,
+  "gemini_timeout": 180,
   "blogwatcher_timeout": 60,
-  "max_articles": 20,
+  "max_articles": 30,
   "output_dir": "~/ai-tech-briefs",
   "log_file": "~/ai-tech-briefs/generate.log"
 }
