@@ -295,10 +295,12 @@ cat ~/ai-tech-briefs/generate.log
 
 ---
 
-**Version:** 1.2
+**Version:** 1.4
 **Author:** Dean (ClawCoding)
 **Last Updated:** March 2, 2026
 **Changelog:**
+- v1.4: Aligned config with RSS_FEED_STATUS.md findings; separated no-RSS sources into web_only_sources
+- v1.3: Added RSS_FEED_STATUS.md; documented that only 3/13 RSS feeds are active
 - v1.2: Hard-coded RSS URLs in config; RSS reachability check; ⚠️ failure section in brief
 - v1.1: Added logging, error handling, config file, deduplication
 - v1.0: Initial release

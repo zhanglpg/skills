@@ -31,26 +31,31 @@ DEFAULT_CONFIG = {
         'DrJimFan', 'jeremyphoward', 'natolambert', 'philduanai',
         'hwchase17', 'rauchg', 'levelsio', 'swyx'
     ],
-    # Each entry: {name, rss, category}  category: newsletter | ai_lab | research_org
+    # Sources with an RSS URL (working or blocked).
+    # rss_status is for human reference; the script probes each URL at runtime.
+    # Verified March 2, 2026 — see RSS_FEED_STATUS.md for details.
     'rss_sources': [
-        {'name': "Ben's Bites",     'rss': 'https://bensbites.beehiiv.com/rss',             'category': 'newsletter'},
-        {'name': 'TLDR AI',         'rss': 'https://tldr.tech/rss',                         'category': 'newsletter'},
-        {'name': 'Latent Space',    'rss': 'https://latentspace.blog/rss',                  'category': 'newsletter'},
-        {'name': 'Interconnects',   'rss': 'https://interconnects.ai/rss',                  'category': 'newsletter'},
-        {'name': 'The Neuron',      'rss': 'https://theneuron.beehiiv.com/rss',             'category': 'newsletter'},
-        {'name': 'Import AI',       'rss': 'https://jack-clark.net/feed/',                  'category': 'newsletter'},
-        {'name': 'The Batch',       'rss': 'https://www.deeplearning.ai/the-batch/feed/',   'category': 'newsletter'},
-        {'name': 'OpenAI',          'rss': 'https://openai.com/news/rss',                   'category': 'ai_lab'},
-        {'name': 'Anthropic',       'rss': 'https://www.anthropic.com/news?format=rss',     'category': 'ai_lab'},
-        {'name': 'Google DeepMind', 'rss': 'https://deepmind.google/discover/blog/rss/',    'category': 'ai_lab'},
-        {'name': 'Meta AI',         'rss': 'https://ai.meta.com/blog/rss/',                 'category': 'ai_lab'},
-        {'name': 'LMSYS',           'rss': 'https://lmsys.org/blog/rss/',                   'category': 'research_org'},
-        {'name': 'Hugging Face',    'rss': 'https://huggingface.co/blog/feed.xml',          'category': 'research_org'},
+        # confirmed working
+        {'name': 'Import AI',    'rss': 'https://jack-clark.net/feed/',              'category': 'newsletter',   'rss_status': 'working'},
+        {'name': 'Anthropic',    'rss': 'https://www.anthropic.com/news?format=rss', 'category': 'ai_lab',       'rss_status': 'working'},
+        {'name': 'Hugging Face', 'rss': 'https://huggingface.co/blog/feed.xml',      'category': 'research_org', 'rss_status': 'working'},
+        # redirects — may work via blogwatcher
+        {'name': 'TLDR AI',      'rss': 'https://tldr.tech/rss',                     'category': 'newsletter',   'rss_status': 'redirects'},
+        {'name': 'Latent Space', 'rss': 'https://latentspace.blog/rss',              'category': 'newsletter',   'rss_status': 'redirects'},
+        # blocked/erroring — kept so failures surface in the brief
+        {"name": "Ben's Bites",  'rss': 'https://bensbites.beehiiv.com/rss',         'category': 'newsletter',   'rss_status': 'blocked_403'},
+        {'name': 'The Neuron',   'rss': 'https://theneuron.beehiiv.com/rss',         'category': 'newsletter',   'rss_status': 'blocked_403'},
+        {'name': 'Interconnects','rss': 'https://interconnects.ai/rss',              'category': 'newsletter',   'rss_status': 'error_405'},
+        {'name': 'OpenAI',       'rss': 'https://openai.com/news/rss',               'category': 'ai_lab',       'rss_status': 'blocked_403'},
     ],
-    # Sources with no RSS; fetched via Gemini CLI web search
+    # Sources confirmed to have no RSS feed — fetched exclusively via Gemini CLI web search
     'web_only_sources': [
-        {'name': 'The Rundown AI',  'url': 'https://therundown.ai',  'category': 'newsletter'},
-        {'name': 'Superhuman AI',   'url': 'https://superhuman.ai',  'category': 'newsletter'},
+        {'name': 'The Batch',       'url': 'https://www.deeplearning.ai/the-batch',  'category': 'newsletter'},
+        {'name': 'The Rundown AI',  'url': 'https://therundown.ai',                  'category': 'newsletter'},
+        {'name': 'Superhuman AI',   'url': 'https://superhuman.ai',                  'category': 'newsletter'},
+        {'name': 'Google DeepMind', 'url': 'https://deepmind.google/discover/blog',  'category': 'ai_lab'},
+        {'name': 'Meta AI',         'url': 'https://ai.meta.com/blog',               'category': 'ai_lab'},
+        {'name': 'LMSYS',           'url': 'https://lmsys.org/blog',                 'category': 'research_org'},
     ],
     'timezone': 'Asia/Shanghai',
     'timezone_offset': 8,
