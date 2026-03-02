@@ -1,134 +1,150 @@
 # AI Tech Brief - Complete Source List
 
-**Last Verified:** March 1, 2026
+**Last Verified:** March 2, 2026  
+**RSS Status:** See `RSS_FEED_STATUS.md` for detailed feed testing results
 
 ---
 
-## Twitter/X Accounts (12)
+## ⚠️ Important Note on RSS Feeds
 
-| Name | Handle | URL | Focus |
-|------|--------|-----|-------|
-| Andrej Karpathy | @karpathy | https://x.com/karpathy | Eureka Labs, LLM education |
-| Ilya Sutskever | @ilyasut | https://x.com/ilyasut | SSI Founder, AI safety |
-| Andrew Ng | @AndrewYNg | https://x.com/AndrewYNg | AI education pioneer |
-| Lilian Weng | @lilianweng | https://x.com/lilianweng | Thinking Machines, AI safety |
-| Jim Fan | @DrJimFan | https://x.com/DrJimFan | NVIDIA, embodied AI |
-| Jeremy Howard | @jeremyphoward | https://x.com/jeremyphoward | fast.ai |
-| Nathan Lambert | @natolambert | https://x.com/natolambert | RLHF, open-source models |
-| Phil Duan | @philduanai | https://x.com/philduanai | AI applications/products |
-| Harrison Chase | @hwchase17 | https://x.com/hwchase17 | LangChain founder |
-| Guillermo Rauch | @rauchg | https://x.com/rauchg | Vercel CEO, dev tools |
-| Pieter Levels | @levelsio | https://x.com/levelsio | Indie developer |
-| swyx | @swyx | https://x.com/swyx | Latent Space host |
+Only **3 out of 13 RSS feeds are working properly** (23% success rate):
+- ✅ Import AI
+- ✅ Anthropic
+- ✅ Hugging Face
 
-**Fetch Method:** Gemini CLI web search (no API key needed)
+The skill uses a **hybrid approach**:
+1. **blogwatcher** for the few working RSS feeds
+2. **Gemini CLI web search** for comprehensive coverage of all 26 sources
+
+This ensures all requested sources are covered even when RSS fails.
 
 ---
 
-## Newsletters (9)
+## 🐦 Twitter/X Accounts (12)
 
-| Name | URL | RSS Feed | Status |
-|------|-----|----------|--------|
-| Ben's Bites | https://bensbites.com | https://bensbites.beehiiv.com/rss | ✅ Active |
-| TLDR AI | https://tldr.tech/ai | https://tldr.tech/rss | ✅ Active |
-| Latent Space | https://latentspace.blog | https://latentspace.blog/rss | ✅ Active |
-| Interconnects | https://interconnects.ai | https://interconnects.ai/rss | ✅ Active |
-| The Neuron | https://theneuron.ai | https://theneuron.beehiiv.com/rss | ✅ Active |
-| Import AI | https://jack-clark.net | https://jack-clark.net/feed/ | ✅ Active |
-| The Batch | https://www.deeplearning.ai/the-batch | https://www.deeplearning.ai/the-batch/feed/ | ✅ Active |
-| The Rundown AI | https://therundown.ai | - | ⚠️ Web only |
-| Superhuman AI | https://superhuman.ai | - | ⚠️ Web only |
+| Name | Handle | URL | Focus | Fetch Method |
+|------|--------|-----|-------|--------------|
+| Andrej Karpathy | @karpathy | https://x.com/karpathy | Eureka Labs, LLM education | Gemini Web Search |
+| Ilya Sutskever | @ilyasut | https://x.com/ilyasut | SSI Founder, AI safety | Gemini Web Search |
+| Andrew Ng | @AndrewYNg | https://x.com/AndrewYNg | AI education pioneer | Gemini Web Search |
+| Lilian Weng | @lilianweng | https://x.com/lilianweng | Thinking Machines, AI safety | Gemini Web Search |
+| Jim Fan | @DrJimFan | https://x.com/DrJimFan | NVIDIA, embodied AI | Gemini Web Search |
+| Jeremy Howard | @jeremyphoward | https://x.com/jeremyphoward | fast.ai | Gemini Web Search |
+| Nathan Lambert | @natolambert | https://x.com/natolambert | RLHF, open-source models | Gemini Web Search |
+| Phil Duan | @philduanai | https://x.com/philduanai | AI applications/products | Gemini Web Search |
+| Harrison Chase | @hwchase17 | https://x.com/hwchase17 | LangChain founder | Gemini Web Search |
+| Guillermo Rauch | @rauchg | https://x.com/rauchg | Vercel CEO, dev tools | Gemini Web Search |
+| Pieter Levels | @levelsio | https://x.com/levelsio | Indie developer | Gemini Web Search |
+| swyx | @swyx | https://x.com/swyx | Latent Space host | Gemini Web Search |
 
-**Fetch Method:** blogwatcher RSS feeds (web fallback via Gemini CLI)
-
----
-
-## AI Lab Blogs (4)
-
-| Lab | URL | RSS Feed | Status |
-|-----|-----|----------|--------|
-| OpenAI | https://openai.com/blog | https://openai.com/news/rss | ✅ Active |
-| Anthropic | https://anthropic.com/news | https://www.anthropic.com/news?format=rss | ✅ Active |
-| Google DeepMind | https://deepmind.google/discover/blog | https://deepmind.google/discover/blog/rss/ | ✅ Active |
-| Meta AI | https://ai.meta.com/blog | https://ai.meta.com/blog/rss/ | ✅ Active |
-
-**Fetch Method:** blogwatcher RSS feeds
+**Note:** Twitter/X doesn't have reliable RSS feeds. All Twitter content is fetched via Gemini CLI web search.
 
 ---
 
-## Research Organizations (2)
+## 📰 Newsletters (8)
 
-| Name | URL | RSS Feed | Focus |
-|------|-----|----------|-------|
-| LMSYS | https://lmsys.org/blog | https://lmsys.org/blog/rss/ | Benchmarks, open models |
-| Hugging Face | https://huggingface.co/blog | https://huggingface.co/blog/feed.xml | Open-source models |
+| Name | URL | RSS Feed | Status | Fetch Method |
+|------|-----|----------|--------|--------------|
+| **Import AI** | https://jack-clark.net | https://jack-clark.net/feed/ | ✅ **WORKING** | blogwatcher + Gemini |
+| **TLDR AI** | https://tldr.tech/ai | https://tldr.tech/rss | ⚠️ Redirects | blogwatcher + Gemini |
+| **Latent Space** | https://latentspace.blog | https://latentspace.blog/rss | ⚠️ Redirects | blogwatcher + Gemini |
+| **Ben's Bites** | https://bensbites.com | https://bensbites.beehiiv.com/rss | ❌ Blocked (403) | Gemini Web Search |
+| **The Neuron** | https://theneuron.ai | https://theneuron.beehiiv.com/rss | ❌ Blocked (403) | Gemini Web Search |
+| **Interconnects** | https://interconnects.ai | https://interconnects.ai/rss | ❌ Error (405) | Gemini Web Search |
+| **The Batch** | https://www.deeplearning.ai/the-batch | - | ❌ No RSS | Gemini Web Search |
+| **Superhuman AI** | https://superhuman.ai | - | ❌ No RSS | Gemini Web Search |
 
-**Fetch Method:** blogwatcher RSS feeds
-
----
-
-## arXiv Categories
-
-| Code | Category | Priority |
-|------|----------|----------|
-| cs.LG | Machine Learning | 🔴 High |
-| cs.AI | Artificial Intelligence | 🔴 High |
-| cs.SE | Software Engineering | 🔴 High |
-| cs.CL | Computation and Language | 🟡 Medium |
-| cs.CV | Computer Vision | 🟡 Medium |
-| cs.NE | Neural and Evolutionary Computing | 🟢 Low |
-
-**Fetch Method:** Gemini CLI web search
+**Working RSS:** 1 out of 8 (Import AI)
 
 ---
 
-## Backup Sources
+## 🏢 AI Labs (4)
 
-If primary sources fail, these provide similar content:
+| Lab | URL | RSS Feed | Status | Fetch Method |
+|-----|-----|----------|--------|--------------|
+| **Anthropic** | https://anthropic.com/news | https://www.anthropic.com/news?format=rss | ✅ **WORKING** | blogwatcher + Gemini |
+| **OpenAI** | https://openai.com/blog | https://openai.com/news/rss | ❌ Blocked (403) | Gemini Web Search |
+| **Google DeepMind** | https://deepmind.google/discover/blog | - | ❌ No RSS | Gemini Web Search |
+| **Meta AI** | https://ai.meta.com/blog | - | ❌ No RSS | Gemini Web Search |
 
-| Category | Backup Source |
-|----------|---------------|
-| AI News | https://venturebeat.com/ai/ |
-| Research | https://www.technologyreview.com/topic/artificial-intelligence/ |
-| Papers | https://paperswithcode.com/ |
-| Models | https://huggingface.co/spaces |
-
----
-
-## Fetch Priorities
-
-1. **Morning sweep** (8 AM Beijing): Check all sources
-2. **Filter**: Remove duplicates, low-signal items
-3. **Prioritize**: Papers > Lab blogs > Newsletters > Tweets
-4. **Summarize**: 2-3 sentences per item max
+**Working RSS:** 1 out of 4 (Anthropic)
 
 ---
 
-## Verification Commands
+## 🔬 Research Organizations (2)
+
+| Name | URL | RSS Feed | Status | Fetch Method |
+|------|-----|----------|--------|--------------|
+| **Hugging Face** | https://huggingface.co/blog | https://huggingface.co/blog/feed.xml | ✅ **WORKING** | blogwatcher + Gemini |
+| **LMSYS** | https://lmsys.org/blog | - | ❌ No RSS | Gemini Web Search |
+
+**Working RSS:** 1 out of 2 (Hugging Face)
+
+---
+
+## 📄 arXiv Categories
+
+| Code | Category | Priority | Fetch Method |
+|------|----------|----------|--------------|
+| cs.LG | Machine Learning | 🔴 High | Gemini Web Search |
+| cs.AI | Artificial Intelligence | 🔴 High | Gemini Web Search |
+| cs.SE | Software Engineering | 🔴 High | Gemini Web Search |
+| cs.CL | Computation and Language | 🟡 Medium | Gemini Web Search |
+| cs.CV | Computer Vision | 🟡 Medium | Gemini Web Search |
+| cs.NE | Neural and Evolutionary Computing | 🟢 Low | Gemini Web Search |
+
+**Fetch Method:** Gemini CLI searches arXiv directly
+
+---
+
+## 📊 Source Coverage Summary
+
+| Category | Total Sources | Working RSS | Primary Fetch Method |
+|----------|---------------|-------------|---------------------|
+| Twitter/X | 12 | 0 | Gemini Web Search |
+| Newsletters | 8 | 1 | Gemini Web Search + RSS |
+| AI Labs | 4 | 1 | Gemini Web Search + RSS |
+| Research Orgs | 2 | 1 | Gemini Web Search + RSS |
+| arXiv | 6 categories | N/A | Gemini Web Search |
+| **TOTAL** | **32** | **3 (9%)** | **Hybrid** |
+
+---
+
+## 🔧 Why This Works
+
+Despite only 3 working RSS feeds, the skill successfully covers all sources because:
+
+1. **Gemini CLI has web search capability** - Can check any website
+2. **Prompt enforces comprehensive coverage** - Must check all 26 sources
+3. **Source coverage report** - Shows which sources were checked
+4. **Fallback mechanism** - If RSS fails, web search covers it
+
+---
+
+## ✅ Verification Commands
 
 ```bash
-# Test RSS feeds
-curl -I https://tldr.tech/rss
+# Test RSS feeds manually
+curl -I https://jack-clark.net/feed/
+curl -I https://www.anthropic.com/news?format=rss
+curl -I https://huggingface.co/blog/feed.xml
 
 # Check blogwatcher status
 ~/go/bin/blogwatcher blogs
-
-# Scan for new articles
 ~/go/bin/blogwatcher scan
-
-# List recent articles
 ~/go/bin/blogwatcher articles
+
+# View RSS status report
+cat RSS_FEED_STATUS.md
 ```
 
 ---
 
-## Known Issues
+## 📝 Related Files
 
-| Source | Issue | Workaround |
-|--------|-------|------------|
-| The Rundown AI | No RSS feed | Gemini CLI web search |
-| Superhuman AI | No RSS feed | Gemini CLI web search |
-| Twitter/X | Rate limits | Gemini CLI web search (no API needed) |
+- `RSS_FEED_STATUS.md` - Detailed RSS feed testing results
+- `scripts/setup_blogwatcher.sh` - Setup script with working feeds
+- `scripts/generate_brief.py` - Main script with hybrid fetch strategy
 
 ---
 
