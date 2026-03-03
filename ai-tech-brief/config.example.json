@@ -1,28 +1,44 @@
 {
   "_comment": "AI Tech Brief Configuration - Copy to config.json and customize",
-  
+  "_rss_status_note": "RSS URLs verified March 2, 2026. See RSS_FEED_STATUS.md for details. Only 3/13 RSS feeds are confirmed working; the rest are fetched via Gemini CLI web search. Sources in rss_sources are checked at runtime and failures are reported in the brief.",
+
   "blogwatcher_path": "~/go/bin/blogwatcher",
   "arxiv_categories": ["cs.LG", "cs.AI", "cs.SE"],
-  
+
   "twitter_accounts": [
     "karpathy", "ilyasut", "AndrewYNg", "lilianweng",
     "DrJimFan", "jeremyphoward", "natolambert", "philduanai",
     "hwchase17", "rauchg", "levelsio", "swyx"
   ],
-  
-  "newsletters": [
-    "Ben's Bites", "TLDR AI", "Import AI", "Latent Space",
-    "Interconnects", "The Batch", "The Neuron", "Superhuman AI"
+
+  "_comment_rss_sources": "Sources that have an RSS URL (working or blocked). Each is probed at runtime; failures are written into the brief. rss_status is for human reference only — the script probes at runtime.",
+  "rss_sources": [
+    {"name": "Import AI",    "rss": "https://jack-clark.net/feed/",              "category": "newsletter",   "rss_status": "working"},
+    {"name": "TLDR AI",      "rss": "https://tldr.tech/rss",                     "category": "newsletter",   "rss_status": "redirects"},
+    {"name": "Latent Space", "rss": "https://latentspace.blog/rss",              "category": "newsletter",   "rss_status": "redirects"},
+    {"name": "Ben's Bites",  "rss": "https://bensbites.beehiiv.com/rss",         "category": "newsletter",   "rss_status": "blocked_403"},
+    {"name": "The Neuron",   "rss": "https://theneuron.beehiiv.com/rss",         "category": "newsletter",   "rss_status": "blocked_403"},
+    {"name": "Interconnects","rss": "https://interconnects.ai/rss",              "category": "newsletter",   "rss_status": "error_405"},
+    {"name": "Anthropic",    "rss": "https://www.anthropic.com/news?format=rss", "category": "ai_lab",       "rss_status": "working"},
+    {"name": "OpenAI",       "rss": "https://openai.com/news/rss",               "category": "ai_lab",       "rss_status": "blocked_403"},
+    {"name": "Hugging Face", "rss": "https://huggingface.co/blog/feed.xml",      "category": "research_org", "rss_status": "working"}
   ],
-  
-  "ai_labs": ["OpenAI", "Anthropic", "Google DeepMind", "Meta AI"],
-  
-  "research_orgs": ["LMSYS", "Hugging Face"],
-  
+
+  "_comment_web_only_sources": "Sources with no RSS feed (confirmed). Content fetched exclusively via Gemini CLI web search.",
+  "web_only_sources": [
+    {"name": "The Batch",       "url": "https://www.deeplearning.ai/the-batch",    "category": "newsletter"},
+    {"name": "The Rundown AI",  "url": "https://therundown.ai",                    "category": "newsletter"},
+    {"name": "Superhuman AI",   "url": "https://superhuman.ai",                    "category": "newsletter"},
+    {"name": "Google DeepMind", "url": "https://deepmind.google/discover/blog",    "category": "ai_lab"},
+    {"name": "Meta AI",         "url": "https://ai.meta.com/blog",                 "category": "ai_lab"},
+    {"name": "LMSYS",           "url": "https://lmsys.org/blog",                   "category": "research_org"}
+  ],
+
   "timezone": "Asia/Shanghai",
   "timezone_offset": 8,
   "gemini_timeout": 180,
   "blogwatcher_timeout": 60,
+  "rss_check_timeout": 10,
   "max_articles": 30,
   "output_dir": "~/ai-tech-briefs",
   "log_file": "~/ai-tech-briefs/generate.log"

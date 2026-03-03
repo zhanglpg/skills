@@ -126,11 +126,12 @@ Structure the brief as:
 
 ## Workflow
 
-1. **Fetch** - Scan RSS feeds with blogwatcher
-2. **Filter** - Select high-signal items (avoid duplicates, hype)
-3. **Summarize** - Write concise summaries with "why it matters"
-4. **Format** - Structure as markdown with tables/lists
-5. **Deliver** - Post to Discord channel via cron delivery
+1. **Check** - Probe each hard-coded RSS URL; record failures
+2. **Fetch** - Scan RSS feeds with blogwatcher
+3. **Filter** - Select high-signal items (avoid duplicates, hype)
+4. **Summarize** - Write concise summaries with "why it matters"
+5. **Format** - Structure as markdown; append `⚠️ Source Access Issues` section for any unreachable feeds
+6. **Deliver** - Post to Discord channel via cron delivery
 
 ## Scheduling
 
@@ -174,15 +175,27 @@ Structure the brief as:
 
 **Optional config file:** `config.json` (copy from `config.example.json`)
 
+RSS URLs for every source are **hard-coded** in `rss_sources` — they are resolved once and stored, so the script never needs to re-discover them. If you add a new source, find its RSS feed once and add it to this list.
+
 ```json
 {
   "blogwatcher_path": "~/go/bin/blogwatcher",
   "timezone_offset": 8,
-  "gemini_timeout": 120,
-  "max_articles": 20,
-  "output_dir": "~/ai-tech-briefs"
+  "gemini_timeout": 180,
+  "rss_check_timeout": 10,
+  "max_articles": 30,
+  "output_dir": "~/ai-tech-briefs",
+  "rss_sources": [
+    {"name": "TLDR AI", "rss": "https://tldr.tech/rss", "category": "newsletter"},
+    {"name": "OpenAI",  "rss": "https://openai.com/news/rss", "category": "ai_lab"}
+  ],
+  "web_only_sources": [
+    {"name": "The Rundown AI", "url": "https://therundown.ai", "category": "newsletter"}
+  ]
 }
 ```
+
+**Source categories:** `newsletter` | `ai_lab` | `research_org`
 
 **Usage:**
 ```bash
@@ -282,9 +295,12 @@ cat ~/ai-tech-briefs/generate.log
 
 ---
 
-**Version:** 1.1  
-**Author:** Dean (ClawCoding)  
-**Last Updated:** March 1, 2026  
+**Version:** 1.4
+**Author:** Dean (ClawCoding)
+**Last Updated:** March 2, 2026
 **Changelog:**
+- v1.4: Aligned config with RSS_FEED_STATUS.md findings; separated no-RSS sources into web_only_sources
+- v1.3: Added RSS_FEED_STATUS.md; documented that only 3/13 RSS feeds are active
+- v1.2: Hard-coded RSS URLs in config; RSS reachability check; ⚠️ failure section in brief
 - v1.1: Added logging, error handling, config file, deduplication
 - v1.0: Initial release
