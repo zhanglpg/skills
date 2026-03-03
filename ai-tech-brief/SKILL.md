@@ -100,29 +100,59 @@ Structure the brief as:
 ## 📊 Top Stories (3-5 items)
 
 ### [Headline]
-- **Summary:** 1-2 sentences
+- **Summary:** 1-2 sentences explaining what happened
 - **Why it matters:** Impact/significance
-- **Source:** [Link](url)
+- **Source:** [Original Article Title](exact_url) — 1 sentence summary
+
+## 🐦 Twitter/X Updates
+
+For each account with updates:
+- **@[handle]:** [Tweet text summary] — [Link to tweet](exact_url)
+
+If no updates: "No significant updates today from @[handle]."
+
+## 📰 Newsletter Highlights
+
+For each newsletter:
+- **[Newsletter Name]:** [Article/story title] — [Link](exact_url) — 1-2 sentence summary
+
+If no updates: "No updates from [Newsletter Name] today."
+
+## 🏢 AI Lab Updates
+
+For each lab:
+- **[Lab Name]:** [Announcement/title] — [Link](exact_url) — 1-2 sentence summary
+
+If no updates: "No updates from [Lab Name] today."
+
+## 🔬 Research Organization Updates
+
+For each org:
+- **[Org Name]:** [Update/title] — [Link](exact_url) — 1-2 sentence summary
+
+If no updates: "No updates from [Org Name] today."
 
 ## 📄 New Research Papers
 
 | Paper | Key Finding | Link |
 |-------|-------------|------|
-| [Title] | Finding | arXiv:XXXX |
-
-## 🐦 Notable Tweets/Announcements
-
-- [@user](url): Tweet summary
-
-## 📰 Newsletter Highlights
-
-- **Publication:** Key story
+| [Full Title] | 1-2 sentence summary of contribution | [arXiv:XXXX](exact_arxiv_url) |
 
 ## 🔗 Quick Links
 
-- [Link 1](url) - Description
-- [Link 2](url) - Description
+- [Title/description](exact_url) — 1 sentence what this is about
 ```
+
+### Format Requirements
+
+Every item MUST include:
+1. **Title/Headline** - Clear, descriptive title
+2. **1-2 Sentence Summary** - What happened or what the content is about
+3. **Exact URL Link** - Direct link to original source (not just domain)
+
+For example:
+- ❌ Bad: "OpenAI released new model [link]"
+- ✅ Good: "OpenAI released GPT-5 with 10M context window — [GPT-5 Technical Report](https://openai.com/research/gpt-5) — New architecture achieves SOTA on reasoning benchmarks"
 
 ## Workflow
 

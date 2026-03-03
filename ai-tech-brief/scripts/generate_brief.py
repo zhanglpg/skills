@@ -452,40 +452,54 @@ List latest papers from past 48 hours with key findings.
 Must include stories from multiple source categories above.
 
 ### [Headline]
-- **Summary:** 1-2 sentences
+- **Summary:** 1-2 sentences explaining what happened
 - **Why it matters:** Impact/significance
-- **Source:** [Link](url)
+- **Source:** [Original Article Title](exact_url) — 1 sentence summary of the source content
 
 ## 🐦 Twitter/X Updates
-Explicitly list updates from thought leaders. If no updates, say "No significant updates today."
+For each account with updates:
+- **@[handle]:** [Tweet text summary] — [Link to tweet](exact_url)
+
+If no updates: "No significant updates today from @[handle]."
 
 ## 📰 Newsletter Highlights
-Summarize key stories from each newsletter checked.
+For each newsletter:
+- **[Newsletter Name]:** [Article/story title] — [Link](exact_url) — 1-2 sentence summary
+
+If no updates: "No updates from [Newsletter Name] today."
 
 ## 🏢 AI Lab Updates
-Updates from {', '.join(ai_labs)}.
+For each lab:
+- **[Lab Name]:** [Announcement/title] — [Link](exact_url) — 1-2 sentence summary
+
+If no updates: "No updates from [Lab Name] today."
 
 ## 🔬 Research Organization Updates
-Updates from {', '.join(research_orgs)}.
+For each org:
+- **[Org Name]:** [Update/title] — [Link](exact_url) — 1-2 sentence summary
+
+If no updates: "No updates from [Org Name] today."
 
 ## 📄 New Research Papers
 | Paper | Key Finding | Link |
 |-------|-------------|------|
-| [Title] | Finding | arXiv:XXXX |
+| [Full Title] | 1-2 sentence summary of contribution | [arXiv:XXXX](exact_arxiv_url) |
 
 ## 🔗 Quick Links
-Other notable links discovered.
+- [Title/description](exact_url) — 1 sentence what this is about
 
 ---
 *Sources checked: Twitter ({len(twitter_accounts)} accounts), Newsletters ({len(all_newsletters)}), AI Labs ({len(ai_labs)}), Research Orgs ({len(research_orgs)}), arXiv*
 ```
 
-IMPORTANT:
-1. You MUST attempt to find content from ALL listed sources
-2. Use web search to check each source individually
-3. If a source has no updates, explicitly state that
-4. Do not skip any source category
-5. Make the brief comprehensive and technical
+CRITICAL REQUIREMENTS:
+1. EVERY item MUST have: (a) title/headline, (b) 1-2 sentence summary, (c) exact URL link
+2. For tweets: Include the tweet text or a summary + direct link to the tweet
+3. For articles: Include article title + direct link + brief summary
+4. For papers: Include full paper title + arXiv link + key finding summary
+5. If you cannot access a source, write "Access failed — [reason]" with the attempted URL
+6. Do not skip any source category — check all systematically
+7. Use web search to find exact URLs for every item mentioned
 """
 
         self.logger.info("Generating comprehensive brief with full source coverage...")
