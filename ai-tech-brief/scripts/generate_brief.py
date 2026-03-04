@@ -410,35 +410,35 @@ class BriefGenerator:
         if failed_sources:
             failed_names = ', '.join(s['name'] for s in failed_sources)
             failed_note = (
-                f"\n\n⚠️ IMPORTANT: The following RSS sources were UNREACHABLE this run "
-                f"and may have no content available: {failed_names}. "
-                f"For each of these, write 'Access failed — [error]' instead of their content."
+                f"\n\n⚠️ NOTE: The following RSS sources were UNREACHABLE this run: {failed_names}. "
+                f"You may still find their content via web search. If web search also finds nothing, "
+                f"write 'No updates found from [source] today.' Do NOT fabricate content for these sources."
             )
 
-        prompt = f"""Generate a comprehensive daily AI tech brief for {date_display}.
+        prompt = f"""Generate a daily AI tech brief for {date_display}.
 
-MANDATORY: You MUST include content from ALL of the following source categories. If you cannot find recent content from a specific source, explicitly state "No updates from [source] today."{failed_note}
+IMPORTANT: Only include items you can verify through web search. Search each source listed below and report what you actually find. If web search returns no recent content for a source, write "No updates found from [source] today." Do NOT guess, fabricate, or invent content for any source.{failed_note}
 
-## REQUIRED SOURCE COVERAGE:
+## SOURCE COVERAGE:
 
-### 1. Twitter/X Thought Leaders ({len(twitter_accounts)} accounts) - MUST CHECK EACH:
+### 1. Twitter/X Thought Leaders ({len(twitter_accounts)} accounts) - Search each:
 {chr(10).join([f'- @{acc}' for acc in twitter_accounts])}
-Search for tweets from past 24-48 hours. Include notable announcements, insights, or thread summaries.
+Search for tweets from past 24-48 hours. Only include tweets you can find via web search. If you find nothing for an account, write "No updates found."
 
-### 2. Newsletters ({len(all_newsletters)} publications) - MUST CHECK EACH:
+### 2. Newsletters ({len(all_newsletters)} publications) - Search each:
 {chr(10).join([f'- {nl}' for nl in all_newsletters])}
-Include key stories and insights.
+Search for recent issues or articles. Only include content you can find and link to. If nothing is found for a newsletter, write "No updates found."
 
-### 3. AI Lab Blogs ({len(ai_labs)} labs) - MUST CHECK EACH:
+### 3. AI Lab Blogs ({len(ai_labs)} labs) - Search each:
 {chr(10).join([f'- {lab}' for lab in ai_labs])}
-Include official announcements and research updates.
+Search for official announcements and research posts. Only include posts you can verify exist. If nothing is found, write "No updates found."
 
-### 4. Research Organizations ({len(research_orgs)} orgs) - MUST CHECK EACH:
+### 4. Research Organizations ({len(research_orgs)} orgs) - Search each:
 {chr(10).join([f'- {org}' for org in research_orgs])}
-Include benchmarks, model releases, and research updates.
+Search for benchmarks, model releases, and research updates. Only include verified content. If nothing is found, write "No updates found."
 
-### 5. arXiv Papers (categories: {', '.join(arxiv_cats)}) - MUST CHECK:
-List latest papers from past 48 hours with key findings.
+### 5. arXiv Papers (categories: {', '.join(arxiv_cats)}) - Search:
+Search for papers from past 48 hours. Only include papers with real arXiv IDs (format: XXXX.XXXXX) that you can verify.
 
 ## RSS FEED DATA (already collected):
 {article_text}
@@ -449,7 +449,7 @@ List latest papers from past 48 hours with key findings.
 # 🤖 Daily AI Tech Brief - {date_display}
 
 ## 📊 Top Stories (3-5 items)
-Must include stories from multiple source categories above.
+Include only stories you found via web search with verified URLs. It is acceptable to have fewer than 3 if you could not verify enough real stories.
 
 ### [Headline]
 - **Summary:** 1-2 sentences explaining what happened
@@ -492,14 +492,16 @@ If no updates: "No updates from [Org Name] today."
 *Sources checked: Twitter ({len(twitter_accounts)} accounts), Newsletters ({len(all_newsletters)}), AI Labs ({len(ai_labs)}), Research Orgs ({len(research_orgs)}), arXiv*
 ```
 
-CRITICAL REQUIREMENTS:
-1. EVERY item MUST have: (a) title/headline, (b) 1-2 sentence summary, (c) exact URL link
-2. For tweets: Include the tweet text or a summary + direct link to the tweet
-3. For articles: Include article title + direct link + brief summary
-4. For papers: Include full paper title + arXiv link + key finding summary
-5. If you cannot access a source, write "Access failed — [reason]" with the attempted URL
-6. Do not skip any source category — check all systematically
-7. Use web search to find exact URLs for every item mentioned
+ACCURACY REQUIREMENTS:
+1. Every included item MUST have: (a) title/headline, (b) 1-2 sentence summary, (c) a real, verifiable URL
+2. Do NOT fabricate or guess URLs. If you cannot find the exact URL for an item, do NOT include that item
+3. Do NOT invent article titles, tweet content, or paper abstracts. Only report what web search actually returned
+4. For tweets: Only include tweets you found via web search with a link to the actual tweet
+5. For articles: Only include articles with a direct link you verified exists
+6. For papers: Only include papers with real arXiv IDs (format: XXXX.XXXXX)
+7. If you cannot find content for a source, write "No updates found from [source] today" — this is the correct response, not a failure
+8. It is better to have a shorter brief with all real content than a longer brief with fabricated entries
+9. If web search returns nothing for an entire section, keep the section header and write "No verified updates found for this section today"
 """
 
         self.logger.info("Generating comprehensive brief with full source coverage...")
