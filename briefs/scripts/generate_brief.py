@@ -7,7 +7,7 @@ Uses direct APIs and RSS parsing for reliable data collection, then passes
 verified content to Gemini CLI for summarization and template rendering.
 
 Usage:
-    python3 generate_brief.py [--test] [--output FILE] [--config FILE]
+    python3 generate_brief.py [--test] [--output_dir DIR] [--config FILE]
 """
 
 import sys
@@ -48,17 +48,31 @@ class BriefGenerator:
 
     def __init__(self, config_path: Optional[str] = None):
         self.config = DEFAULT_CONFIG.copy()
-        self.logger = self._setup_logger()
 
+        # Load config BEFORE setting up logger so the config's log_file path is used
         resolved = config_path or DEFAULT_CONFIG_PATH
+        config_loaded = False
+        config_load_error = None
         if resolved and os.path.exists(resolved):
-            self._load_config(resolved)
-        elif not config_path:
-            self.logger.warning(f"No config file found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
+            try:
+                with open(resolved, 'r') as f:
+                    self.config.update(json.load(f))
+                config_loaded = True
+            except Exception as e:
+                config_load_error = e
 
         self.config['output_dir'] = os.path.expanduser(self.config['output_dir'])
         self.config['log_file'] = os.path.expanduser(self.config['log_file'])
         os.makedirs(self.config['output_dir'], exist_ok=True)
+
+        self.logger = self._setup_logger()
+
+        if config_loaded:
+            self.logger.info(f"Loaded config from {resolved}")
+        elif config_load_error:
+            self.logger.error(f"Failed to load config: {config_load_error}")
+        elif not config_path:
+            self.logger.warning(f"No config file found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
 
         self.fetcher = ContentFetcher(self.config, self.logger)
         self.summarizer = Summarizer(self.config, self.logger)
@@ -72,7 +86,7 @@ class BriefGenerator:
         logger.handlers = []
 
         try:
-            log_file = os.path.expanduser('~/briefs/generate.log')
+            log_file = self.config.get('log_file', os.path.expanduser('~/briefs/generate.log'))
             os.makedirs(os.path.dirname(log_file), exist_ok=True)
             fh = logging.FileHandler(log_file)
             fh.setLevel(logging.DEBUG)
@@ -195,7 +209,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description='Generate a daily brief from curated sources')
     parser.add_argument('--test', action='store_true', help='Test mode')
-    parser.add_argument('--output', type=str, help='Output file path')
+    parser.add_argument('--output_dir', type=str, help='Output directory for briefs (overrides config)')
     parser.add_argument('--config', type=str, help='Config file path (JSON)')
     args = parser.parse_args()
 
@@ -204,12 +218,12 @@ def main():
 
     generator = BriefGenerator(config_path=args.config)
 
-    if args.output:
-        output = args.output
-    else:
-        date_str = generator.get_date_str()
-        output_dir = generator.config['output_dir']
-        output = os.path.join(output_dir, f"{date_str}-brief.md")
+    if args.output_dir:
+        generator.config['output_dir'] = os.path.expanduser(args.output_dir)
+
+    date_str = generator.get_date_str()
+    output_dir = generator.config['output_dir']
+    output = os.path.join(output_dir, f"{date_str}-brief.md")
 
     generator.generate_brief(output_path=output)
 
