@@ -15,10 +15,10 @@ openclaw cron run ai-tech-daily-brief
 
 # Or invoke directly
 cd skills/briefs
-python3 scripts/generate_brief.py --output /tmp/brief.md
+python3 scripts/generate_brief.py --output_dir /tmp/
 
 # Use a custom config
-python3 scripts/generate_brief.py --config config.ai-tech.json --output /tmp/brief.md
+python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp/
 ```
 
 ## How It Works
@@ -119,10 +119,10 @@ cd skills/briefs
 python3 -m unittest scripts/test_generate_brief.py -v
 
 # Test mode with output
-python3 scripts/generate_brief.py --test --output /tmp/test-brief.md
+python3 scripts/generate_brief.py --test --output_dir /tmp/
 
 # View output
-cat /tmp/test-brief.md
+cat /tmp/*-brief.md
 
 # Check logs
 cat ~/briefs/generate.log
