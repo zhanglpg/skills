@@ -21,42 +21,14 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
-# Default configuration
-# RSS URLs are resolved once and hard-coded here so they never need re-discovery.
+# Operational defaults only — sources live in config.json alongside this script.
+# To edit sources, modify ai-tech-brief/config.json (committed to the repo).
 DEFAULT_CONFIG = {
     'blogwatcher_path': '~/go/bin/blogwatcher',
     'arxiv_categories': ['cs.LG', 'cs.AI', 'cs.SE'],
-    'twitter_accounts': [
-        'karpathy', 'ilyasut', 'AndrewYNg', 'lilianweng',
-        'DrJimFan', 'jeremyphoward', 'natolambert', 'philduanai',
-        'hwchase17', 'rauchg', 'levelsio', 'swyx'
-    ],
-    # Sources with an RSS URL (working or blocked).
-    # rss_status is for human reference; the script probes each URL at runtime.
-    # Verified March 2, 2026 — see RSS_FEED_STATUS.md for details.
-    'rss_sources': [
-        # confirmed working
-        {'name': 'Import AI',    'rss': 'https://jack-clark.net/feed/',              'category': 'newsletter',   'rss_status': 'working'},
-        {'name': 'Anthropic',    'rss': 'https://www.anthropic.com/news?format=rss', 'category': 'ai_lab',       'rss_status': 'working'},
-        {'name': 'Hugging Face', 'rss': 'https://huggingface.co/blog/feed.xml',      'category': 'research_org', 'rss_status': 'working'},
-        # redirects — may work via blogwatcher
-        {'name': 'TLDR AI',      'rss': 'https://tldr.tech/rss',                     'category': 'newsletter',   'rss_status': 'redirects'},
-        {'name': 'Latent Space', 'rss': 'https://latentspace.blog/rss',              'category': 'newsletter',   'rss_status': 'redirects'},
-        # blocked/erroring — kept so failures surface in the brief
-        {"name": "Ben's Bites",  'rss': 'https://bensbites.beehiiv.com/rss',         'category': 'newsletter',   'rss_status': 'blocked_403'},
-        {'name': 'The Neuron',   'rss': 'https://theneuron.beehiiv.com/rss',         'category': 'newsletter',   'rss_status': 'blocked_403'},
-        {'name': 'Interconnects','rss': 'https://interconnects.ai/rss',              'category': 'newsletter',   'rss_status': 'error_405'},
-        {'name': 'OpenAI',       'rss': 'https://openai.com/news/rss',               'category': 'ai_lab',       'rss_status': 'blocked_403'},
-    ],
-    # Sources confirmed to have no RSS feed — fetched exclusively via Gemini CLI web search
-    'web_only_sources': [
-        {'name': 'The Batch',       'url': 'https://www.deeplearning.ai/the-batch',  'category': 'newsletter'},
-        {'name': 'The Rundown AI',  'url': 'https://therundown.ai',                  'category': 'newsletter'},
-        {'name': 'Superhuman AI',   'url': 'https://superhuman.ai',                  'category': 'newsletter'},
-        {'name': 'Google DeepMind', 'url': 'https://deepmind.google/discover/blog',  'category': 'ai_lab'},
-        {'name': 'Meta AI',         'url': 'https://ai.meta.com/blog',               'category': 'ai_lab'},
-        {'name': 'LMSYS',           'url': 'https://lmsys.org/blog',                 'category': 'research_org'},
-    ],
+    'twitter_accounts': [],
+    'rss_sources': [],
+    'web_only_sources': [],
     'timezone': 'Asia/Shanghai',
     'timezone_offset': 8,
     'gemini_timeout': 180,
@@ -67,16 +39,24 @@ DEFAULT_CONFIG = {
     'log_file': '~/ai-tech-briefs/generate.log',
 }
 
+# config.json sits one directory above this script (ai-tech-brief/config.json)
+_SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_CONFIG_PATH = os.path.join(_SKILL_DIR, 'config.json')
+
 class BriefGenerator:
     """AI Tech Brief Generator with logging and error handling."""
 
     def __init__(self, config_path: Optional[str] = None):
-        """Initialize generator with optional config file."""
+        """Initialize generator with optional config file override."""
         self.config = DEFAULT_CONFIG.copy()
         self.logger = self._setup_logger()
 
-        if config_path and os.path.exists(config_path):
-            self._load_config(config_path)
+        # Resolve config: explicit arg > default config.json next to the skill
+        resolved = config_path or DEFAULT_CONFIG_PATH
+        if resolved and os.path.exists(resolved):
+            self._load_config(resolved)
+        elif not config_path:
+            self.logger.warning(f"No config.json found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
 
         # Expand paths
         self.config['blogwatcher_path'] = os.path.expanduser(self.config['blogwatcher_path'])

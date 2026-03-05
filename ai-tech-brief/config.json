@@ -1,6 +1,6 @@
 {
-  "_comment": "AI Tech Brief Configuration - Copy to config.json and customize",
-  "_rss_status_note": "RSS URLs verified March 2, 2026. See RSS_FEED_STATUS.md for details. Only 3/13 RSS feeds are confirmed working; the rest are fetched via Gemini CLI web search. Sources in rss_sources are checked at runtime and failures are reported in the brief.",
+  "_comment": "AI Tech Brief Configuration - edit this file directly. Loaded automatically by generate_brief.py.",
+  "_rss_status_note": "RSS URLs verified March 5, 2026. See RSS_FEED_STATUS.md for details. Only 3/13 RSS feeds are confirmed working; the rest are fetched via Gemini CLI web search. Sources in rss_sources are checked at runtime and failures are reported in the brief.",
 
   "blogwatcher_path": "~/go/bin/blogwatcher",
   "arxiv_categories": ["cs.LG", "cs.AI", "cs.SE"],

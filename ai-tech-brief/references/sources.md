@@ -187,9 +187,10 @@ cat RSS_FEED_STATUS.md
 
 ## 📝 Related Files
 
+- `config.json` - **Canonical source list** (edit this to add/remove sources)
 - `RSS_FEED_STATUS.md` - Detailed RSS feed testing results
 - `scripts/setup_blogwatcher.sh` - Setup script with working feeds
-- `scripts/generate_brief.py` - Main script with hybrid fetch strategy
+- `scripts/generate_brief.py` - Main script (auto-loads config.json; operational defaults only)
 
 ---
 
