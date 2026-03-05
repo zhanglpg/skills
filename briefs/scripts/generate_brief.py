@@ -48,17 +48,31 @@ class BriefGenerator:
 
     def __init__(self, config_path: Optional[str] = None):
         self.config = DEFAULT_CONFIG.copy()
-        self.logger = self._setup_logger()
 
+        # Load config BEFORE setting up logger so the config's log_file path is used
         resolved = config_path or DEFAULT_CONFIG_PATH
+        config_loaded = False
+        config_load_error = None
         if resolved and os.path.exists(resolved):
-            self._load_config(resolved)
-        elif not config_path:
-            self.logger.warning(f"No config file found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
+            try:
+                with open(resolved, 'r') as f:
+                    self.config.update(json.load(f))
+                config_loaded = True
+            except Exception as e:
+                config_load_error = e
 
         self.config['output_dir'] = os.path.expanduser(self.config['output_dir'])
         self.config['log_file'] = os.path.expanduser(self.config['log_file'])
         os.makedirs(self.config['output_dir'], exist_ok=True)
+
+        self.logger = self._setup_logger()
+
+        if config_loaded:
+            self.logger.info(f"Loaded config from {resolved}")
+        elif config_load_error:
+            self.logger.error(f"Failed to load config: {config_load_error}")
+        elif not config_path:
+            self.logger.warning(f"No config file found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
 
         self.fetcher = ContentFetcher(self.config, self.logger)
         self.summarizer = Summarizer(self.config, self.logger)
@@ -72,7 +86,7 @@ class BriefGenerator:
         logger.handlers = []
 
         try:
-            log_file = os.path.expanduser('~/briefs/generate.log')
+            log_file = self.config.get('log_file', os.path.expanduser('~/briefs/generate.log'))
             os.makedirs(os.path.dirname(log_file), exist_ok=True)
             fh = logging.FileHandler(log_file)
             fh.setLevel(logging.DEBUG)
