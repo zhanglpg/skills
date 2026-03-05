@@ -17,20 +17,16 @@ Generates daily AI technology news briefs covering:
 - 12 Twitter/X thought leaders (Karpathy, Ilya, Andrew Ng, etc.)
 - 9 newsletters (Ben's Bites, TLDR AI, Import AI, etc.)
 - arXiv papers (cs.LG, cs.AI, cs.SE)
-- AI lab blogs (OpenAI, Anthropic, DeepMind, Meta)
-- LMSYS
+- AI lab blogs (OpenAI, Anthropic, Google DeepMind, Meta AI)
+- Hacker News + GitHub Trending (community & trending)
 
 **Installation:**
 ```bash
 # Copy to your OpenClaw skills directory
 cp -r ai-tech-brief ~/.openclaw/workspace-coding/skills/
 
-# Install blogwatcher dependency
-go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
-
-# Setup RSS feeds
-cd ~/.openclaw/workspace-coding/skills/ai-tech-brief
-./scripts/setup_blogwatcher.sh
+# Optional: install for better web content fetching
+pip install httpx trafilatura
 ```
 
 **Usage:**
@@ -44,9 +40,9 @@ python3 scripts/generate_brief.py --output /tmp/brief.md
 ```
 
 **Dependencies:**
-- `blogwatcher` (Go CLI for RSS tracking)
-- `gemini-cli` (for web search and content generation)
+- `gemini-cli` (for Twitter/X search and summarization)
 - Python 3
+- `httpx` + `trafilatura` (optional, for better web content fetching)
 
 ## Skill Structure
 
@@ -54,11 +50,17 @@ Each skill follows the OpenClaw skill format:
 
 ```
 skill-name/
-├── SKILL.md              # Skill definition and instructions
-├── scripts/              # Executable scripts
-│   ├── generate_brief.py
-│   └── setup_blogwatcher.sh
-└── references/           # Reference documentation
+├── SKILL.md                    # Skill definition and instructions
+├── config.json                 # Sources, settings, and configuration
+├── scripts/                    # Executable scripts
+│   ├── generate_brief.py       # Main orchestration
+│   ├── fetcher.py              # Content fetching (RSS, APIs, web)
+│   ├── summarizer.py           # Gemini CLI integration
+│   ├── renderer.py             # Template rendering & output
+│   └── test_generate_brief.py # Unit tests
+├── templates/                  # Output format templates
+│   └── ai-tech-brief.md
+└── references/                 # Reference documentation
     └── sources.md
 ```
 
