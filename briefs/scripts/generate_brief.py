@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-AI Tech Brief Generator
+Brief Generator
 
-Generates daily AI technology news briefs from curated sources.
-Uses direct APIs (arXiv, HN, GitHub) and RSS parsing for reliable data
-collection, then passes verified content to Gemini CLI for summarization.
+Generates daily briefs from curated sources.
+Uses direct APIs and RSS parsing for reliable data collection, then passes
+verified content to Gemini CLI for summarization and template rendering.
 
 Usage:
     python3 generate_brief.py [--test] [--output FILE] [--config FILE]
@@ -33,18 +33,18 @@ DEFAULT_CONFIG = {
     'rss_check_timeout': 10,
     'fetch_timeout': 15,
     'max_articles': 30,
-    'output_dir': '~/ai-tech-briefs',
-    'log_file': '~/ai-tech-briefs/generate.log',
+    'output_dir': '~/briefs',
+    'log_file': '~/briefs/generate.log',
     'template': 'templates/ai-tech-brief.md',
-    'brief_title': 'Daily AI Tech Brief',
+    'brief_title': 'Daily Brief',
 }
 
 _SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_CONFIG_PATH = os.path.join(_SKILL_DIR, 'config.json')
+DEFAULT_CONFIG_PATH = os.path.join(_SKILL_DIR, 'config.ai-tech.json')
 
 
 class BriefGenerator:
-    """AI Tech Brief Generator — orchestrates fetch → summarize → render."""
+    """Brief Generator — orchestrates fetch → summarize → render."""
 
     def __init__(self, config_path: Optional[str] = None):
         self.config = DEFAULT_CONFIG.copy()
@@ -54,7 +54,7 @@ class BriefGenerator:
         if resolved and os.path.exists(resolved):
             self._load_config(resolved)
         elif not config_path:
-            self.logger.warning(f"No config.json found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
+            self.logger.warning(f"No config file found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
 
         self.config['output_dir'] = os.path.expanduser(self.config['output_dir'])
         self.config['log_file'] = os.path.expanduser(self.config['log_file'])
@@ -67,12 +67,12 @@ class BriefGenerator:
     # ── Setup ──────────────────────────────────────────────────────────
 
     def _setup_logger(self) -> logging.Logger:
-        logger = logging.getLogger('ai-tech-brief')
+        logger = logging.getLogger('briefs')
         logger.setLevel(logging.INFO)
         logger.handlers = []
 
         try:
-            log_file = os.path.expanduser('~/ai-tech-briefs/generate.log')
+            log_file = os.path.expanduser('~/briefs/generate.log')
             os.makedirs(os.path.dirname(log_file), exist_ok=True)
             fh = logging.FileHandler(log_file)
             fh.setLevel(logging.DEBUG)
@@ -114,7 +114,7 @@ class BriefGenerator:
     def generate_brief(self, output_path: Optional[str] = None) -> str:
         """Generate the daily brief using fetch-first architecture."""
         self.logger.info("=" * 60)
-        self.logger.info("AI Tech Brief Generator v3.0 (modular)")
+        self.logger.info("Brief Generator v3.0 (modular)")
         self.logger.info("=" * 60)
 
         # Step 1: Fetch all content
@@ -193,7 +193,7 @@ class BriefGenerator:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='Generate AI Tech Brief')
+    parser = argparse.ArgumentParser(description='Generate a daily brief from curated sources')
     parser.add_argument('--test', action='store_true', help='Test mode')
     parser.add_argument('--output', type=str, help='Output file path')
     parser.add_argument('--config', type=str, help='Config file path (JSON)')
@@ -209,7 +209,7 @@ def main():
     else:
         date_str = generator.get_date_str()
         output_dir = generator.config['output_dir']
-        output = os.path.join(output_dir, f"{date_str}-ai-tech-brief.md")
+        output = os.path.join(output_dir, f"{date_str}-brief.md")
 
     generator.generate_brief(output_path=output)
 

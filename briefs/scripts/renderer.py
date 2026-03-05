@@ -1,4 +1,4 @@
-"""Renderer module for the AI Tech Brief Generator.
+"""Renderer module for the Brief Generator.
 
 Handles template loading, placeholder substitution, output validation,
 source coverage reporting, and file output.
@@ -99,14 +99,11 @@ class BriefRenderer:
         for acc in twitter_accounts:
             lines.append(f"- @{acc}")
 
-        # RSS sources by category
-        category_labels = {
-            'newsletter': 'Newsletters',
-            'ai_lab': 'AI Labs',
-            'research_org': 'Research Organizations',
-        }
+        # RSS sources by category (labels derived from category keys)
         rss_sources = self.config.get('rss_sources', [])
-        for cat, label in category_labels.items():
+        categories = dict.fromkeys(s.get('category', '') for s in rss_sources if s.get('category'))
+        for cat in categories:
+            label = cat.replace('_', ' ').title()
             sources = [s for s in rss_sources if s.get('category') == cat]
             if not sources:
                 continue
