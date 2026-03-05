@@ -182,8 +182,8 @@ class BriefGenerator:
         if failed_sources:
             failed_names = ', '.join(s['name'] for s in failed_sources)
             failed_note = (
-                f"\n\nNOTE: The following RSS sources were UNREACHABLE: {failed_names}. "
-                f"You may still find their content via web search."
+                f"\n\nNOTE: The following RSS sources were UNREACHABLE and have no content available: {failed_names}. "
+                f"Do not include them in the brief."
             )
 
         context = {
