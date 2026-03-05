@@ -6,7 +6,7 @@ Curated agent skills for specialized workflows.
 
 ### 🤖 AI Tech Brief
 
-**Location:** `ai-tech-brief/`
+**Location:** `briefs/`
 
 Generates daily AI technology news briefs covering:
 - AI Infrastructure (training/inference, GPUs/TPUs)
@@ -23,7 +23,7 @@ Generates daily AI technology news briefs covering:
 **Installation:**
 ```bash
 # Copy to your OpenClaw skills directory
-cp -r ai-tech-brief ~/.openclaw/workspace-coding/skills/
+cp -r briefs ~/.openclaw/workspace-coding/skills/ai-tech-brief
 
 # Optional: install for better web content fetching
 pip install httpx trafilatura
@@ -35,7 +35,7 @@ pip install httpx trafilatura
 openclaw cron run ai-tech-daily-brief
 
 # Or generate manually
-cd ai-tech-brief
+cd briefs
 python3 scripts/generate_brief.py --output /tmp/brief.md
 ```
 
@@ -49,7 +49,7 @@ python3 scripts/generate_brief.py --output /tmp/brief.md
 Each skill follows the OpenClaw skill format:
 
 ```
-skill-name/
+briefs/
 ├── SKILL.md                    # Skill definition and instructions
 ├── config.json                 # Sources, settings, and configuration
 ├── scripts/                    # Executable scripts

@@ -1,6 +1,6 @@
 ---
 name: ai-tech-brief
-description: Generate daily AI technology news briefs covering AI infrastructure, agentic coding, and research progress. Use when creating scheduled technical news digests from high-quality sources including arXiv papers, AI lab blogs, Twitter/X thought leaders, and newsletters. Triggers: daily briefs, AI news summaries, technical research digests, scheduled news reports.
+description: "Generate daily AI technology news briefs covering AI infrastructure, agentic coding, and research progress. Use when creating scheduled technical news digests from high-quality sources including arXiv papers, AI lab blogs, Twitter/X thought leaders, and newsletters. Triggers: daily briefs, AI news summaries, technical research digests, scheduled news reports."
 ---
 
 # AI Tech Brief Skill
@@ -14,7 +14,7 @@ Generate comprehensive daily AI technology news briefs from curated high-quality
 openclaw cron run ai-tech-daily-brief
 
 # Or invoke directly
-cd skills/ai-tech-brief
+cd skills/briefs
 python3 scripts/generate_brief.py --output /tmp/brief.md
 ```
 
@@ -273,7 +273,7 @@ openclaw cron runs --id ai-tech-daily-brief --limit 5
 Run locally before deploying:
 
 ```bash
-cd skills/ai-tech-brief
+cd skills/briefs
 
 # Test mode with output
 python3 scripts/generate_brief.py --test --output /tmp/test-brief.md
