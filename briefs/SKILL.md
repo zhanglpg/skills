@@ -17,8 +17,11 @@ openclaw cron run ai-tech-daily-brief
 cd skills/briefs
 python3 scripts/generate_brief.py --output_dir /tmp/
 
-# Use a custom config
+# Use the AI tech config
 python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp/
+
+# Use the portfolio/market brief config
+python3 scripts/generate_brief.py --config config.portfolio.json --output_dir /tmp/
 ```
 
 ## How It Works
@@ -46,7 +49,9 @@ If `httpx`/`trafilatura` are not installed, the script falls back to `urllib` an
 
 ## Configuration
 
-**Config file:** `config.ai-tech.json` (loaded automatically; pass `--config` to use a different file)
+**Config files:**
+- `config.ai-tech.json` — AI technology news (loaded by default; pass `--config` to use a different file)
+- `config.portfolio.json` — Financial markets and portfolio tracking
 
 ```json
 {
@@ -169,7 +174,9 @@ openclaw cron runs --id ai-tech-daily-brief --limit 5
 |------|---------|
 | `references/sources.md` | Complete source list with URLs |
 | `config.ai-tech.json` | AI tech brief configuration |
+| `config.portfolio.json` | Portfolio/market brief configuration |
 | `templates/ai-tech-brief.md` | AI tech brief output template |
+| `templates/portfolio-brief.md` | Portfolio brief output template |
 
 ---
 
