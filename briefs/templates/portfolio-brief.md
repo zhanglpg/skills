@@ -20,6 +20,23 @@ Select the most impactful market-moving stories from ALL the data above. Include
 - **Market Impact:** How this affects markets/portfolios
 - **Source:** [Original Article Title](exact_url)
 
+## Portfolio Impact
+Map today's top stories and market moves to specific holdings. Only include holdings actually affected by today's news.
+
+### [Sector/Theme]
+- **[TICKER]:** [How this story/data point affects this position] — [Source](exact_url)
+  - **Action consideration:** [Hold/Monitor/Review — brief rationale]
+
+*Holdings not mentioned had no material news today.*
+
+## Watchlist Alerts
+Flag stories relevant to watchlist tickers ($watchlist_ticker_count tickers) and themes ($watchlist_theme_count themes).
+
+- **[TICKER or Theme]:** [What happened] — [Source](exact_url)
+  - **Why it matters:** [1 sentence on potential opportunity or risk]
+
+*If no watchlist items had relevant news: "No watchlist alerts today."*
+
 ## Twitter/X Market Commentary
 For each account where you found updates:
 - **@[handle]:** [Tweet summary] — [Link](exact_url)
@@ -46,4 +63,4 @@ For each source with content (from RSS or web fetch):
 - [Title](url) — 1 sentence description
 
 ---
-*Sources: RSS ($rss_count articles), Web ($web_count pages), Twitter ($twitter_count accounts searched)*
+*Sources: RSS ($rss_count articles), Web ($web_count pages), Twitter ($twitter_count accounts searched) | Portfolio: $holdings_count positions across $sector_count sectors | Watchlist: $watchlist_ticker_count tickers, $watchlist_theme_count themes*

@@ -81,6 +81,24 @@ If `httpx`/`trafilatura` are not installed, the script falls back to `urllib` an
 
 **twitter_accounts:** List of handles without `@`. Fetched via Gemini web search.
 
+**portfolio_holdings** (optional): Holdings grouped by sector/theme. When present, the summarizer injects portfolio context into the Gemini prompt so it can prioritize and map stories to your positions. The template gains "Portfolio Impact" and "Watchlist Alerts" sections.
+
+```json
+"portfolio_holdings": {
+  "Tech": ["AAPL", "MSFT", "NVDA"],
+  "Energy": ["XOM", "CVX"]
+}
+```
+
+**watchlist** (optional): Tickers and themes to monitor but not currently held. Supports both concrete symbols and qualitative themes.
+
+```json
+"watchlist": {
+  "tickers": ["AMZN", "TSLA"],
+  "themes": ["Fed rate cuts", "AI infrastructure spending"]
+}
+```
+
 ## Templates
 
 The template file (set via `"template"` in config) defines the output format. It supports `$placeholder` substitution:
@@ -95,6 +113,10 @@ The template file (set via `"template"` in config) defines the output format. It
 | `$github_count` | Number of GitHub repos fetched |
 | `$web_count` | Number of web pages fetched |
 | `$twitter_count` | Number of Twitter accounts searched |
+| `$holdings_count` | Number of held tickers (portfolio config only) |
+| `$sector_count` | Number of sector groups (portfolio config only) |
+| `$watchlist_ticker_count` | Number of watchlist tickers (portfolio config only) |
+| `$watchlist_theme_count` | Number of watchlist themes (portfolio config only) |
 
 The filled template is passed to Gemini as the required output format. See `templates/ai-tech-brief.md` for an example.
 

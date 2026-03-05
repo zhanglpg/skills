@@ -53,6 +53,40 @@ class Summarizer:
 
         return "Error: Gemini CLI failed after all retry attempts"
 
+    def _build_portfolio_context(self) -> str:
+        """Build portfolio context block for the prompt, if holdings/watchlist exist."""
+        holdings = self.config.get('portfolio_holdings', {})
+        watchlist = self.config.get('watchlist', {})
+        if not holdings and not watchlist:
+            return ''
+
+        lines = ['## PORTFOLIO CONTEXT (use this to prioritize and contextualize stories):\n']
+        if holdings:
+            lines.append('### Current Holdings:')
+            all_tickers = []
+            for sector, tickers in holdings.items():
+                lines.append(f'- **{sector}:** {", ".join(tickers)}')
+                all_tickers.extend(tickers)
+            lines.append(f'\nTotal positions: {len(all_tickers)} tickers across {len(holdings)} sectors.\n')
+        if watchlist:
+            lines.append('### Watchlist:')
+            if watchlist.get('tickers'):
+                lines.append(f'- **Tickers:** {", ".join(watchlist["tickers"])}')
+            if watchlist.get('themes'):
+                lines.append(f'- **Themes:** {", ".join(watchlist["themes"])}')
+            lines.append('')
+        lines.append(
+            'INSTRUCTIONS FOR PORTFOLIO CONTEXT:\n'
+            '1. In the "Portfolio Impact" section, identify which stories from the data above '
+            'directly affect the held tickers or sectors. Map each story to specific holdings.\n'
+            '2. In the "Watchlist Alerts" section, flag any stories relevant to watchlist '
+            'tickers or themes. Explain why they matter for potential entry/exit decisions.\n'
+            '3. When ranking "Top Stories", prioritize stories that affect held positions.\n'
+            '4. If no stories affect a holding or watchlist item, do not fabricate relevance.\n'
+        )
+        lines.append('---\n')
+        return '\n'.join(lines)
+
     def build_prompt(self, content_sections: Dict[str, str], filled_template: str,
                      context: dict) -> str:
         """Assemble the full Gemini prompt from content sections, template, and context.
@@ -69,6 +103,9 @@ class Summarizer:
         twitter_accounts = context.get('twitter_accounts', [])
         unfetched_web = context.get('unfetched_web', [])
         failed_note = context.get('failed_note', '')
+
+        # Build portfolio context block (only if holdings or watchlist exist in config)
+        portfolio_context = self._build_portfolio_context()
 
         prompt = f"""You are a summarizer. Below is VERIFIED, PRE-FETCHED content from multiple sources.
 Your job is to organize and summarize this content into a structured daily brief.
@@ -111,7 +148,7 @@ Search for tweets from past 24-48 hours. Only include tweets you actually find v
 {chr(10).join([f'- {name}' for name in unfetched_web]) if unfetched_web else 'All web sources were fetched successfully.'}
 
 ---
-
+{portfolio_context}
 ## OUTPUT FORMAT:
 
 ```markdown
