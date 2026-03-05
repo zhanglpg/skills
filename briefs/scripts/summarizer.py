@@ -1,4 +1,4 @@
-"""Summarizer module for the AI Tech Brief Generator.
+"""Summarizer module for the Brief Generator.
 
 Handles Gemini CLI interaction and prompt assembly. Takes pre-fetched
 content sections and a template, assembles a complete prompt, and
@@ -71,7 +71,7 @@ class Summarizer:
         failed_note = context.get('failed_note', '')
 
         prompt = f"""You are a summarizer. Below is VERIFIED, PRE-FETCHED content from multiple sources.
-Your job is to organize and summarize this content into a structured daily AI tech brief.
+Your job is to organize and summarize this content into a structured daily brief.
 
 IMPORTANT RULES:
 1. For RSS articles, arXiv papers, Hacker News stories, and GitHub repos: USE ONLY the data provided below. These are verified — use the exact URLs and titles given.

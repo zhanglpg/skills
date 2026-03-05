@@ -1,4 +1,4 @@
-"""Content fetching module for the AI Tech Brief Generator.
+"""Content fetching module for the Brief Generator.
 
 Handles all data collection: RSS feeds, arXiv API, Hacker News API,
 GitHub trending, and web page extraction. Formats fetched content

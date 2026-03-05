@@ -4,26 +4,21 @@ Curated agent skills for specialized workflows.
 
 ## Available Skills
 
-### 🤖 AI Tech Brief
+### Briefs
 
-**Location:** `ai-tech-brief/`
+**Location:** `briefs/`
 
-Generates daily AI technology news briefs covering:
-- AI Infrastructure (training/inference, GPUs/TPUs)
-- Agentic Coding (autonomous agents, AI dev tools)
-- AI Research Progress (papers, breakthroughs, model releases)
+Generates daily briefs from curated sources using a fetch-first, summarize-second pipeline:
+- Fetches RSS feeds, arXiv papers, Hacker News stories, GitHub trending repos, and web pages
+- Passes all verified content to Gemini CLI for summarization into a configurable template
+- Appends a source coverage report to every output
 
-**Sources:**
-- 12 Twitter/X thought leaders (Karpathy, Ilya, Andrew Ng, etc.)
-- 9 newsletters (Ben's Bites, TLDR AI, Import AI, etc.)
-- arXiv papers (cs.LG, cs.AI, cs.SE)
-- AI lab blogs (OpenAI, Anthropic, Google DeepMind, Meta AI)
-- Hacker News + GitHub Trending (community & trending)
+Configured via `briefs/config.ai-tech.json` for AI technology news. See `briefs/SKILL.md` for how to configure the pipeline for other topics.
 
 **Installation:**
 ```bash
 # Copy to your OpenClaw skills directory
-cp -r ai-tech-brief ~/.openclaw/workspace-coding/skills/
+cp -r briefs ~/.openclaw/workspace-coding/skills/ai-tech-brief
 
 # Optional: install for better web content fetching
 pip install httpx trafilatura
@@ -35,8 +30,8 @@ pip install httpx trafilatura
 openclaw cron run ai-tech-daily-brief
 
 # Or generate manually
-cd ai-tech-brief
-python3 scripts/generate_brief.py --output /tmp/brief.md
+cd briefs
+python3 scripts/generate_brief.py --config config.ai-tech.json --output /tmp/brief.md
 ```
 
 **Dependencies:**
@@ -46,12 +41,10 @@ python3 scripts/generate_brief.py --output /tmp/brief.md
 
 ## Skill Structure
 
-Each skill follows the OpenClaw skill format:
-
 ```
-skill-name/
+briefs/
 ├── SKILL.md                    # Skill definition and instructions
-├── config.json                 # Sources, settings, and configuration
+├── config.ai-tech.json         # AI tech brief sources and settings
 ├── scripts/                    # Executable scripts
 │   ├── generate_brief.py       # Main orchestration
 │   ├── fetcher.py              # Content fetching (RSS, APIs, web)

@@ -868,8 +868,8 @@ class TestSourceCoverageReport(unittest.TestCase):
     def test_report_contains_categories(self):
         report = self.renderer.generate_source_coverage_report(
             self.fetched_content, self.source_coverage, self.failed_sources)
-        self.assertIn('Newsletters', report)
-        self.assertIn('AI Labs', report)
+        self.assertIn('Newsletter', report)
+        self.assertIn('Ai Lab', report)
 
     def test_report_web_only(self):
         report = self.renderer.generate_source_coverage_report(
@@ -918,7 +918,7 @@ class TestDefaultConfig(unittest.TestCase):
         self.assertIn('template', gb.DEFAULT_CONFIG)
         self.assertIn('brief_title', gb.DEFAULT_CONFIG)
         self.assertEqual(gb.DEFAULT_CONFIG['template'], 'templates/ai-tech-brief.md')
-        self.assertEqual(gb.DEFAULT_CONFIG['brief_title'], 'Daily AI Tech Brief')
+        self.assertEqual(gb.DEFAULT_CONFIG['brief_title'], 'Daily Brief')
 
 
 class TestGeneratorInit(unittest.TestCase):
