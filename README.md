@@ -31,7 +31,7 @@ openclaw cron run ai-tech-daily-brief
 
 # Or generate manually
 cd briefs
-python3 scripts/generate_brief.py --config config.ai-tech.json --output /tmp/brief.md
+python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp/
 ```
 
 **Dependencies:**
