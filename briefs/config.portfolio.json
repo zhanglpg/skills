@@ -54,5 +54,20 @@
 
   "_comment_template": "Template for daily portfolio/market brief output format.",
   "template": "templates/portfolio-brief.md",
-  "brief_title": "Daily Portfolio Brief"
+  "brief_title": "Daily Portfolio Brief",
+
+  "_comment_portfolio": "Holdings grouped by sector/theme. Used to prioritize and contextualize stories in the brief.",
+  "portfolio_holdings": {
+    "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL"],
+    "Energy": ["XOM", "CVX"],
+    "Financials": ["JPM", "GS"],
+    "Healthcare": ["UNH", "JNJ"],
+    "Fixed Income": ["TLT", "BND"]
+  },
+
+  "_comment_watchlist": "Tickers and themes to monitor but not currently held.",
+  "watchlist": {
+    "tickers": ["AMZN", "TSLA", "META", "PLTR"],
+    "themes": ["AI infrastructure spending", "Fed rate cuts", "China stimulus", "commercial real estate"]
+  }
 }

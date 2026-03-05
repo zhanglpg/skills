@@ -143,16 +143,32 @@ class BriefGenerator:
         brief_title = self.config.get('brief_title', 'Daily AI Tech Brief')
         twitter_accounts = self.config.get('twitter_accounts', [])
 
+        # Build template vars from fetched content counts
         template_vars = {
             'brief_title': brief_title,
             'date_display': date_display,
-            'rss_count': str(len(self.fetcher.fetched_content['rss'])),
-            'arxiv_count': str(len(self.fetcher.fetched_content['arxiv'])),
-            'hn_count': str(len(self.fetcher.fetched_content['hackernews'])),
-            'github_count': str(len(self.fetcher.fetched_content['github_trending'])),
-            'web_count': str(len(self.fetcher.fetched_content['web_pages'])),
             'twitter_count': str(len(twitter_accounts)),
         }
+        # Add all fetched content counts dynamically
+        # Alias map for backward-compatible template placeholder names
+        count_aliases = {
+            'hackernews': 'hn',
+            'github_trending': 'github',
+            'web_pages': 'web',
+        }
+        for key, items in self.fetcher.fetched_content.items():
+            name = count_aliases.get(key, key)
+            template_vars[f'{name}_count'] = str(len(items))
+
+        # Add portfolio-specific vars if holdings/watchlist exist in config
+        holdings = self.config.get('portfolio_holdings', {})
+        watchlist = self.config.get('watchlist', {})
+        if holdings or watchlist:
+            all_tickers = [t for tickers in holdings.values() for t in tickers]
+            template_vars['holdings_count'] = str(len(all_tickers))
+            template_vars['sector_count'] = str(len(holdings))
+            template_vars['watchlist_ticker_count'] = str(len(watchlist.get('tickers', [])))
+            template_vars['watchlist_theme_count'] = str(len(watchlist.get('themes', [])))
         filled_template = self.renderer.fill_template(template, template_vars)
 
         # Step 3: Build context for summarizer
