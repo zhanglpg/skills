@@ -1,6 +1,6 @@
 # AI Tech Brief - Complete Source List
 
-**Last Verified:** March 2, 2026  
+**Last Verified:** March 5, 2026
 **RSS Status:** See `RSS_FEED_STATUS.md` for detailed feed testing results
 
 ---
@@ -41,7 +41,7 @@ This ensures all requested sources are covered even when RSS fails.
 
 ---
 
-## 📰 Newsletters (8)
+## 📰 Newsletters (13)
 
 | Name | URL | RSS Feed | Status | Fetch Method |
 |------|-----|----------|--------|--------------|
@@ -53,8 +53,12 @@ This ensures all requested sources are covered even when RSS fails.
 | **Interconnects** | https://interconnects.ai | https://interconnects.ai/rss | ❌ Error (405) | Gemini Web Search |
 | **The Batch** | https://www.deeplearning.ai/the-batch | - | ❌ No RSS | Gemini Web Search |
 | **Superhuman AI** | https://superhuman.ai | - | ❌ No RSS | Gemini Web Search |
+| **One Useful Thing** | https://www.oneusefulthing.org | - | ❌ No RSS | Gemini Web Search |
+| **Unsupervised Learning** | https://danielmiessler.com/newsletter | - | ❌ No RSS | Gemini Web Search |
+| **Stratechery** | https://stratechery.com | - | ❌ No RSS | Gemini Web Search |
+| **Simon Willison's Weblog** | https://simonwillison.net | https://simonwillison.net/atom/everything/ | ⚠️ Untested | blogwatcher + Gemini |
 
-**Working RSS:** 1 out of 8 (Import AI)
+**Working RSS:** 1 out of 12 confirmed (Import AI); Simon Willison's Weblog untested
 
 ---
 
@@ -82,6 +86,44 @@ This ensures all requested sources are covered even when RSS fails.
 
 ---
 
+## 📺 YouTube Channels (6)
+
+| Name | URL | Focus | Fetch Method |
+|------|-----|-------|--------------|
+| **Matthew Berman** | https://www.youtube.com/@matthew_berman | New model hands-on reviews | Gemini Web Search |
+| **Two Minute Papers** | https://www.youtube.com/@TwoMinutePapers | Paper summaries | Gemini Web Search |
+| **Yannic Kilcher** | https://www.youtube.com/@YannicKilcher | Technical paper deep-dives | Gemini Web Search |
+| **3Blue1Brown** | https://www.youtube.com/@3blue1brown | Math/AI visualizations | Gemini Web Search |
+| **Fireship** | https://www.youtube.com/@Fireship | Dev tools & AI news | Gemini Web Search |
+| **AI Explained** | https://www.youtube.com/@aiexplained-official | Model evaluations & deep reads | Gemini Web Search |
+
+---
+
+## 🎙️ Podcasts (9)
+
+| Name | Host(s) | URL | Focus | Fetch Method |
+|------|---------|-----|-------|--------------|
+| **No Priors** | Sarah Guo & Elad Gil | https://www.nopriorsshow.com | AI startups & commercialization | Gemini Web Search |
+| **The TWIML AI Podcast** | Sam Charrington | https://twimlai.com/podcast/twimlai | Academic & industry ML | Gemini Web Search |
+| **Machine Learning Street Talk** | Tim Scarfe et al. | https://www.youtube.com/@MachineLearningStreetTalk | Deep technical discussions with researchers | Gemini Web Search |
+| **Lex Fridman Podcast** | Lex Fridman | https://lexfridman.com/podcast | Long-form interviews (Ilya, LeCun, Hinton…) | Gemini Web Search |
+| **Gradient Dissent** | Lukas Biewald | https://wandb.ai/fully-connected/gradient-dissent | Model training & engineering practice (W&B) | Gemini Web Search |
+| **Cognitive Revolution** | Nathan Labenz | https://www.cognitiverevolution.ai | AI capability evolution & applications | Gemini Web Search |
+| **Dwarkesh Podcast** | Dwarkesh Patel | https://www.dwarkeshpatel.com/podcast | AI alignment & industry analysis | Gemini Web Search |
+| **Training Data** | Bowery Capital | https://www.bowerycap.com/blog/training-data | Enterprise AI & B2B | Gemini Web Search |
+| **The Robot Brains** | Pieter Abbeel | https://www.therobotbrains.ai | RL & robotics, embodied intelligence | Gemini Web Search |
+
+---
+
+## 🌐 Community / Forums (2)
+
+| Name | URL | Focus | Fetch Method |
+|------|-----|-------|--------------|
+| **Hacker News** | https://news.ycombinator.com | Tech discussions (AI/ML trending) | Gemini Web Search |
+| **GitHub Trending (AI/ML)** | https://github.com/trending | Trending AI/ML repositories | Gemini Web Search |
+
+---
+
 ## 📄 arXiv Categories
 
 | Code | Category | Priority | Fetch Method |
@@ -102,11 +144,14 @@ This ensures all requested sources are covered even when RSS fails.
 | Category | Total Sources | Working RSS | Primary Fetch Method |
 |----------|---------------|-------------|---------------------|
 | Twitter/X | 12 | 0 | Gemini Web Search |
-| Newsletters | 8 | 1 | Gemini Web Search + RSS |
+| Newsletters | 13 | 1 | Gemini Web Search + RSS |
 | AI Labs | 4 | 1 | Gemini Web Search + RSS |
 | Research Orgs | 2 | 1 | Gemini Web Search + RSS |
+| YouTube | 6 | 0 | Gemini Web Search |
+| Podcasts | 9 | 0 | Gemini Web Search |
+| Community | 2 | 0 | Gemini Web Search |
 | arXiv | 6 categories | N/A | Gemini Web Search |
-| **TOTAL** | **32** | **3 (9%)** | **Hybrid** |
+| **TOTAL** | **54** | **3 (6%)** | **Hybrid** |
 
 ---
 
