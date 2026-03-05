@@ -7,7 +7,7 @@ Uses direct APIs and RSS parsing for reliable data collection, then passes
 verified content to Gemini CLI for summarization and template rendering.
 
 Usage:
-    python3 generate_brief.py [--test] [--output FILE] [--config FILE]
+    python3 generate_brief.py [--test] [--output_dir DIR] [--config FILE]
 """
 
 import sys
@@ -209,7 +209,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description='Generate a daily brief from curated sources')
     parser.add_argument('--test', action='store_true', help='Test mode')
-    parser.add_argument('--output', type=str, help='Output file path')
+    parser.add_argument('--output_dir', type=str, help='Output directory for briefs (overrides config)')
     parser.add_argument('--config', type=str, help='Config file path (JSON)')
     args = parser.parse_args()
 
@@ -218,12 +218,12 @@ def main():
 
     generator = BriefGenerator(config_path=args.config)
 
-    if args.output:
-        output = args.output
-    else:
-        date_str = generator.get_date_str()
-        output_dir = generator.config['output_dir']
-        output = os.path.join(output_dir, f"{date_str}-brief.md")
+    if args.output_dir:
+        generator.config['output_dir'] = os.path.expanduser(args.output_dir)
+
+    date_str = generator.get_date_str()
+    output_dir = generator.config['output_dir']
+    output = os.path.join(output_dir, f"{date_str}-brief.md")
 
     generator.generate_brief(output_path=output)
 
