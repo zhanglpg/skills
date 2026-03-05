@@ -17,11 +17,9 @@ import json
 import hashlib
 import logging
 import urllib.request
-import urllib.error
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Optional but preferred imports — fall back gracefully
