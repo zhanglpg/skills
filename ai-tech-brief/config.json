@@ -1,8 +1,7 @@
 {
   "_comment": "AI Tech Brief Configuration - edit this file directly. Loaded automatically by generate_brief.py.",
-  "_rss_status_note": "RSS URLs verified March 5, 2026. See RSS_FEED_STATUS.md for details. Only 3/13 RSS feeds are confirmed working; the rest are fetched via Gemini CLI web search. Sources in rss_sources are checked at runtime and failures are reported in the brief.",
+  "_rss_status_note": "RSS URLs verified March 5, 2026. See RSS_FEED_STATUS.md for details. RSS feeds are parsed directly via xml.etree (no blogwatcher dependency). arXiv, HN, and GitHub use their native APIs.",
 
-  "blogwatcher_path": "~/go/bin/blogwatcher",
   "arxiv_categories": ["cs.LG", "cs.AI", "cs.SE"],
 
   "twitter_accounts": [
@@ -58,8 +57,8 @@
   "timezone": "Asia/Shanghai",
   "timezone_offset": 8,
   "gemini_timeout": 180,
-  "blogwatcher_timeout": 60,
   "rss_check_timeout": 10,
+  "fetch_timeout": 15,
   "max_articles": 30,
   "output_dir": "~/ai-tech-briefs",
   "log_file": "~/ai-tech-briefs/generate.log"
