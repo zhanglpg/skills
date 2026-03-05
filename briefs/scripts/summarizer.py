@@ -107,15 +107,14 @@ class Summarizer:
         # Build portfolio context block (only if holdings or watchlist exist in config)
         portfolio_context = self._build_portfolio_context()
 
-        prompt = f"""You are a summarizer. Below is VERIFIED, PRE-FETCHED content from multiple sources.
-Your job is to organize and summarize this content into a structured daily brief.
+        prompt = f"""You are a summarizer. All content below has been PRE-FETCHED by a separate process and is ready for you to summarize.
+Your job is to organize and summarize this pre-fetched content into a structured daily brief.
 
 IMPORTANT RULES:
-1. For RSS articles, arXiv papers, Hacker News stories, and GitHub repos: USE ONLY the data provided below. These are verified — use the exact URLs and titles given.
-2. For Twitter/X accounts: search the web for recent tweets from the accounts listed below. Only include tweets you can actually find. If you find nothing, write "No updates found."
-3. For sources listed under "SOURCES TO SEARCH VIA WEB": search for recent content and only include what you can verify.
-4. Do NOT fabricate URLs, titles, or content. Every item must have a real, working URL.
-5. It is better to have a shorter brief with all real content than a longer brief with fabricated entries.{failed_note}
+1. USE ONLY the pre-fetched content provided in the sections below. Do NOT search the web for articles, arXiv papers, Hacker News stories, or GitHub repos — all of that content has already been gathered for you.
+2. For Twitter/X accounts only: use your web search capability to find recent tweets. Only include tweets you can actually find. If you find nothing, write "No updates found."
+3. Do NOT fabricate URLs, titles, or content. Every item must come from the pre-fetched data provided below or from a verified Twitter/X web search.
+4. It is better to have a shorter brief with all real content than a longer brief with fabricated entries.{failed_note}
 
 ---
 
@@ -138,15 +137,13 @@ IMPORTANT RULES:
 
 ---
 
-## SOURCES TO SEARCH VIA WEB (use Gemini web search for these):
+## TWITTER/X SOURCES (use Gemini web search for these only):
 
 ### Twitter/X Thought Leaders ({len(twitter_accounts)} accounts):
-{chr(10).join([f'- @{acc}' for acc in twitter_accounts])}
-Search for tweets from past 24-48 hours. Only include tweets you actually find via web search.
+{chr(10).join([f'- @{acc}' for acc in twitter_accounts]) if twitter_accounts else 'No Twitter/X accounts configured.'}
+Search for tweets from the past 24-48 hours. Only include tweets you actually find via web search.
 
-### Unfetched Web Sources (search for recent content):
-{chr(10).join([f'- {name}' for name in unfetched_web]) if unfetched_web else 'All web sources were fetched successfully.'}
-
+{f"### Unavailable Web Sources (fetch failed — omit from brief):{chr(10)}{chr(10).join([f'- {name}' for name in unfetched_web])}" if unfetched_web else ''}
 ---
 {portfolio_context}
 ## OUTPUT FORMAT:
