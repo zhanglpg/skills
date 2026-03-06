@@ -43,14 +43,14 @@
     {"name": "Earnings Whispers",           "url": "https://www.earningswhispers.com/calendar",        "category": "earnings"}
   ],
 
-  "timezone": "America/New_York",
-  "timezone_offset": -5,
+  "timezone": "Asia/Shanghai",
+  "timezone_offset": 8,
   "gemini_timeout": 180,
   "rss_check_timeout": 10,
   "fetch_timeout": 15,
   "max_articles": 30,
-  "output_dir": "~/portfolio-briefs",
-  "log_file": "~/portfolio-briefs/generate.log",
+  "output_dir": "~/.openclaw/workspace/briefs/investment",
+  "log_file": "~/.openclaw/workspace/briefs/investment/generate.log",
 
   "_comment_template": "Template for daily portfolio/market brief output format.",
   "template": "templates/portfolio-brief.md",
@@ -62,16 +62,16 @@
 
   "_comment_portfolio": "Holdings grouped by sector/theme. Used to prioritize and contextualize stories in the brief.",
   "portfolio_holdings": {
-    "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL"],
-    "Energy": ["XOM", "CVX"],
-    "Financials": ["JPM", "GS"],
-    "Healthcare": ["UNH", "JNJ"],
-    "Fixed Income": ["TLT", "BND"]
+    "Tech": ["GOOG", "NVDA"],
+    "Semiconductors": ["NVDA", "TSMC"],
+    "China Internet": ["BABA"],
+    "US Broad Market": ["SPY"],
+    "China Indices": ["FXI", "KWEB"]
   },
 
   "_comment_watchlist": "Tickers and themes to monitor but not currently held.",
   "watchlist": {
-    "tickers": ["AMZN", "TSLA", "META", "PLTR"],
-    "themes": ["AI infrastructure spending", "Fed rate cuts", "China stimulus", "commercial real estate"]
+    "tickers": ["AAPL", "MSFT", "META", "AMZN", "TSLA", "AMD", "AVGO"],
+    "themes": ["AI infrastructure spending", "Fed rate cuts", "China stimulus", "semiconductor supply chain", "US-China tech relations"]
   }
 }
