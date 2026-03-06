@@ -62,16 +62,16 @@
 
   "_comment_portfolio": "Holdings grouped by sector/theme. Used to prioritize and contextualize stories in the brief.",
   "portfolio_holdings": {
-    "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL"],
-    "Energy": ["XOM", "CVX"],
-    "Financials": ["JPM", "GS"],
-    "Healthcare": ["UNH", "JNJ"],
+    "Tech": ["GOOGL", "BABA", "NVDA", "TSMC"],
+    "Energy": [],
+    "Financials": [],
+    "Healthcare": [],
     "Fixed Income": ["TLT", "BND"]
   },
 
   "_comment_watchlist": "Tickers and themes to monitor but not currently held.",
   "watchlist": {
-    "tickers": ["AMZN", "TSLA", "META", "PLTR"],
+    "tickers": ["TSLA"],
     "themes": ["AI infrastructure spending", "Fed rate cuts", "China stimulus", "commercial real estate"]
   }
 }
