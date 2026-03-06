@@ -1591,6 +1591,272 @@ class TestFetchArxivExtra(unittest.TestCase):
         self.assertEqual(papers, [])
 
 
+# ── P1: Tests for _build_portfolio_context ────────────────────────────────
+
+class TestBuildPortfolioContext(unittest.TestCase):
+    def test_empty_when_no_holdings_no_watchlist(self):
+        gen = _make_generator()
+        result = gen._build_portfolio_context()
+        self.assertEqual(result, '')
+
+    def test_returns_content_with_holdings(self):
+        gen = _make_generator({
+            'portfolio_holdings': {
+                'Tech': ['GOOG', 'NVDA'],
+                'Semiconductors': ['TSM'],
+            },
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('PORTFOLIO CONTEXT', result)
+        self.assertIn('Current Holdings', result)
+        self.assertIn('**Tech:**', result)
+        self.assertIn('GOOG, NVDA', result)
+        self.assertIn('**Semiconductors:**', result)
+        self.assertIn('TSM', result)
+
+    def test_counts_total_positions_and_sectors(self):
+        gen = _make_generator({
+            'portfolio_holdings': {
+                'Tech': ['GOOG', 'NVDA'],
+                'China': ['BABA', 'FXI', 'KWEB'],
+            },
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('5 tickers', result)
+        self.assertIn('2 sectors', result)
+
+    def test_returns_content_with_watchlist_only(self):
+        gen = _make_generator({
+            'watchlist': {
+                'tickers': ['AAPL', 'MSFT'],
+                'themes': ['Quantum Computing', 'Robotics'],
+            },
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('Watchlist', result)
+        self.assertIn('AAPL, MSFT', result)
+        self.assertIn('Quantum Computing, Robotics', result)
+
+    def test_watchlist_tickers_only(self):
+        gen = _make_generator({
+            'watchlist': {'tickers': ['AAPL']},
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('Watchlist', result)
+        self.assertIn('AAPL', result)
+        self.assertNotIn('Themes', result)
+
+    def test_watchlist_themes_only(self):
+        gen = _make_generator({
+            'watchlist': {'themes': ['AI Safety']},
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('AI Safety', result)
+        self.assertNotIn('Tickers', result)
+
+    def test_both_holdings_and_watchlist(self):
+        gen = _make_generator({
+            'portfolio_holdings': {'Tech': ['GOOG']},
+            'watchlist': {'tickers': ['AAPL'], 'themes': ['EV']},
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('Current Holdings', result)
+        self.assertIn('Watchlist', result)
+        self.assertIn('GOOG', result)
+        self.assertIn('AAPL', result)
+        self.assertIn('EV', result)
+
+    def test_empty_holdings_dict_returns_empty(self):
+        gen = _make_generator({
+            'portfolio_holdings': {},
+            'watchlist': {},
+        })
+        result = gen._build_portfolio_context()
+        self.assertEqual(result, '')
+
+
+# ── P1: Expanded Tests for generate_brief Pipeline ───────────────────────
+
+class TestGenerateBriefPipeline(unittest.TestCase):
+    """Tests for the full generate_brief orchestration method."""
+
+    def setUp(self):
+        self.gen = _make_generator({
+            'twitter_accounts': ['karpathy', 'AndrewYNg'],
+            'rss_sources': [],
+            'web_only_sources': [],
+            'template': 'templates/ai-tech-brief.md',
+            'prompt': 'prompts/ai-tech-brief.md',
+            'brief_title': 'Test Brief',
+        })
+
+    def _mock_pipeline(self, brief_output='# Brief\nhttps://example.com\n## Top Stories\nContent'):
+        """Set up standard mocks for the generate_brief pipeline."""
+        patches = {
+            'fetch_all': patch.object(
+                ft.ContentFetcher, 'fetch_all',
+                return_value=([], [])),
+            'load_template': patch.object(
+                rd.BriefRenderer, 'load_template',
+                return_value='# $brief_title\n## Top Stories\n## Research Papers'),
+            'fill_template': patch.object(
+                rd.BriefRenderer, 'fill_template',
+                return_value='# Test Brief\n## Top Stories\n## Research Papers'),
+            'get_sections': patch.object(
+                ft.ContentFetcher, 'get_formatted_sections',
+                return_value={
+                    'rss': 'RSS data', 'arxiv': 'arXiv data',
+                    'hackernews': 'HN data', 'github': 'GH data', 'web': 'Web data'}),
+            'summarize': patch.object(
+                sm.Summarizer, 'summarize',
+                return_value=brief_output),
+            'validate': patch.object(
+                rd.BriefRenderer, 'validate_brief',
+                return_value=True),
+            'render': patch.object(
+                rd.BriefRenderer, 'render_output',
+                return_value=brief_output + '\n---\nCoverage Report'),
+        }
+        mocks = {}
+        for name, p in patches.items():
+            mocks[name] = p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches.values()])
+        return mocks
+
+    def test_pipeline_calls_all_stages(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        mocks['fetch_all'].assert_called_once()
+        mocks['summarize'].assert_called_once()
+        mocks['validate'].assert_called_once()
+        mocks['render'].assert_called_once()
+
+    def test_twitter_block_includes_accounts(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('@karpathy', prompt_vars['twitter_block'])
+        self.assertIn('@AndrewYNg', prompt_vars['twitter_block'])
+
+    def test_no_twitter_accounts_message(self):
+        self.gen.config['twitter_accounts'] = []
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['twitter_block'], 'No Twitter/X accounts configured.')
+
+    def test_failed_sources_note_in_prompt(self):
+        mocks = self._mock_pipeline()
+        mocks['fetch_all'].return_value = (
+            [],
+            [{'name': 'BadFeed', 'url': 'https://bad.com', 'error': 'Timeout'}],
+        )
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('BadFeed', prompt_vars['failed_note'])
+        self.assertIn('UNREACHABLE', prompt_vars['failed_note'])
+
+    def test_no_failed_sources_empty_note(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['failed_note'], '')
+
+    def test_unfetched_web_sources_block(self):
+        self.gen.config['web_only_sources'] = [
+            {'name': 'UnfetchedBlog', 'url': 'https://blog.com', 'category': 'newsletter'},
+        ]
+        mocks = self._mock_pipeline()
+        # No web pages fetched, so UnfetchedBlog should appear in unavailable block
+        self.gen.fetcher.fetched_content['web_pages'] = []
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('UnfetchedBlog', prompt_vars['unavailable_web_block'])
+        self.assertIn('Unavailable', prompt_vars['unavailable_web_block'])
+
+    def test_fetched_web_sources_not_in_unavailable(self):
+        self.gen.config['web_only_sources'] = [
+            {'name': 'FetchedBlog', 'url': 'https://blog.com', 'category': 'newsletter'},
+        ]
+        mocks = self._mock_pipeline()
+        self.gen.fetcher.fetched_content['web_pages'] = [{'source': 'FetchedBlog'}]
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['unavailable_web_block'], '')
+
+    def test_output_saved_when_path_provided(self):
+        mocks = self._mock_pipeline()
+        save_patcher = patch.object(rd.BriefRenderer, 'save')
+        save_mock = save_patcher.start()
+        self.addCleanup(save_patcher.stop)
+        self.gen.generate_brief(output_path='/tmp/test-brief.md')
+        save_mock.assert_called_once_with(
+            mocks['render'].return_value, '/tmp/test-brief.md')
+
+    def test_output_logged_when_no_path(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief(output_path=None)
+        # Should have logged the output (not saved to file)
+        self.gen.logger.info.assert_called()
+
+    def test_validation_failure_continues_generation(self):
+        mocks = self._mock_pipeline()
+        mocks['validate'].return_value = False
+        result = self.gen.generate_brief()
+        # Should still return content despite validation warning
+        self.assertIn('Coverage Report', result)
+        self.gen.logger.warning.assert_called()
+
+    def test_portfolio_vars_in_template(self):
+        self.gen.config['portfolio_holdings'] = {
+            'Tech': ['GOOG', 'NVDA'],
+            'China': ['BABA'],
+        }
+        self.gen.config['watchlist'] = {
+            'tickers': ['AAPL'],
+            'themes': ['EV'],
+        }
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        template_vars = mocks['fill_template'].call_args[0][1]
+        self.assertEqual(template_vars['holdings_count'], '3')
+        self.assertEqual(template_vars['sector_count'], '2')
+        self.assertEqual(template_vars['watchlist_ticker_count'], '1')
+        self.assertEqual(template_vars['watchlist_theme_count'], '1')
+
+    def test_portfolio_context_passed_to_summarizer(self):
+        self.gen.config['portfolio_holdings'] = {'Tech': ['GOOG']}
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('PORTFOLIO CONTEXT', prompt_vars['portfolio_context'])
+        self.assertIn('GOOG', prompt_vars['portfolio_context'])
+
+    def test_no_portfolio_context_when_empty(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['portfolio_context'], '')
+
+    def test_content_count_aliases(self):
+        """Verify hackernews→hn, github_trending→github, web_pages→web aliases."""
+        mocks = self._mock_pipeline()
+        self.gen.fetcher.fetched_content = {
+            'rss': [{'title': 'a'}],
+            'arxiv': [{'title': 'b'}, {'title': 'c'}],
+            'hackernews': [{'title': 'd'}] * 5,
+            'github_trending': [{'name': 'e'}] * 3,
+            'web_pages': [{'source': 'f'}],
+        }
+        self.gen.generate_brief()
+        template_vars = mocks['fill_template'].call_args[0][1]
+        self.assertEqual(template_vars['rss_count'], '1')
+        self.assertEqual(template_vars['arxiv_count'], '2')
+        self.assertEqual(template_vars['hn_count'], '5')
+        self.assertEqual(template_vars['github_count'], '3')
+        self.assertEqual(template_vars['web_count'], '1')
+
+
 class TestFormatFailedSourcesWarningExtra(unittest.TestCase):
     """Extra tests for _format_failed_sources_warning."""
 
