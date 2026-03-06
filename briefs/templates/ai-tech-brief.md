@@ -1,26 +1,20 @@
 # $brief_title - $date_display
 
-## Top Stories (3-5 items)
-Select the most significant items from ALL the data above. Include only stories with verified URLs.
+## Top Stories
 
 ### [Headline]
-- **Summary:** 1-2 sentences explaining what happened
+- **Summary:** 1-2 sentences
 - **Why it matters:** Impact/significance
-- **Source:** [Original Article Title](exact_url)
+- **Source:** [Original Article Title](url)
 
 ## Twitter/X Updates
-For each account where you found updates:
-- **@[handle]:** [Tweet summary] — [Link](exact_url)
-
-If no updates found: "No updates found from @[handle] today."
+- **@[handle]:** [Tweet summary] — [Link](url)
 
 ## Newsletter & Blog Highlights
-For each source with content (from RSS or web fetch):
-- **[Source Name]:** [Article title] — [Link](exact_url) — 1-2 sentence summary
+- **[Source Name]:** [Article title] — [Link](url) — 1-2 sentence summary
 
 ## AI Lab Updates
-For each lab with updates:
-- **[Lab Name]:** [Announcement] — [Link](exact_url) — 1-2 sentence summary
+- **[Lab Name]:** [Announcement] — [Link](url) — 1-2 sentence summary
 
 ## Research Papers
 | Paper | Key Finding | Link |
@@ -28,11 +22,9 @@ For each lab with updates:
 | [Title] | 1-2 sentence summary | [arXiv:ID](url) |
 
 ## Hacker News AI Highlights
-For top AI stories from HN:
 - **[Title]** (score pts, N comments) — [Link](url) | [Discussion](hn_url)
 
 ## GitHub Trending
-For notable repos:
 - **[repo/name]** (language, stars) — [Link](url) — description
 
 ## Quick Links

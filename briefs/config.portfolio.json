@@ -54,6 +54,10 @@
 
   "_comment_template": "Template for daily portfolio/market brief output format.",
   "template": "templates/portfolio-brief.md",
+
+  "_comment_prompt": "Editorial instructions prompt for the LLM — what to prioritize, how to handle portfolio context.",
+  "prompt": "prompts/portfolio-brief.md",
+
   "brief_title": "Daily Portfolio Brief",
 
   "_comment_portfolio": "Holdings grouped by sector/theme. Used to prioritize and contextualize stories in the brief.",

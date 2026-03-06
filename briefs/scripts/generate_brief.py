@@ -36,6 +36,7 @@ DEFAULT_CONFIG = {
     'output_dir': '~/briefs',
     'log_file': '~/briefs/generate.log',
     'template': 'templates/ai-tech-brief.md',
+    'prompt': 'prompts/ai-tech-brief.md',
     'brief_title': 'Daily Brief',
 }
 
@@ -123,21 +124,46 @@ class BriefGenerator:
         now = datetime.utcnow() + timedelta(hours=offset)
         return now.strftime('%B %d, %Y')
 
+    def _build_portfolio_context(self) -> str:
+        """Build portfolio context block for the prompt, if holdings/watchlist exist."""
+        holdings = self.config.get('portfolio_holdings', {})
+        watchlist = self.config.get('watchlist', {})
+        if not holdings and not watchlist:
+            return ''
+
+        lines = ['## PORTFOLIO CONTEXT (use this to prioritize and contextualize stories):\n']
+        if holdings:
+            lines.append('### Current Holdings:')
+            all_tickers = []
+            for sector, tickers in holdings.items():
+                lines.append(f'- **{sector}:** {", ".join(tickers)}')
+                all_tickers.extend(tickers)
+            lines.append(f'\nTotal positions: {len(all_tickers)} tickers across {len(holdings)} sectors.\n')
+        if watchlist:
+            lines.append('### Watchlist:')
+            if watchlist.get('tickers'):
+                lines.append(f'- **Tickers:** {", ".join(watchlist["tickers"])}')
+            if watchlist.get('themes'):
+                lines.append(f'- **Themes:** {", ".join(watchlist["themes"])}')
+            lines.append('')
+        lines.append('---\n')
+        return '\n'.join(lines)
+
     # ── Main Pipeline ──────────────────────────────────────────────────
 
     def generate_brief(self, output_path: Optional[str] = None) -> str:
         """Generate the daily brief using fetch-first architecture."""
         self.logger.info("=" * 60)
-        self.logger.info("Brief Generator v3.0 (modular)")
+        self.logger.info("Brief Generator v3.1 (editorial/format split)")
         self.logger.info("=" * 60)
 
         # Step 1: Fetch all content
         ok_sources, failed_sources = self.fetcher.fetch_all()
 
-        # Step 2: Load and fill template
+        # Step 2: Load format template and fill placeholders (renderer owns this)
         template_rel = self.config.get('template', 'templates/ai-tech-brief.md')
         template_path = os.path.join(_SKILL_DIR, template_rel)
-        template = self.renderer.load_template(template_path)
+        format_template = self.renderer.load_template(template_path)
 
         date_display = self.get_date_display()
         brief_title = self.config.get('brief_title', 'Daily AI Tech Brief')
@@ -150,7 +176,6 @@ class BriefGenerator:
             'twitter_count': str(len(twitter_accounts)),
         }
         # Add all fetched content counts dynamically
-        # Alias map for backward-compatible template placeholder names
         count_aliases = {
             'hackernews': 'hn',
             'github_trending': 'github',
@@ -169,9 +194,14 @@ class BriefGenerator:
             template_vars['sector_count'] = str(len(holdings))
             template_vars['watchlist_ticker_count'] = str(len(watchlist.get('tickers', [])))
             template_vars['watchlist_theme_count'] = str(len(watchlist.get('themes', [])))
-        filled_template = self.renderer.fill_template(template, template_vars)
+        filled_format = self.renderer.fill_template(format_template, template_vars)
 
-        # Step 3: Build context for summarizer
+        # Step 3: Load editorial instructions (summarizer owns this)
+        prompt_rel = self.config.get('prompt', 'prompts/ai-tech-brief.md')
+        prompt_path = os.path.join(_SKILL_DIR, prompt_rel)
+        editorial_instructions = self.renderer.load_template(prompt_path)
+
+        # Step 4: Build context for summarizer
         web_only = self.config.get('web_only_sources', [])
         fetched_web_names = {p['source'] for p in self.fetcher.fetched_content.get('web_pages', [])}
         unfetched_web = [s['name'] for s in web_only
@@ -190,26 +220,28 @@ class BriefGenerator:
             'twitter_accounts': twitter_accounts,
             'unfetched_web': unfetched_web,
             'failed_note': failed_note,
+            'portfolio_context': self._build_portfolio_context(),
+            'output_format': filled_format,
         }
 
-        # Step 4: Summarize
+        # Step 5: Summarize (LLM gets editorial instructions + content + format reference)
         self.logger.info("\n[6/7] Summarizing pre-fetched content with Gemini CLI...")
         content_sections = self.fetcher.get_formatted_sections()
-        brief = self.summarizer.summarize(content_sections, filled_template, context)
+        brief = self.summarizer.summarize(content_sections, editorial_instructions, context)
 
-        # Step 5: Validate
-        is_valid = self.renderer.validate_brief(brief)
+        # Step 6: Validate (renderer checks against format template sections)
+        is_valid = self.renderer.validate_brief(brief, format_template)
         if not is_valid:
             self.logger.warning("Brief validation had warnings, but continuing...")
 
-        # Step 6: Render final output
+        # Step 7: Render final output (deterministic: append warnings + coverage report)
         self.logger.info("\n[7/7] Generating source coverage report...")
         brief_with_coverage = self.renderer.render_output(
             brief, failed_sources,
             self.fetcher.fetched_content,
             self.fetcher.source_coverage)
 
-        # Step 7: Output
+        # Step 8: Output
         if output_path:
             self.renderer.save(brief_with_coverage, output_path)
         else:

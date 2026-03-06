@@ -1,8 +1,8 @@
 """Summarizer module for the Brief Generator.
 
 Handles Gemini CLI interaction and prompt assembly. Takes pre-fetched
-content sections and a template, assembles a complete prompt, and
-invokes Gemini CLI for summarization.
+content sections and editorial instructions, assembles a complete prompt,
+and invokes Gemini CLI for summarization.
 """
 
 import logging
@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 
 class Summarizer:
-    """Builds prompts from fetched content + template and runs Gemini CLI."""
+    """Builds prompts from fetched content + editorial instructions and runs Gemini CLI."""
 
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
@@ -53,68 +53,33 @@ class Summarizer:
 
         return "Error: Gemini CLI failed after all retry attempts"
 
-    def _build_portfolio_context(self) -> str:
-        """Build portfolio context block for the prompt, if holdings/watchlist exist."""
-        holdings = self.config.get('portfolio_holdings', {})
-        watchlist = self.config.get('watchlist', {})
-        if not holdings and not watchlist:
-            return ''
-
-        lines = ['## PORTFOLIO CONTEXT (use this to prioritize and contextualize stories):\n']
-        if holdings:
-            lines.append('### Current Holdings:')
-            all_tickers = []
-            for sector, tickers in holdings.items():
-                lines.append(f'- **{sector}:** {", ".join(tickers)}')
-                all_tickers.extend(tickers)
-            lines.append(f'\nTotal positions: {len(all_tickers)} tickers across {len(holdings)} sectors.\n')
-        if watchlist:
-            lines.append('### Watchlist:')
-            if watchlist.get('tickers'):
-                lines.append(f'- **Tickers:** {", ".join(watchlist["tickers"])}')
-            if watchlist.get('themes'):
-                lines.append(f'- **Themes:** {", ".join(watchlist["themes"])}')
-            lines.append('')
-        lines.append(
-            'INSTRUCTIONS FOR PORTFOLIO CONTEXT:\n'
-            '1. In the "Portfolio Impact" section, identify which stories from the data above '
-            'directly affect the held tickers or sectors. Map each story to specific holdings.\n'
-            '2. In the "Watchlist Alerts" section, flag any stories relevant to watchlist '
-            'tickers or themes. Explain why they matter for potential entry/exit decisions.\n'
-            '3. When ranking "Top Stories", prioritize stories that affect held positions.\n'
-            '4. If no stories affect a holding or watchlist item, do not fabricate relevance.\n'
-        )
-        lines.append('---\n')
-        return '\n'.join(lines)
-
-    def build_prompt(self, content_sections: Dict[str, str], filled_template: str,
-                     context: dict) -> str:
-        """Assemble the full Gemini prompt from content sections, template, and context.
+    def build_prompt(self, content_sections: Dict[str, str],
+                     editorial_instructions: str, context: dict) -> str:
+        """Assemble the full Gemini prompt from content sections and editorial instructions.
 
         Args:
             content_sections: Dict with keys 'rss', 'arxiv', 'hackernews', 'github', 'web'
                               containing formatted text for each source.
-            filled_template: The output format template with placeholders already filled.
+            editorial_instructions: The editorial/analytical instructions loaded from
+                                    the prompt file (what to prioritize, how to judge content).
             context: Dict with keys:
                 - twitter_accounts: List[str]
                 - unfetched_web: List[str] — web source names that couldn't be fetched
                 - failed_note: str — note about unreachable RSS sources (or empty)
+                - portfolio_context: str — portfolio holdings/watchlist block (or empty)
+                - output_format: str — the filled output format template for structural reference
         """
         twitter_accounts = context.get('twitter_accounts', [])
         unfetched_web = context.get('unfetched_web', [])
         failed_note = context.get('failed_note', '')
-
-        # Build portfolio context block (only if holdings or watchlist exist in config)
-        portfolio_context = self._build_portfolio_context()
+        portfolio_context = context.get('portfolio_context', '')
+        output_format = context.get('output_format', '')
 
         prompt = f"""You are a summarizer. All content below has been PRE-FETCHED by a separate process and is ready for you to summarize.
-Your job is to organize and summarize this pre-fetched content into a structured daily brief.
 
-IMPORTANT RULES:
-1. USE ONLY the pre-fetched content provided in the sections below. Do NOT search the web for articles, arXiv papers, Hacker News stories, or GitHub repos — all of that content has already been gathered for you.
-2. For Twitter/X accounts only: use your web search capability to find recent tweets. Only include tweets you can actually find. If you find nothing, write "No updates found."
-3. Do NOT fabricate URLs, titles, or content. Every item must come from the pre-fetched data provided below or from a verified Twitter/X web search.
-4. It is better to have a shorter brief with all real content than a longer brief with fabricated entries.{failed_note}
+IMPORTANT: USE ONLY the pre-fetched content provided in the sections below. Do NOT search the web for articles, arXiv papers, Hacker News stories, or GitHub repos — all of that content has already been gathered for you.
+For Twitter/X accounts only: use your web search capability to find recent tweets.
+Do NOT fabricate URLs, titles, or content. It is better to have a shorter brief with all real content than a longer brief with fabricated entries.{failed_note}
 
 ---
 
@@ -139,33 +104,34 @@ IMPORTANT RULES:
 
 ## TWITTER/X SOURCES (use Gemini web search for these only):
 
-### Twitter/X Thought Leaders ({len(twitter_accounts)} accounts):
+### Twitter/X Accounts ({len(twitter_accounts)}):
 {chr(10).join([f'- @{acc}' for acc in twitter_accounts]) if twitter_accounts else 'No Twitter/X accounts configured.'}
 Search for tweets from the past 24-48 hours. Only include tweets you actually find via web search.
 
 {f"### Unavailable Web Sources (fetch failed — omit from brief):{chr(10)}{chr(10).join([f'- {name}' for name in unfetched_web])}" if unfetched_web else ''}
 ---
 {portfolio_context}
-## OUTPUT FORMAT:
+## EDITORIAL INSTRUCTIONS:
+
+{editorial_instructions}
+
+---
+
+## OUTPUT FORMAT REFERENCE:
+
+Use this as a structural reference for the markdown format of your output.
+You have editorial freedom to omit empty sections or merge related items,
+but follow this general structure and formatting style:
 
 ```markdown
-{filled_template}
+{output_format}
 ```
-
-ACCURACY REQUIREMENTS:
-1. Every item MUST have a real URL from the data provided above or from your web search
-2. For arXiv papers: use the exact arXiv IDs and URLs provided — do NOT modify them
-3. For HN stories: use the exact URLs and scores provided
-4. For GitHub repos: use the exact repo names and URLs provided
-5. For RSS articles: use the exact titles and URLs provided
-6. For Twitter: only include tweets you verified via web search
-7. If a section has no content, keep the header and write "No verified updates for this section today"
 """
         return prompt
 
-    def summarize(self, content_sections: Dict[str, str], filled_template: str,
-                  context: dict) -> str:
+    def summarize(self, content_sections: Dict[str, str],
+                  editorial_instructions: str, context: dict) -> str:
         """Build prompt and run Gemini to generate the summary."""
-        prompt = self.build_prompt(content_sections, filled_template, context)
+        prompt = self.build_prompt(content_sections, editorial_instructions, context)
         self.logger.info("Sending pre-fetched content to Gemini for summarization...")
         return self.run_gemini(prompt)

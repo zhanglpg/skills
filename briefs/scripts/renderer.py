@@ -1,17 +1,19 @@
 """Renderer module for the Brief Generator.
 
 Handles template loading, placeholder substitution, output validation,
-source coverage reporting, and file output.
+source coverage reporting, and file output. This module owns the output
+format — it never contains LLM instructions or editorial logic.
 """
 
 import logging
 import os
+import re
 from string import Template
 from typing import Dict, List, Optional
 
 
 class BriefRenderer:
-    """Loads templates, validates briefs, and assembles final output."""
+    """Loads format templates, validates briefs, and assembles final output."""
 
     def __init__(self, config: dict, logger: logging.Logger):
         self.config = config
@@ -39,21 +41,49 @@ class BriefRenderer:
         t = Template(template)
         return t.safe_substitute(variables)
 
-    def validate_brief(self, brief: str) -> bool:
-        """Check that the brief has required structural elements."""
-        required_sections = ['#', '##', 'http']
-        source_indicators = ['Twitter', 'Newsletter', 'Lab', 'Research', 'arXiv', 'Hacker News', 'GitHub']
-        found_sources = sum(1 for indicator in source_indicators if indicator in brief)
+    def extract_sections(self, template: str) -> List[str]:
+        """Extract expected section names from a format template.
 
-        for section in required_sections:
-            if section not in brief:
-                self.logger.warning(f"Brief missing required element: {section}")
-                return False
+        Parses ## headings from the template to derive the list of sections
+        the brief should contain, so validation stays in sync with the template.
+        """
+        sections = []
+        for match in re.finditer(r'^## (.+)$', template, re.MULTILINE):
+            # Strip any trailing markdown formatting or parenthetical hints
+            name = match.group(1).strip()
+            sections.append(name)
+        return sections
 
-        if found_sources < 3:
-            self.logger.warning(f"Brief may be missing source coverage (only found {found_sources}/7 indicators)")
+    def validate_brief(self, brief: str, format_template: str) -> bool:
+        """Check that the brief has required structural elements.
 
-        self.logger.info(f"Brief validation passed (found {found_sources}/7 source indicators)")
+        Validates against sections derived from the format template rather
+        than a hardcoded list, so adding/removing template sections automatically
+        updates validation.
+        """
+        # Basic structural checks
+        if '#' not in brief:
+            self.logger.warning("Brief missing required element: headings (#)")
+            return False
+        if 'http' not in brief:
+            self.logger.warning("Brief missing required element: URLs (http)")
+            return False
+
+        # Check section coverage against the format template
+        expected_sections = self.extract_sections(format_template)
+        if not expected_sections:
+            self.logger.warning("Could not extract sections from format template")
+            return True  # Can't validate sections, pass anyway
+
+        found = sum(1 for section in expected_sections if section in brief)
+        total = len(expected_sections)
+        min_required = max(3, total // 2)  # At least half or 3, whichever is larger
+
+        if found < min_required:
+            self.logger.warning(
+                f"Brief may be missing section coverage (found {found}/{total} expected sections)")
+
+        self.logger.info(f"Brief validation passed (found {found}/{total} expected sections)")
         return True
 
     def _format_failed_sources_warning(self, failed_sources: List[Dict]) -> str:
