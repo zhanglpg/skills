@@ -196,38 +196,62 @@ class BriefGenerator:
             template_vars['watchlist_theme_count'] = str(len(watchlist.get('themes', [])))
         filled_format = self.renderer.fill_template(format_template, template_vars)
 
-        # Step 3: Load editorial instructions (summarizer owns this)
+        # Step 3: Load prompt template
         prompt_rel = self.config.get('prompt', 'prompts/ai-tech-brief.md')
         prompt_path = os.path.join(_SKILL_DIR, prompt_rel)
-        editorial_instructions = self.renderer.load_template(prompt_path)
+        prompt_template = self.renderer.load_template(prompt_path)
 
-        # Step 4: Build context for summarizer
+        # Step 4: Build prompt variables (all runtime data the prompt template needs)
+        content_sections = self.fetcher.get_formatted_sections()
+
         web_only = self.config.get('web_only_sources', [])
         fetched_web_names = {p['source'] for p in self.fetcher.fetched_content.get('web_pages', [])}
         unfetched_web = [s['name'] for s in web_only
                          if s.get('category') in ('newsletter', 'ai_lab', 'research_org')
                          and s['name'] not in fetched_web_names]
 
+        # Twitter block
+        if twitter_accounts:
+            twitter_lines = [f"### Twitter/X Accounts ({len(twitter_accounts)}):"]
+            twitter_lines.extend(f'- @{acc}' for acc in twitter_accounts)
+            twitter_lines.append("Search for tweets from the past 24-48 hours. Only include tweets you actually find via web search.")
+            twitter_block = '\n'.join(twitter_lines)
+        else:
+            twitter_block = "No Twitter/X accounts configured."
+
+        # Unavailable web sources block
+        if unfetched_web:
+            unavailable_lines = ["### Unavailable Web Sources (fetch failed — omit from brief):"]
+            unavailable_lines.extend(f'- {name}' for name in unfetched_web)
+            unavailable_web_block = '\n'.join(unavailable_lines)
+        else:
+            unavailable_web_block = ""
+
+        # Failed RSS note
         failed_note = ""
         if failed_sources:
             failed_names = ', '.join(s['name'] for s in failed_sources)
             failed_note = (
-                f"\n\nNOTE: The following RSS sources were UNREACHABLE and have no content available: {failed_names}. "
-                f"Do not include them in the brief."
+                f"\nNOTE: The following RSS sources were UNREACHABLE and have no content "
+                f"available: {failed_names}. Do not include them in the brief."
             )
 
-        context = {
-            'twitter_accounts': twitter_accounts,
-            'unfetched_web': unfetched_web,
-            'failed_note': failed_note,
+        prompt_vars = {
+            'content_rss': content_sections.get('rss', 'No RSS articles collected.'),
+            'content_arxiv': content_sections.get('arxiv', 'No arXiv papers collected.'),
+            'content_hackernews': content_sections.get('hackernews', 'No Hacker News stories collected.'),
+            'content_github': content_sections.get('github', 'No GitHub trending repos collected.'),
+            'content_web': content_sections.get('web', 'No web page content collected.'),
+            'twitter_block': twitter_block,
+            'unavailable_web_block': unavailable_web_block,
             'portfolio_context': self._build_portfolio_context(),
+            'failed_note': failed_note,
             'output_format': filled_format,
         }
 
-        # Step 5: Summarize (LLM gets editorial instructions + content + format reference)
+        # Step 5: Summarize (prompt template + runtime vars → Gemini)
         self.logger.info("\n[6/7] Summarizing pre-fetched content with Gemini CLI...")
-        content_sections = self.fetcher.get_formatted_sections()
-        brief = self.summarizer.summarize(content_sections, editorial_instructions, context)
+        brief = self.summarizer.summarize(prompt_template, prompt_vars)
 
         # Step 6: Validate (renderer checks against format template sections)
         is_valid = self.renderer.validate_brief(brief, format_template)
