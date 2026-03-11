@@ -312,7 +312,6 @@ def main(argv=None):
     # Resolve paths relative to skill directory
     skill_dir = Path(__file__).resolve().parent.parent
     prompt_path = skill_dir / 'prompts' / 'digest-prompt.md'
-    template_path = skill_dir / 'templates' / 'digest-output.md'
 
     logger.info(f"Paper Digest starting — input: {args.paper}")
 
@@ -348,13 +347,6 @@ def main(argv=None):
 
     # Step 3: Build prompt
     prompt_template = load_template(str(prompt_path))
-    output_template = load_template(str(template_path))
-
-    # Fill template placeholders for the output format
-    date_display = datetime.now().strftime("%B %d, %Y")
-    output_format = output_template.replace('$title', title)
-    output_format = output_format.replace('$source', source_label)
-    output_format = output_format.replace('$date_display', date_display)
 
     user_context_text = user_context if user_context else (
         "No specific user context provided. "
@@ -364,7 +356,6 @@ def main(argv=None):
     prompt = build_prompt(prompt_template, {
         'paper_text': paper_text,
         'user_context': user_context_text,
-        'output_format': output_format,
     })
 
     # Step 4: Summarize with Gemini

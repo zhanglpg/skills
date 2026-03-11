@@ -33,15 +33,15 @@ python3 scripts/digest_paper.py paper.pdf --output_dir ~/digests
 
 ## Output Sections
 
-Each digest includes five sections:
+Each digest includes five sections (defined in `prompts/digest-prompt.md`):
 
-| # | Section | Purpose |
-|---|---------|---------|
-| 1 | **Main Idea & Contributions** | Core thesis, novelty, and what the paper adds to the field |
-| 2 | **Key Conclusions & Insights** | Important results, takeaways, and surprising findings |
-| 3 | **Relation to Prior Work** | How this paper builds on, differs from, or extends existing research |
-| 4 | **Personalized Highlights** | What aspects are most relevant to the user's interests and work |
-| 5 | **Further Reading** | Recommended papers, surveys, or resources to explore next |
+1. **Main Idea & Contributions**
+2. **Key Conclusions & Insights**
+3. **Relation to Prior Work**
+4. **Personalized Highlights**
+5. **Further Reading**
+
+See the prompt file for detailed section guidelines.
 
 ## Dependencies
 
@@ -75,31 +75,7 @@ python3 scripts/digest_paper.py paper.pdf --config config.json
 
 ## Output
 
-### Example
-
-```markdown
-# Paper Digest: Attention Is All You Need
-
-**Source:** arxiv:1706.03762
-**Digested:** March 11, 2026
-
-## 1. Main Idea & Contributions
-The paper introduces the Transformer architecture...
-
-## 2. Key Conclusions & Insights
-- Self-attention can replace recurrence entirely...
-- The model achieves state-of-the-art on WMT translation...
-
-## 3. Relation to Prior Work
-Builds on sequence-to-sequence models (Sutskever et al., 2014)...
-
-## 4. Personalized Highlights
-Given your work on LLM agents, the key insight is...
-
-## 5. Further Reading
-- "BERT: Pre-training of Deep Bidirectional Transformers" (Devlin et al., 2019)
-- "Language Models are Few-Shot Learners" (Brown et al., 2020)
-```
+Digests are saved as Markdown files in the output directory. Each file has a metadata header (title, source, date) followed by the five sections above.
 
 ## Testing
 
@@ -140,8 +116,7 @@ pip3 install PyMuPDF
 |------|---------|
 | `scripts/digest_paper.py` | Main script — CLI entry point |
 | `scripts/test_digest_paper.py` | Unit tests |
-| `prompts/digest-prompt.md` | LLM prompt template |
-| `templates/digest-output.md` | Output format template |
+| `prompts/digest-prompt.md` | LLM prompt template (single source of truth for section structure) |
 | `SKILL.md` | This documentation |
 
 ---

@@ -26,7 +26,17 @@ Analyze the paper thoroughly and produce a summary with EXACTLY these five secti
 
 ## Output Format
 
-{output_format}
+Use exactly these markdown headings for your output:
+
+```
+## 1. Main Idea & Contributions
+## 2. Key Conclusions & Insights
+## 3. Relation to Prior Work
+## 4. Personalized Highlights
+## 5. Further Reading
+```
+
+Do NOT include a top-level title, source, or date — those are added automatically.
 
 ## Rules
 
