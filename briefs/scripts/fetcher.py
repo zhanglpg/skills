@@ -46,7 +46,7 @@ class ContentFetcher:
             'github_trending': [],
             'web_pages': [],
         }
-        self.openbb_data: Optional[dict] = None
+        self.extra_data: Optional[dict] = None
 
     # ── Utility ────────────────────────────────────────────────────────
 
@@ -462,29 +462,29 @@ class ContentFetcher:
             )
         return '\n'.join(lines)
 
-    # ── OpenBB Data Loading ──────────────────────────────────────────
+    # ── Extra Data Loading (pre-exported quantitative JSON) ─────────
 
-    def fetch_openbb_data(self) -> Optional[dict]:
-        """Load pre-exported OpenBB quantitative data from JSON.
+    def fetch_extra_data(self) -> Optional[dict]:
+        """Load pre-exported quantitative data from JSON.
 
         Checks staleness: if the data is more than 2 days old, logs an error
         and marks it as stale so the brief can include a warning.
         """
-        openbb_path = self.config.get('openbb_data_path', '')
-        if not openbb_path:
+        data_path = self.config.get('extra_data_path', '')
+        if not data_path:
             return None
 
-        openbb_path = os.path.expanduser(openbb_path)
-        if not os.path.exists(openbb_path):
-            self.logger.warning(f"OpenBB data file not found: {openbb_path}")
+        data_path = os.path.expanduser(data_path)
+        if not os.path.exists(data_path):
+            self.logger.warning(f"Extra data file not found: {data_path}")
             return None
 
         try:
-            with open(openbb_path, 'r') as f:
-                self.openbb_data = json.load(f)
+            with open(data_path, 'r') as f:
+                self.extra_data = json.load(f)
 
-            generated_at = self.openbb_data.get('generated_at', '')
-            self.logger.info(f"OpenBB data loaded from {openbb_path} "
+            generated_at = self.extra_data.get('generated_at', '')
+            self.logger.info(f"Extra data loaded from {data_path} "
                              f"(generated {generated_at})")
 
             # Staleness check: warn if data is more than 2 days old
@@ -493,23 +493,23 @@ class ContentFetcher:
                     gen_time = datetime.fromisoformat(generated_at)
                     age = datetime.now() - gen_time
                     if age > timedelta(days=2):
-                        stale_msg = (f"OpenBB data is STALE ({age.days} days old, "
+                        stale_msg = (f"Extra data is STALE ({age.days} days old, "
                                      f"generated {generated_at}). "
                                      f"Run brief_exporter.py to refresh.")
                         self.logger.error(stale_msg)
-                        self.openbb_data['_stale'] = True
-                        self.openbb_data['_stale_message'] = stale_msg
+                        self.extra_data['_stale'] = True
+                        self.extra_data['_stale_message'] = stale_msg
                 except (ValueError, TypeError) as e:
-                    self.logger.warning(f"Could not parse OpenBB generated_at timestamp: {e}")
+                    self.logger.warning(f"Could not parse generated_at timestamp: {e}")
 
-            return self.openbb_data
+            return self.extra_data
         except Exception as e:
-            self.logger.warning(f"Failed to load OpenBB data: {e}")
+            self.logger.warning(f"Failed to load extra data: {e}")
             return None
 
-    def _format_openbb_for_prompt(self) -> str:
-        """Format OpenBB data as a prompt-ready text block."""
-        data = self.openbb_data
+    def _format_extra_data_for_prompt(self) -> str:
+        """Format extra quantitative data as a prompt-ready text block."""
+        data = self.extra_data
         if not data:
             return ""
 
@@ -636,9 +636,9 @@ class ContentFetcher:
             'github': self._format_github_for_prompt(),
             'web': self._format_web_content_for_prompt(),
         }
-        openbb_text = self._format_openbb_for_prompt()
-        if openbb_text:
-            sections['openbb'] = openbb_text
+        extra_text = self._format_extra_data_for_prompt()
+        if extra_text:
+            sections['extra_data'] = extra_text
         return sections
 
     # ── Full Pipeline ─────────────────────────────────────────────────
@@ -670,9 +670,9 @@ class ContentFetcher:
         self.logger.info("\n[5/6] Fetching web source pages...")
         self.fetch_web_sources_parallel()
 
-        # Step 6: OpenBB quantitative data (if configured)
-        if self.config.get('openbb_data_path'):
-            self.logger.info("\n[6/6] Loading OpenBB quantitative data...")
-            self.fetch_openbb_data()
+        # Step 6: Extra quantitative data (if configured)
+        if self.config.get('extra_data_path'):
+            self.logger.info("\n[6/6] Loading extra quantitative data...")
+            self.fetch_extra_data()
 
         return ok_sources, failed_sources

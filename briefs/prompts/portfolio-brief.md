@@ -22,9 +22,9 @@ and market brief for an active investor.
 
 ---
 
-## OPENBB QUANTITATIVE DATA (pre-computed from local database):
+## QUANTITATIVE DATA (pre-computed from local database):
 
-{content_openbb}
+{content_extra_data}
 
 ---
 
@@ -49,7 +49,7 @@ and market brief for an active investor.
 ### Section Instructions
 
 **Market Snapshot:**
-Summarize overall market conditions. If OpenBB data is available, use the
+Summarize overall market conditions. If quantitative data is available, use the
 Portfolio Price Snapshot table for actual closing prices and change percentages
 for portfolio holdings and ETFs (SPY, QQQ). Include key index levels and moves.
 Provide a 1-2 sentence market sentiment assessment.
@@ -76,15 +76,15 @@ market-relevant commentary. Group related tweets by topic.
 
 **Macro & Economic Data:**
 Cover notable economic releases, Fed commentary, or policy changes. Include
-specific readings/outcomes and impact assessments. If OpenBB Macro Snapshot
+specific readings/outcomes and impact assessments. If the Macro Snapshot
 data is available, incorporate the yield curve status, VIX regime, rate
 direction, and specific indicator values with their recent changes.
 
-**Technical & Risk Dashboard (OpenBB):**
-If OpenBB data is available, add a section summarizing key technical signals
+**Technical & Risk Dashboard:**
+If quantitative data is available, add a section summarizing key technical signals
 (bullish/bearish based on SMA-20), portfolio risk metrics (most volatile
 holdings, correlation), and any quantitative alerts. Use the exact numbers
-from the OpenBB data — do not approximate.
+from the data — do not approximate.
 
 **Sector Movers:**
 Highlight notable sector rotation or moves. Include direction, magnitude,

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for OpenBB data integration in the briefs pipeline.
+"""Tests for extra data (quantitative) integration in the briefs pipeline.
 
 Covers:
-- fetcher.py: fetch_openbb_data(), staleness check, _format_openbb_for_prompt()
-- generate_brief.py: content_openbb wiring, staleness warning in output
+- fetcher.py: fetch_extra_data(), staleness check, _format_extra_data_for_prompt()
+- generate_brief.py: content_extra_data wiring, staleness warning in output
 """
 
 import json
@@ -20,10 +20,10 @@ import fetcher as ft
 import generate_brief as gb
 
 
-# ── Sample OpenBB Data ────────────────────────────────────────────────
+# ── Sample Extra Data ─────────────────────────────────────────────────
 
 
-def _sample_openbb_data(generated_at=None):
+def _sample_extra_data(generated_at=None):
     """Build a sample brief_data.json structure."""
     if generated_at is None:
         generated_at = datetime.now().isoformat()
@@ -85,37 +85,37 @@ def _sample_openbb_data(generated_at=None):
 
 
 # ===================================================================
-# ContentFetcher.fetch_openbb_data
+# ContentFetcher.fetch_extra_data
 # ===================================================================
 
 
-class TestFetchOpenBBData(unittest.TestCase):
-    """Tests for fetcher.ContentFetcher.fetch_openbb_data()."""
+class TestFetchExtraData(unittest.TestCase):
+    """Tests for fetcher.ContentFetcher.fetch_extra_data()."""
 
     def _make_fetcher(self, config=None):
-        logger = logging.getLogger("test_openbb")
+        logger = logging.getLogger("test_extra_data")
         logger.handlers = []
         return ft.ContentFetcher(config or {}, logger)
 
     def test_returns_none_when_no_path_configured(self):
         f = self._make_fetcher({})
-        result = f.fetch_openbb_data()
+        result = f.fetch_extra_data()
         self.assertIsNone(result)
 
     def test_returns_none_when_file_missing(self):
-        f = self._make_fetcher({"openbb_data_path": "/nonexistent/path.json"})
-        result = f.fetch_openbb_data()
+        f = self._make_fetcher({"extra_data_path": "/nonexistent/path.json"})
+        result = f.fetch_extra_data()
         self.assertIsNone(result)
 
     def test_loads_valid_json(self):
-        data = _sample_openbb_data()
+        data = _sample_extra_data()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            result = f.fetch_openbb_data()
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            result = f.fetch_extra_data()
             self.assertIsNotNone(result)
             self.assertEqual(result["date"], data["date"])
             self.assertIsNone(result.get("_stale"))
@@ -123,24 +123,24 @@ class TestFetchOpenBBData(unittest.TestCase):
             os.unlink(tmp_path)
 
     def test_stores_data_on_instance(self):
-        data = _sample_openbb_data()
+        data = _sample_extra_data()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            f.fetch_openbb_data()
-            self.assertIsNotNone(f.openbb_data)
-            self.assertEqual(len(f.openbb_data["portfolio_snapshot"]), 3)
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            f.fetch_extra_data()
+            self.assertIsNotNone(f.extra_data)
+            self.assertEqual(len(f.extra_data["portfolio_snapshot"]), 3)
         finally:
             os.unlink(tmp_path)
 
     def test_expands_tilde_in_path(self):
         """Tilde expansion should work for home directory paths."""
-        f = self._make_fetcher({"openbb_data_path": "~/nonexistent_file.json"})
+        f = self._make_fetcher({"extra_data_path": "~/nonexistent_file.json"})
         # Should not crash, just return None (file doesn't exist)
-        result = f.fetch_openbb_data()
+        result = f.fetch_extra_data()
         self.assertIsNone(result)
 
     def test_handles_corrupt_json(self):
@@ -149,8 +149,8 @@ class TestFetchOpenBBData(unittest.TestCase):
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            result = f.fetch_openbb_data()
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            result = f.fetch_extra_data()
             self.assertIsNone(result)
         finally:
             os.unlink(tmp_path)
@@ -162,7 +162,7 @@ class TestFetchOpenBBData(unittest.TestCase):
 
 
 class TestStalenessCheck(unittest.TestCase):
-    """Tests for the 2-day staleness detection in fetch_openbb_data()."""
+    """Tests for the 2-day staleness detection in fetch_extra_data()."""
 
     def _make_fetcher(self, config=None):
         logger = logging.getLogger("test_stale")
@@ -170,72 +170,72 @@ class TestStalenessCheck(unittest.TestCase):
         return ft.ContentFetcher(config or {}, logger)
 
     def test_fresh_data_not_marked_stale(self):
-        data = _sample_openbb_data(generated_at=datetime.now().isoformat())
+        data = _sample_extra_data(generated_at=datetime.now().isoformat())
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            f.fetch_openbb_data()
-            self.assertFalse(f.openbb_data.get("_stale", False))
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            f.fetch_extra_data()
+            self.assertFalse(f.extra_data.get("_stale", False))
         finally:
             os.unlink(tmp_path)
 
     def test_1_day_old_not_stale(self):
         old_time = (datetime.now() - timedelta(days=1)).isoformat()
-        data = _sample_openbb_data(generated_at=old_time)
+        data = _sample_extra_data(generated_at=old_time)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            f.fetch_openbb_data()
-            self.assertFalse(f.openbb_data.get("_stale", False))
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            f.fetch_extra_data()
+            self.assertFalse(f.extra_data.get("_stale", False))
         finally:
             os.unlink(tmp_path)
 
     def test_3_day_old_is_stale(self):
         old_time = (datetime.now() - timedelta(days=3)).isoformat()
-        data = _sample_openbb_data(generated_at=old_time)
+        data = _sample_extra_data(generated_at=old_time)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            f.fetch_openbb_data()
-            self.assertTrue(f.openbb_data.get("_stale"))
-            self.assertIn("STALE", f.openbb_data.get("_stale_message", ""))
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            f.fetch_extra_data()
+            self.assertTrue(f.extra_data.get("_stale"))
+            self.assertIn("STALE", f.extra_data.get("_stale_message", ""))
         finally:
             os.unlink(tmp_path)
 
     def test_7_day_old_is_stale(self):
         old_time = (datetime.now() - timedelta(days=7)).isoformat()
-        data = _sample_openbb_data(generated_at=old_time)
+        data = _sample_extra_data(generated_at=old_time)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            f.fetch_openbb_data()
-            self.assertTrue(f.openbb_data["_stale"])
-            self.assertIn("7 days", f.openbb_data["_stale_message"])
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            f.fetch_extra_data()
+            self.assertTrue(f.extra_data["_stale"])
+            self.assertIn("7 days", f.extra_data["_stale_message"])
         finally:
             os.unlink(tmp_path)
 
     def test_missing_generated_at_no_crash(self):
-        data = _sample_openbb_data()
+        data = _sample_extra_data()
         del data["generated_at"]
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
-            f = self._make_fetcher({"openbb_data_path": tmp_path})
-            result = f.fetch_openbb_data()
+            f = self._make_fetcher({"extra_data_path": tmp_path})
+            result = f.fetch_extra_data()
             self.assertIsNotNone(result)
             # No crash, no stale flag (can't determine age)
             self.assertFalse(result.get("_stale", False))
@@ -244,29 +244,29 @@ class TestStalenessCheck(unittest.TestCase):
 
 
 # ===================================================================
-# _format_openbb_for_prompt
+# _format_extra_data_for_prompt
 # ===================================================================
 
 
-class TestFormatOpenBBForPrompt(unittest.TestCase):
-    """Tests for fetcher.ContentFetcher._format_openbb_for_prompt()."""
+class TestFormatExtraDataForPrompt(unittest.TestCase):
+    """Tests for fetcher.ContentFetcher._format_extra_data_for_prompt()."""
 
     def _make_fetcher_with_data(self, data=None):
         logger = logging.getLogger("test_format")
         logger.handlers = []
         f = ft.ContentFetcher({}, logger)
-        f.openbb_data = data or _sample_openbb_data()
+        f.extra_data = data or _sample_extra_data()
         return f
 
     def test_empty_data_returns_empty_string(self):
         logger = logging.getLogger("test_format")
         f = ft.ContentFetcher({}, logger)
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertEqual(result, "")
 
     def test_contains_portfolio_snapshot_table(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("Portfolio Price Snapshot", result)
         self.assertIn("AAPL", result)
         self.assertIn("NVDA", result)
@@ -274,51 +274,51 @@ class TestFormatOpenBBForPrompt(unittest.TestCase):
 
     def test_contains_technical_signals(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("Technical Signals", result)
         self.assertIn("Bullish", result)
         self.assertIn("Bearish", result)
 
     def test_contains_valuation_screen(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("Valuation Screen", result)
         self.assertIn("28.5", result)  # PE ratio
 
     def test_contains_risk_dashboard(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("Risk Dashboard", result)
         self.assertIn("Most Volatile", result)
         self.assertIn("0.45", result)  # correlation
 
     def test_contains_macro_snapshot(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("Macro Snapshot", result)
         self.assertIn("normal", result)  # yield curve
         self.assertIn("medium", result)  # VIX regime
 
     def test_contains_sec_activity(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("SEC 8-K", result)
         self.assertIn("AAPL", result)
         self.assertIn("Earnings release", result)
 
     def test_contains_alerts(self):
         f = self._make_fetcher_with_data()
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("Quantitative Alerts", result)
         self.assertIn("WARNING", result)
         self.assertIn("NVDA", result)
 
     def test_stale_data_shows_warning(self):
-        data = _sample_openbb_data()
+        data = _sample_extra_data()
         data["_stale"] = True
-        data["_stale_message"] = "OpenBB data is STALE (5 days old)"
+        data["_stale_message"] = "Extra data is STALE (5 days old)"
         f = self._make_fetcher_with_data(data)
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("STALE", result)
         self.assertIn("5 days old", result)
 
@@ -335,61 +335,61 @@ class TestFormatOpenBBForPrompt(unittest.TestCase):
             "alerts": [],
         }
         f = self._make_fetcher_with_data(data)
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         # Should produce empty or minimal output, no crash
         self.assertIsInstance(result, str)
 
     def test_handles_none_values_in_valuation(self):
-        data = _sample_openbb_data()
+        data = _sample_extra_data()
         data["valuation_check"] = [
             {"symbol": "BABA", "pe_ratio": None, "pb_ratio": None,
              "fcf_yield": None, "earnings_yield": None},
         ]
         f = self._make_fetcher_with_data(data)
-        result = f._format_openbb_for_prompt()
+        result = f._format_extra_data_for_prompt()
         self.assertIn("N/A", result)
 
 
 # ===================================================================
-# get_formatted_sections includes openbb
+# get_formatted_sections includes extra_data
 # ===================================================================
 
 
-class TestGetFormattedSectionsWithOpenBB(unittest.TestCase):
-    """Tests that get_formatted_sections() includes openbb when data is loaded."""
+class TestGetFormattedSectionsWithExtraData(unittest.TestCase):
+    """Tests that get_formatted_sections() includes extra_data when data is loaded."""
 
-    def test_includes_openbb_key_when_data_present(self):
+    def test_includes_extra_data_key_when_data_present(self):
         logger = logging.getLogger("test_sections")
         f = ft.ContentFetcher({}, logger)
-        f.openbb_data = _sample_openbb_data()
+        f.extra_data = _sample_extra_data()
         sections = f.get_formatted_sections()
-        self.assertIn("openbb", sections)
-        self.assertIn("AAPL", sections["openbb"])
+        self.assertIn("extra_data", sections)
+        self.assertIn("AAPL", sections["extra_data"])
 
-    def test_excludes_openbb_key_when_no_data(self):
+    def test_excludes_extra_data_key_when_no_data(self):
         logger = logging.getLogger("test_sections")
         f = ft.ContentFetcher({}, logger)
         sections = f.get_formatted_sections()
-        self.assertNotIn("openbb", sections)
+        self.assertNotIn("extra_data", sections)
 
 
 # ===================================================================
-# fetch_all includes openbb step
+# fetch_all includes extra_data step
 # ===================================================================
 
 
-class TestFetchAllWithOpenBB(unittest.TestCase):
-    """Test that fetch_all() calls fetch_openbb_data when configured."""
+class TestFetchAllWithExtraData(unittest.TestCase):
+    """Test that fetch_all() calls fetch_extra_data when configured."""
 
-    def test_fetch_all_calls_openbb_when_configured(self):
-        data = _sample_openbb_data()
+    def test_fetch_all_calls_extra_data_when_configured(self):
+        data = _sample_extra_data()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump(data, tmp)
             tmp_path = tmp.name
 
         try:
             config = {
-                "openbb_data_path": tmp_path,
+                "extra_data_path": tmp_path,
                 "rss_sources": [],
                 "arxiv_categories": [],
                 "web_only_sources": [],
@@ -399,11 +399,11 @@ class TestFetchAllWithOpenBB(unittest.TestCase):
             logger.handlers = []
             f = ft.ContentFetcher(config, logger)
             f.fetch_all()
-            self.assertIsNotNone(f.openbb_data)
+            self.assertIsNotNone(f.extra_data)
         finally:
             os.unlink(tmp_path)
 
-    def test_fetch_all_skips_openbb_when_not_configured(self):
+    def test_fetch_all_skips_extra_data_when_not_configured(self):
         config = {
             "rss_sources": [],
             "arxiv_categories": [],
@@ -414,7 +414,7 @@ class TestFetchAllWithOpenBB(unittest.TestCase):
         logger.handlers = []
         f = ft.ContentFetcher(config, logger)
         f.fetch_all()
-        self.assertIsNone(f.openbb_data)
+        self.assertIsNone(f.extra_data)
 
 
 # ===================================================================
@@ -422,11 +422,11 @@ class TestFetchAllWithOpenBB(unittest.TestCase):
 # ===================================================================
 
 
-class TestBriefGeneratorOpenBBWiring(unittest.TestCase):
-    """Test that generate_brief.py wires openbb data into prompt_vars."""
+class TestBriefGeneratorExtraDataWiring(unittest.TestCase):
+    """Test that generate_brief.py wires extra data into prompt_vars."""
 
-    def test_content_openbb_in_prompt_vars(self):
-        """Verify _build_portfolio_context and content_openbb are wired."""
+    def test_content_extra_data_in_prompt_vars(self):
+        """Verify _build_portfolio_context and content_extra_data are wired."""
         # Create a generator with a temp config
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump({
@@ -442,16 +442,16 @@ class TestBriefGeneratorOpenBBWiring(unittest.TestCase):
 
         try:
             gen = gb.BriefGenerator(config_path=config_path)
-            # Simulate OpenBB data loaded on fetcher
-            gen.fetcher.openbb_data = _sample_openbb_data()
+            # Simulate extra data loaded on fetcher
+            gen.fetcher.extra_data = _sample_extra_data()
 
             sections = gen.fetcher.get_formatted_sections()
-            self.assertIn("openbb", sections)
+            self.assertIn("extra_data", sections)
         finally:
             os.unlink(config_path)
 
     def test_stale_warning_appended_to_output(self):
-        """When openbb data is stale, a DATA WARNING should be appended."""
+        """When extra data is stale, a DATA WARNING should be appended."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
             json.dump({
                 "rss_sources": [],
@@ -466,10 +466,10 @@ class TestBriefGeneratorOpenBBWiring(unittest.TestCase):
 
         try:
             gen = gb.BriefGenerator(config_path=config_path)
-            # Simulate stale OpenBB data
-            gen.fetcher.openbb_data = _sample_openbb_data()
-            gen.fetcher.openbb_data["_stale"] = True
-            gen.fetcher.openbb_data["_stale_message"] = "OpenBB data is STALE (5 days old)"
+            # Simulate stale extra data
+            gen.fetcher.extra_data = _sample_extra_data()
+            gen.fetcher.extra_data["_stale"] = True
+            gen.fetcher.extra_data["_stale_message"] = "Extra data is STALE (5 days old)"
 
             # Mock the summarizer to return a simple brief
             gen.summarizer.summarize = lambda tmpl, vars: "# Test Brief\n\nContent here."
@@ -495,7 +495,7 @@ class TestBriefGeneratorOpenBBWiring(unittest.TestCase):
 
         try:
             gen = gb.BriefGenerator(config_path=config_path)
-            gen.fetcher.openbb_data = _sample_openbb_data()
+            gen.fetcher.extra_data = _sample_extra_data()
             # No _stale flag
 
             gen.summarizer.summarize = lambda tmpl, vars: "# Test Brief\n\nContent here."

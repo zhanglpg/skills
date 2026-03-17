@@ -242,7 +242,7 @@ class BriefGenerator:
             'content_hackernews': content_sections.get('hackernews', 'No Hacker News stories collected.'),
             'content_github': content_sections.get('github', 'No GitHub trending repos collected.'),
             'content_web': content_sections.get('web', 'No web page content collected.'),
-            'content_openbb': content_sections.get('openbb', ''),
+            'content_extra_data': content_sections.get('extra_data', ''),
             'twitter_block': twitter_block,
             'unavailable_web_block': unavailable_web_block,
             'portfolio_context': self._build_portfolio_context(),
@@ -266,12 +266,12 @@ class BriefGenerator:
             self.fetcher.fetched_content,
             self.fetcher.source_coverage)
 
-        # Append OpenBB staleness warning if data is outdated
-        openbb_data = self.fetcher.openbb_data
-        if openbb_data and openbb_data.get('_stale'):
+        # Append staleness warning if extra quantitative data is outdated
+        extra_data = self.fetcher.extra_data
+        if extra_data and extra_data.get('_stale'):
             brief_with_coverage += (
                 "\n\n> **DATA WARNING:** "
-                + openbb_data['_stale_message']
+                + extra_data['_stale_message']
                 + "\n"
             )
 
