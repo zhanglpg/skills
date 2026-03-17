@@ -2,12 +2,11 @@
 
 ## Market Snapshot
 
-| Index | Level | Change |
-|-------|-------|--------|
-| S&P 500 | — | — |
-| Nasdaq Composite | — | — |
-| Dow Jones | — | — |
-| Russell 2000 | — | — |
+| Symbol | Price | Change | Sector |
+|--------|-------|--------|--------|
+| SPY | — | — | US Broad Market |
+| QQQ | — | — | Nasdaq 100 |
+| [other holdings] | — | — | — |
 
 **Market Sentiment:** [1-2 sentence assessment]
 
@@ -31,8 +30,18 @@
 ## Twitter/X Market Commentary
 - **@[handle]:** [Tweet summary] — [Link](url)
 
+## Technical & Risk Dashboard
+- **Bullish:** [Symbols above SMA-20 with positive momentum]
+- **Bearish:** [Symbols below SMA-20 or high drawdown]
+- **Most Volatile:** [Top 3 by daily volatility]
+- **Portfolio Correlation:** [Average pairwise correlation]
+- **Alerts:** [Quantitative threshold-based alerts]
+
 ## Macro & Economic Data
-- **[Indicator/Event]:** [Reading/Outcome] — [Link](url) — Impact assessment
+- **Yield Curve:** [Status — inverted/normal/flat]
+- **VIX Regime:** [Low/Medium/High — value]
+- **Rate Direction:** [Rising/Falling/Stable]
+- **[Indicator/Event]:** [Reading/Outcome] — Impact assessment
 
 ## Sector Movers
 - **[Sector]:** [Direction and magnitude] — [Catalyst] — [Link](url)

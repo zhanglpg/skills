@@ -46,6 +46,7 @@ class ContentFetcher:
             'github_trending': [],
             'web_pages': [],
         }
+        self.openbb_data: Optional[dict] = None
 
     # ── Utility ────────────────────────────────────────────────────────
 
@@ -461,22 +462,191 @@ class ContentFetcher:
             )
         return '\n'.join(lines)
 
+    # ── OpenBB Data Loading ──────────────────────────────────────────
+
+    def fetch_openbb_data(self) -> Optional[dict]:
+        """Load pre-exported OpenBB quantitative data from JSON.
+
+        Checks staleness: if the data is more than 2 days old, logs an error
+        and marks it as stale so the brief can include a warning.
+        """
+        openbb_path = self.config.get('openbb_data_path', '')
+        if not openbb_path:
+            return None
+
+        openbb_path = os.path.expanduser(openbb_path)
+        if not os.path.exists(openbb_path):
+            self.logger.warning(f"OpenBB data file not found: {openbb_path}")
+            return None
+
+        try:
+            with open(openbb_path, 'r') as f:
+                self.openbb_data = json.load(f)
+
+            generated_at = self.openbb_data.get('generated_at', '')
+            self.logger.info(f"OpenBB data loaded from {openbb_path} "
+                             f"(generated {generated_at})")
+
+            # Staleness check: warn if data is more than 2 days old
+            if generated_at:
+                try:
+                    gen_time = datetime.fromisoformat(generated_at)
+                    age = datetime.now() - gen_time
+                    if age > timedelta(days=2):
+                        stale_msg = (f"OpenBB data is STALE ({age.days} days old, "
+                                     f"generated {generated_at}). "
+                                     f"Run brief_exporter.py to refresh.")
+                        self.logger.error(stale_msg)
+                        self.openbb_data['_stale'] = True
+                        self.openbb_data['_stale_message'] = stale_msg
+                except (ValueError, TypeError) as e:
+                    self.logger.warning(f"Could not parse OpenBB generated_at timestamp: {e}")
+
+            return self.openbb_data
+        except Exception as e:
+            self.logger.warning(f"Failed to load OpenBB data: {e}")
+            return None
+
+    def _format_openbb_for_prompt(self) -> str:
+        """Format OpenBB data as a prompt-ready text block."""
+        data = self.openbb_data
+        if not data:
+            return ""
+
+        lines = []
+
+        # Staleness warning
+        if data.get('_stale'):
+            lines.append(f"**WARNING: {data['_stale_message']}**")
+            lines.append("The quantitative data below may be outdated. Note this in the brief.")
+            lines.append("")
+
+        # Portfolio snapshot
+        snapshot = data.get('portfolio_snapshot', [])
+        if snapshot:
+            lines.append("### Portfolio Price Snapshot (latest close)")
+            lines.append("| Symbol | Sector | Price | Change % | Volume |")
+            lines.append("|--------|--------|-------|----------|--------|")
+            for s in sorted(snapshot, key=lambda x: x.get('symbol', '')):
+                chg = f"{s['change_pct']:+.2f}%" if s.get('change_pct') is not None else "N/A"
+                vol = f"{s.get('volume', 0):,.0f}" if s.get('volume') else "N/A"
+                lines.append(f"| {s['symbol']} | {s.get('sector', '')} | ${s.get('price', 0):.2f} | {chg} | {vol} |")
+            lines.append("")
+
+        # Technical signals
+        technicals = data.get('technical_signals', {})
+        if technicals:
+            bullish = []
+            bearish = []
+            for sym, t in technicals.items():
+                if t.get('error'):
+                    continue
+                label = f"{sym} (SMA-20: {t.get('price_vs_sma20', '?')}, return: {t.get('total_return_pct', 0):.1f}%, drawdown: {t.get('max_drawdown_pct', 0):.1f}%)"
+                if t.get('price_vs_sma20') == 'above':
+                    bullish.append(label)
+                else:
+                    bearish.append(label)
+            lines.append("### Technical Signals")
+            if bullish:
+                lines.append(f"**Bullish (above SMA-20):** {', '.join(sorted(bullish))}")
+            if bearish:
+                lines.append(f"**Bearish (below SMA-20):** {', '.join(sorted(bearish))}")
+            lines.append("")
+
+        # Valuation check
+        valuations = data.get('valuation_check', [])
+        if valuations:
+            lines.append("### Valuation Screen")
+            lines.append("| Symbol | PE | PB | FCF Yield | Earnings Yield |")
+            lines.append("|--------|----|----|-----------|----------------|")
+            for v in valuations[:15]:
+                pe = f"{v['pe_ratio']:.1f}" if v.get('pe_ratio') else "N/A"
+                pb = f"{v['pb_ratio']:.1f}" if v.get('pb_ratio') else "N/A"
+                fcf = f"{v['fcf_yield']:.1f}%" if v.get('fcf_yield') else "N/A"
+                ey = f"{v['earnings_yield']:.1f}%" if v.get('earnings_yield') else "N/A"
+                lines.append(f"| {v['symbol']} | {pe} | {pb} | {fcf} | {ey} |")
+            lines.append("")
+
+        # Risk dashboard
+        risk = data.get('risk_dashboard', {})
+        if risk:
+            lines.append("### Risk Dashboard")
+            portfolio = risk.get('portfolio', {})
+            if portfolio:
+                corr = portfolio.get('avg_pairwise_correlation')
+                if corr is not None:
+                    lines.append(f"- **Avg Pairwise Correlation:** {corr:.2f}")
+            most_vol = risk.get('most_volatile_3', [])
+            if most_vol:
+                lines.append(f"- **Most Volatile:** {', '.join(most_vol)}")
+            least_vol = risk.get('least_volatile_3', [])
+            if least_vol:
+                lines.append(f"- **Least Volatile:** {', '.join(least_vol)}")
+            lines.append("")
+
+        # Macro snapshot
+        macro = data.get('macro_snapshot', {})
+        if macro:
+            lines.append("### Macro Snapshot")
+            yc = macro.get('yield_curve_status')
+            if yc:
+                lines.append(f"- **Yield Curve:** {yc}")
+            vix = macro.get('vix_regime')
+            if vix:
+                lines.append(f"- **VIX Regime:** {vix}")
+            rate_dir = macro.get('rate_direction')
+            if rate_dir:
+                lines.append(f"- **Rate Direction:** {rate_dir}")
+            indicators = macro.get('indicators', [])
+            for ind in indicators:
+                val = ind.get('latest_value')
+                if val is not None:
+                    chg_1m = ind.get('change_1m')
+                    chg_str = f" (1m change: {chg_1m:+.2f})" if chg_1m is not None else ""
+                    lines.append(f"- **{ind['series_id']}:** {val:.2f}{chg_str}")
+            lines.append("")
+
+        # SEC activity
+        sec = data.get('sec_activity', {})
+        recent_8k = sec.get('recent_8k_activity', [])
+        if recent_8k:
+            lines.append("### Recent SEC 8-K Filings")
+            for filing in recent_8k[:5]:
+                desc = filing.get('description', 'N/A')
+                lines.append(f"- **{filing['symbol']}** ({filing.get('filing_date', '?')}): {desc}")
+            lines.append("")
+
+        # Alerts
+        alerts = data.get('alerts', [])
+        if alerts:
+            lines.append("### Quantitative Alerts")
+            for a in alerts:
+                sev = a.get('severity', 'info').upper()
+                lines.append(f"- [{sev}] {a.get('message', '')}")
+            lines.append("")
+
+        return '\n'.join(lines)
+
     def get_formatted_sections(self) -> Dict[str, str]:
         """Return all formatted content sections as a dict."""
-        return {
+        sections = {
             'rss': self._format_rss_articles_for_prompt(),
             'arxiv': self._format_arxiv_for_prompt(),
             'hackernews': self._format_hackernews_for_prompt(),
             'github': self._format_github_for_prompt(),
             'web': self._format_web_content_for_prompt(),
         }
+        openbb_text = self._format_openbb_for_prompt()
+        if openbb_text:
+            sections['openbb'] = openbb_text
+        return sections
 
     # ── Full Pipeline ─────────────────────────────────────────────────
 
     def fetch_all(self) -> Tuple[List[Dict], List[Dict]]:
         """Run the complete fetch pipeline. Returns (ok_sources, failed_sources)."""
         # Step 1: RSS feeds
-        self.logger.info("\n[1/5] Fetching and parsing RSS feeds...")
+        self.logger.info("\n[1/6] Fetching and parsing RSS feeds...")
         ok_sources, failed_sources = self.check_and_fetch_rss()
         self.failed_sources = failed_sources
         if failed_sources:
@@ -484,9 +654,9 @@ class ContentFetcher:
             self.logger.warning(f"Unreachable RSS sources: {', '.join(failed_names)}")
 
         # Steps 2-4: APIs in parallel
-        self.logger.info("\n[2/5] Fetching arXiv papers via API...")
-        self.logger.info("[3/5] Fetching Hacker News top stories via API...")
-        self.logger.info("[4/5] Fetching GitHub trending via API...")
+        self.logger.info("\n[2/6] Fetching arXiv papers via API...")
+        self.logger.info("[3/6] Fetching Hacker News top stories via API...")
+        self.logger.info("[4/6] Fetching GitHub trending via API...")
 
         with ThreadPoolExecutor(max_workers=3) as pool:
             arxiv_future = pool.submit(self.fetch_arxiv_papers)
@@ -497,7 +667,12 @@ class ContentFetcher:
             gh_future.result()
 
         # Step 5: Web pages
-        self.logger.info("\n[5/5] Fetching web source pages...")
+        self.logger.info("\n[5/6] Fetching web source pages...")
         self.fetch_web_sources_parallel()
+
+        # Step 6: OpenBB quantitative data (if configured)
+        if self.config.get('openbb_data_path'):
+            self.logger.info("\n[6/6] Loading OpenBB quantitative data...")
+            self.fetch_openbb_data()
 
         return ok_sources, failed_sources

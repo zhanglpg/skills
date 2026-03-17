@@ -1,7 +1,7 @@
 # Portfolio Brief - Complete Source List
 
 **Last Updated:** March 6, 2026
-**Portfolio:** GOOG, NVDA, TSMC, BABA, SPY, FXI, KWEB
+**Portfolio:** GOOGL, NVDA, TSMC, BABA, SPY, FXI, KWEB
 
 ---
 
@@ -79,7 +79,7 @@
 | IC Insights | https://icinsights.com | Semiconductor market data |
 | TrendForce | https://trendforce.com | DRAM/foundry reports |
 
-### GOOG (Alphabet/Google)
+### GOOGL (Alphabet/Google)
 | Source | URL | Type |
 |--------|-----|------|
 | Alphabet Investor Relations | https://abc.xyz/investor | Official IR |
