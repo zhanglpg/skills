@@ -1,14 +1,23 @@
-# OpenBB Hourly Sync Skill
-
-**Type:** Automation script  
-**Trigger:** OpenClaw cron job (hourly)  
-**Location:** `~/.openclaw/skills/custom/openbb-sync/`
-
+---
+name: openbb-sync
+description: "Sync OpenBB repo from GitHub, rerun data pipeline on changes, restart and verify the dashboard, and report to Discord. Use for automated repo sync, pipeline refresh, and dashboard restart workflows."
 ---
 
-## What It Does
+# OpenBB Sync Skill
 
-Automated hourly sync for the OpenBB dashboard:
+Pull the OpenBB repo, rerun the data pipeline when changes are detected, restart the dashboard, and report results to Discord. **Silent by default** — only reports when there's something to report.
+
+## Quick Start
+
+```bash
+# Run manually
+bash ~/.openclaw/skills/custom/openbb-sync/sync.sh
+
+# View logs
+tail -f ~/.openbb_platform/logs/sync.log
+```
+
+## How It Works
 
 1. **Safety Check:** Skips if you have uncommitted changes (detects active development)
 2. **Sync:** Pulls latest from GitHub
@@ -16,53 +25,6 @@ Automated hourly sync for the OpenBB dashboard:
 4. **Restart:** Restarts dashboard via launchctl
 5. **Verify:** Confirms HTTP 200
 6. **Report:** Discord message only if changes detected
-
-**Silent by default** — only reports when there's something to report.
-
----
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| `hourly_sync.sh` | Main sync script |
-| `README.md` | This file |
-| `logs/hourly_sync.log` | Sync logs (created on first run) |
-
-**Note:** Script moved from `~/.openbb_platform/scripts/` to OpenClaw skills folder.
-
----
-
-## Manual Execution
-
-```bash
-# Run manually for testing
-bash ~/.openclaw/skills/custom/openbb-sync/hourly_sync.sh
-
-# View logs
-tail -f ~/.openclaw/skills/custom/openbb-sync/logs/hourly_sync.log
-```
-
----
-
-## Cron Job
-
-Managed via OpenClaw cron:
-
-```bash
-# List cron jobs
-openclaw cron list
-
-# Run now (test)
-openclaw cron run openbb-hourly-sync
-
-# View job details
-openclaw cron list | grep openbb
-```
-
-**Schedule:** Every hour at `:00` (Asia/Shanghai timezone)
-
----
 
 ## Safety Features
 
@@ -73,15 +35,41 @@ openclaw cron list | grep openbb
 | Pipeline fails | Report error to Discord |
 | Dashboard fails health check | Report warning to Discord |
 
----
+## Configuration
+
+Variables at the top of `sync.sh`:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OPENBB_DIR` | `$HOME/.openbb_platform` | OpenBB platform directory |
+| `DISCORD_CHANNEL` | `channel:1478375151270887577` | Discord channel for reports |
+| `DASHBOARD_URL` | `http://localhost:8501` | Dashboard health check URL |
+
+## Dependencies
+
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| bash | Script runtime | |
+| git | Repo sync | |
+| python 3 | Pipeline execution | Via venv at `$OPENBB_DIR/.venv` |
+| curl | Health check | |
+| launchctl | Dashboard restart | macOS-specific; adjust for systemd on Linux |
+| openclaw CLI | Discord reporting | Falls back to file queue if unavailable |
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `sync.sh` | Main sync script |
+| `SKILL.md` | This documentation |
 
 ## Logs
 
-**Location:** `~/.openclaw/skills/custom/openbb-sync/logs/hourly_sync.log`
+**Location:** `~/.openbb_platform/logs/sync.log`
 
 **Sample output:**
 ```
-[2026-03-19 16:00:01] === Starting Hourly Sync ===
+[2026-03-19 16:00:01] === Starting Sync ===
 [2026-03-19 16:00:01] Checking for uncommitted changes...
 [2026-03-19 16:00:01] ✅ No uncommitted changes. Proceeding with sync.
 [2026-03-19 16:00:01] Syncing OpenBB repo...
@@ -89,18 +77,15 @@ openclaw cron list | grep openbb
 [2026-03-19 16:00:03] Running data pipeline...
 [2026-03-19 16:01:45] Pipeline completed successfully
 [2026-03-19 16:01:45] Restarting dashboard server...
-[2026-03-19 16:01:53] Verifying dashboard server...
 [2026-03-19 16:01:53] ✅ Dashboard verified (HTTP 200)
-[2026-03-19 16:01:53] Sending update report to Discord...
-[2026-03-19 16:01:53] === Hourly Sync Complete ===
+[2026-03-19 16:01:53] === Sync Complete ===
 ```
 
----
+## Troubleshooting
 
-## Cron Job ID
-
-`790ae0f8-ed04-4121-9058-8922ff5c80a6`
-
----
-
-*Part of OpenClaw Finance Agent workspace*
+| Problem | Solution |
+|---------|----------|
+| Git pull fails | Check network connectivity and remote URL (`git remote -v`) |
+| Pipeline fails | Check `sync.log` for Python errors; verify venv at `$OPENBB_DIR/.venv` |
+| Dashboard health check fails (HTTP != 200) | Verify launchctl service exists: `launchctl list \| grep openclaw` |
+| Discord messages not sending | Verify `openclaw` CLI is installed; messages fall back to `logs/discord_pending.txt` |

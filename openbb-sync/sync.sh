@@ -1,12 +1,12 @@
 #!/bin/bash
-# Hourly OpenBB Sync Script
+# OpenBB Sync Script
 # Syncs repo, reruns pipeline if changes detected, restarts dashboard, verifies & reports
 
 set -e
 
 # Configuration
 OPENBB_DIR="$HOME/.openbb_platform"
-LOG_FILE="$OPENBB_DIR/logs/hourly_sync.log"
+LOG_FILE="$OPENBB_DIR/logs/sync.log"
 DISCORD_CHANNEL="channel:1478375151270887577"
 DASHBOARD_URL="http://localhost:8501"
 
@@ -33,7 +33,7 @@ $message" 2>/dev/null || log "Warning: Could not send Discord message"
     fi
 }
 
-log "=== Starting Hourly Sync ==="
+log "=== Starting Sync ==="
 
 # Step 0: Check for uncommitted local changes (user might be working on code)
 log "Checking for uncommitted changes..."
@@ -89,6 +89,7 @@ log "Pipeline completed successfully"
 
 # Step 4: Restart dashboard
 log "Restarting dashboard server..."
+# macOS-specific: restart dashboard via launchctl. Adjust for systemd on Linux.
 launchctl kickstart -k gui/$(id -u)/com.openclaw.dashboard 2>&1 || true
 sleep 8
 
@@ -105,14 +106,14 @@ fi
 log "✅ Dashboard verified (HTTP $HTTP_STATUS)"
 
 # Step 6: Get pipeline summary for report
-PRICES_COUNT=$(echo "$PIPELINE_OUTPUT" | grep -oP "\d+ rows saved" | head -1 || echo "N/A")
+PRICES_COUNT=$(echo "$PIPELINE_OUTPUT" | grep -oE "[0-9]+ rows saved" | head -1 || echo "N/A")
 ECONOMIC_STATUS=$(echo "$PIPELINE_OUTPUT" | grep -c "rows saved" || echo "0")
 
 # Step 7: Report to Discord
 log "Sending update report to Discord..."
 
 REPORT=$(cat <<EOF
-✅ **OpenBB Hourly Sync Complete**
+✅ **OpenBB Sync Complete**
 
 **Commit:** \`${BEFORE_COMMIT:0:7}\` → \`${AFTER_COMMIT:0:7}\`
 
@@ -131,21 +132,5 @@ EOF
 
 send_discord_alert "🔄 OpenBB Auto-Sync" "$REPORT"
 
-log "=== Hourly Sync Complete ==="
+log "=== Sync Complete ==="
 exit 0
-
-send_discord_alert() {
-    local title="$1"
-    local message="$2"
-    
-    # Use openclaw message tool via CLI if available
-    if command -v openclaw &> /dev/null; then
-        openclaw message send --target "$DISCORD_CHANNEL" --message "**$title**
-
-$message" 2>/dev/null || log "Warning: Could not send Discord message"
-    else
-        # Fallback: write to a file that can be picked up by another process
-        echo "$title: $message" >> "$OPENBB_DIR/logs/discord_pending.txt"
-        log "Discord message queued (openclaw CLI not available)"
-    fi
-}
