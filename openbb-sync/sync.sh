@@ -1,36 +1,25 @@
 #!/bin/bash
 # OpenBB Sync Script
-# Syncs repo, reruns pipeline if changes detected, restarts dashboard, verifies & reports
+# Syncs repo, reruns pipeline if changes detected, restarts dashboard, verifies
+# 
+# Note: This skill does NOT send Discord messages. Reporting is the caller's responsibility.
+# Exit codes:
+#   0 - Success (or no changes/skipped)
+#   1 - Pipeline failed
+#   2 - Dashboard verification failed
 
 set -e
 
 # Configuration
 OPENBB_DIR="$HOME/.openbb_platform"
-LOG_FILE="$OPENBB_DIR/logs/sync.log"
-DISCORD_CHANNEL="channel:1478375151270887577"
+LOG_FILE="$HOME/.openclaw/skills/custom/openbb-sync/logs/sync.log"
 DASHBOARD_URL="http://localhost:8501"
 
 # Ensure log directory exists
-mkdir -p "$OPENBB_DIR/logs"
+mkdir -p "$(dirname "$LOG_FILE")"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
-}
-
-send_discord_alert() {
-    local title="$1"
-    local message="$2"
-    
-    # Use openclaw message tool via CLI if available
-    if command -v openclaw &> /dev/null; then
-        openclaw message send --target "$DISCORD_CHANNEL" --message "**$title**
-
-$message" 2>/dev/null || log "Warning: Could not send Discord message"
-    else
-        # Fallback: write to a file that can be picked up by another process
-        echo "$title: $message" >> "$OPENBB_DIR/logs/discord_pending.txt"
-        log "Discord message queued (openclaw CLI not available)"
-    fi
 }
 
 log "=== Starting Sync ==="
@@ -81,7 +70,6 @@ source "$OPENBB_DIR/.venv/bin/activate"
 log "Running data pipeline..."
 PIPELINE_OUTPUT=$(python src/run_pipeline.py full 2>&1) || {
     log "❌ Pipeline failed!"
-    send_discord_alert "❌ OpenBB Sync Failed" "Pipeline execution failed. Check logs: $LOG_FILE"
     exit 1
 }
 
@@ -99,38 +87,10 @@ HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DASHBOARD_URL" 2>/dev/nul
 
 if [ "$HTTP_STATUS" != "200" ]; then
     log "❌ Dashboard verification failed (HTTP $HTTP_STATUS)"
-    send_discord_alert "❌ OpenBB Sync Warning" "Dashboard restarted but health check failed (HTTP $HTTP_STATUS)"
-    exit 1
+    exit 2
 fi
 
 log "✅ Dashboard verified (HTTP $HTTP_STATUS)"
-
-# Step 6: Get pipeline summary for report
-PRICES_COUNT=$(echo "$PIPELINE_OUTPUT" | grep -oE "[0-9]+ rows saved" | head -1 || echo "N/A")
-ECONOMIC_STATUS=$(echo "$PIPELINE_OUTPUT" | grep -c "rows saved" || echo "0")
-
-# Step 7: Report to Discord
-log "Sending update report to Discord..."
-
-REPORT=$(cat <<EOF
-✅ **OpenBB Sync Complete**
-
-**Commit:** \`${BEFORE_COMMIT:0:7}\` → \`${AFTER_COMMIT:0:7}\`
-
-**Changes:**
-\`\`\`
-$CHANGES_SUMMARY
-\`\`\`
-
-**Pipeline:** ✅ Complete
-**Dashboard:** ✅ Verified (HTTP $HTTP_STATUS)
-**Data Freshness:** 🟢 Just synced
-
-**Timestamp:** $(date '+%Y-%m-%d %H:%M:%S GMT+8')
-EOF
-)
-
-send_discord_alert "🔄 OpenBB Auto-Sync" "$REPORT"
 
 log "=== Sync Complete ==="
 exit 0
