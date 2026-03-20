@@ -1,0 +1,2 @@
+- name: Complexity Accounting
+  uses: zhanglpg/code-complexity-measure@v1.3
