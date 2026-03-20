@@ -17,6 +17,10 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
+# Allow importing shared utilities from the repo root
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from shared.logging_utils import setup_logger as _shared_setup_logger
 from fetcher import ContentFetcher
 from summarizer import Summarizer
 from renderer import BriefRenderer
@@ -82,26 +86,8 @@ class BriefGenerator:
     # ── Setup ──────────────────────────────────────────────────────────
 
     def _setup_logger(self) -> logging.Logger:
-        logger = logging.getLogger('briefs')
-        logger.setLevel(logging.INFO)
-        logger.handlers = []
-
-        try:
-            log_file = self.config.get('log_file', os.path.expanduser('~/briefs/generate.log'))
-            os.makedirs(os.path.dirname(log_file), exist_ok=True)
-            fh = logging.FileHandler(log_file)
-            fh.setLevel(logging.DEBUG)
-            fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-            logger.addHandler(fh)
-        except Exception as e:
-            print(f"Warning: Could not setup file logging: {e}")
-
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(logging.Formatter('%(message)s'))
-        logger.addHandler(ch)
-
-        return logger
+        log_file = self.config.get('log_file', os.path.expanduser('~/briefs/generate.log'))
+        return _shared_setup_logger('briefs', log_file=log_file)
 
     def _load_config(self, config_path: str):
         try:

@@ -33,6 +33,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
+# Allow importing shared utilities from the repo root
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from shared.logging_utils import setup_logger as _shared_setup_logger
+
 # ---------------------------------------------------------------------------
 # PDF text extraction
 # ---------------------------------------------------------------------------
@@ -255,18 +260,11 @@ def save_output(content: str, title: str, output_dir: str) -> Path:
 
 def setup_logger(log_file: Optional[str] = None) -> logging.Logger:
     """Configure logging."""
-    logger = logging.getLogger('paper-digest')
-    logger.setLevel(logging.DEBUG)
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setLevel(logging.INFO)
-    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
-    logger.addHandler(handler)
-    if log_file:
-        fh = logging.FileHandler(os.path.expanduser(log_file))
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
-        logger.addHandler(fh)
-    return logger
+    return _shared_setup_logger(
+        'paper-digest',
+        log_file=log_file,
+        file_format='%(asctime)s %(levelname)s %(message)s',
+    )
 
 
 def parse_args(argv=None):

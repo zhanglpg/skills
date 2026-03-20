@@ -23,34 +23,62 @@ from pathlib import Path
 try:
     import yfinance as yf
 except ImportError:
+    # Prefer installing via: pip install yfinance (or pip install -e .[all] from repo root)
     print("Installing yfinance...")
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "yfinance", "-q"])
     import yfinance as yf
 
-# Configuration
-OUTPUT_DIR = Path.home() / ".openclaw" / "workspace" / "briefs" / "investment" / "hourly-checks"
-STATE_FILE = Path.home() / ".openclaw" / "workspace-finance" / "memory" / "heartbeat-state.json"
-DISCORD_CHANNEL = "1478375151270887577"
+# ── Configuration ─────────────────────────────────────────────────────────
+# Defaults are used when no config.json is present.
 
-# YOUR Portfolio holdings
-# Note: TSMC trades as TSM on NYSE
+_SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DEFAULT_CONFIG_PATH = os.path.join(_SKILL_DIR, 'config.json')
+
+# Default portfolio holdings (Note: TSMC trades as TSM on NYSE)
 PORTFOLIO = {
     "GOOG": {"name": "Alphabet", "sector": "Tech"},
     "NVDA": {"name": "NVIDIA", "sector": "Semiconductors"},
-    "TSM": {"name": "Taiwan Semiconductor", "sector": "Semiconductors"},  # TSMC NYSE ticker
+    "TSM": {"name": "Taiwan Semiconductor", "sector": "Semiconductors"},
     "BABA": {"name": "Alibaba", "sector": "China Internet"},
     "SPY": {"name": "S&P 500 ETF", "sector": "US Broad Market"},
     "FXI": {"name": "China Large-Cap ETF", "sector": "China Indices"},
     "KWEB": {"name": "China Internet ETF", "sector": "China Indices"},
 }
 
-# Interrupt thresholds - PORTFOLIO FOCUSED
+# Default interrupt thresholds
 THRESHOLDS = {
     "portfolio_stock": 5.0,  # % move in YOUR holdings to interrupt
     "portfolio_etf": 3.0,    # % move in your ETFs (SPY, FXI, KWEB)
     "china_exposure": 4.0,   # % move affecting China holdings
 }
+
+OUTPUT_DIR = Path.home() / ".openclaw" / "workspace" / "briefs" / "investment" / "hourly-checks"
+STATE_FILE = Path.home() / ".openclaw" / "workspace-finance" / "memory" / "heartbeat-state.json"
+DISCORD_CHANNEL = "1478375151270887577"
+
+
+def load_config(config_path=None):
+    """Load configuration from JSON file, merging over defaults."""
+    global PORTFOLIO, THRESHOLDS, OUTPUT_DIR, STATE_FILE, DISCORD_CHANNEL
+    path = config_path or _DEFAULT_CONFIG_PATH
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path) as f:
+            cfg = json.load(f)
+        if 'portfolio' in cfg:
+            PORTFOLIO = cfg['portfolio']
+        if 'thresholds' in cfg:
+            THRESHOLDS.update(cfg['thresholds'])
+        if 'output_dir' in cfg:
+            OUTPUT_DIR = Path(os.path.expanduser(cfg['output_dir']))
+        if 'state_file' in cfg:
+            STATE_FILE = Path(os.path.expanduser(cfg['state_file']))
+        if 'discord_channel' in cfg:
+            DISCORD_CHANNEL = cfg['discord_channel']
+    except Exception as e:
+        print(f"Warning: Failed to load config from {path}: {e}")
 
 
 def get_market_data():
@@ -60,27 +88,27 @@ def get_market_data():
     """
     tickers = list(PORTFOLIO.keys())
     holdings = {}
-    
+
     try:
         # Fetch all tickers at once
         data = yf.download(tickers, period="1d", progress=False)
-        
+
         # yfinance returns MultiIndex columns: (Price, Ticker)
         # Available: Close, High, Low, Open, Volume
         # We need to calculate change % from Open/Close or use previous close
-        
+
         for ticker in tickers:
             try:
                 # Get close and open prices
                 close = data[('Close', ticker)].iloc[-1] if len(data) > 0 else None
                 open_price = data[('Open', ticker)].iloc[-1] if len(data) > 0 else None
-                
+
                 # Calculate intraday change %
                 if close is not None and open_price is not None and open_price > 0:
                     change_pct = ((close - open_price) / open_price) * 100
                 else:
                     change_pct = None
-                
+
                 holdings[ticker] = {
                     "price": float(close) if close is not None else None,
                     "change_pct": float(change_pct) if change_pct is not None else None,
@@ -88,11 +116,11 @@ def get_market_data():
                 }
             except Exception as e:
                 holdings[ticker] = {"price": None, "change_pct": None, "open": None, "error": str(e)}
-                
+
     except Exception as e:
         print(f"Warning: Failed to fetch market data: {e}")
         holdings = {ticker: {"price": None, "change_pct": None, "open": None} for ticker in tickers}
-    
+
     return {
         "holdings": holdings,
         "news": [],  # News can be added via RSS/API integration
@@ -104,7 +132,7 @@ def check_significant_events(data):
     """
     Check for PORTFOLIO-RELEVANT events that warrant interrupting the user.
     Only cares about YOUR holdings: GOOG, NVDA, TSM, BABA, SPY, FXI, KWEB
-    
+
     Returns (should_interrupt, events list)
     """
     events = []
@@ -114,18 +142,18 @@ def check_significant_events(data):
     for ticker, holding in data.get("holdings", {}).items():
         if ticker not in PORTFOLIO:
             continue
-        
+
         change = holding.get("change_pct")
         info = PORTFOLIO[ticker]
-        
+
         # Skip if no data
         if change is None:
             continue
-        
+
         # Determine threshold based on whether it's a stock or ETF
         is_etf = ticker in ["SPY", "FXI", "KWEB"]
         threshold = THRESHOLDS["portfolio_etf"] if is_etf else THRESHOLDS["portfolio_stock"]
-        
+
         if abs(change) >= threshold:
             severity = "high" if abs(change) > threshold * 1.5 else "medium"
             events.append({
@@ -143,12 +171,12 @@ def check_significant_events(data):
     for news in data.get("news", []):
         news_sector = news.get("sector")
         news_tickers = news.get("tickers", [])
-        
+
         affects_portfolio = (
             news_sector in your_sectors or
             any(t in PORTFOLIO for t in news_tickers)
         )
-        
+
         if affects_portfolio and news.get("significance") in ["high", "medium"]:
             related = [t for t in news_tickers if t in PORTFOLIO]
             events.append({
@@ -215,15 +243,15 @@ def format_report(data, events):
         holding = data.get("holdings", {}).get(ticker, {})
         price = holding.get("price")
         change = holding.get("change_pct")
-        
+
         # Format display ticker (TSM -> TSMC)
         display_ticker = "TSMC" if ticker == "TSM" else ticker
-        
+
         if price is not None:
             price_str = f"${price:.2f}"
         else:
             price_str = "N/A"
-            
+
         if change is not None:
             change_str = f"{change:+.2f}%"
             # Add color indicator
@@ -235,7 +263,7 @@ def format_report(data, events):
                 change_str = f"⚪ {change_str}"
         else:
             change_str = "N/A (Market Closed?)"
-        
+
         report.append(f"| {display_ticker} | {info['name']} | {info['sector']} | {price_str} | {change_str} |")
 
     return "\n".join(report)
@@ -257,7 +285,7 @@ def update_state(events):
     for ticker in PORTFOLIO.keys():
         display_ticker = "TSMC" if ticker == "TSM" else ticker
         display_holdings.append(display_ticker)
-    
+
     state = {
         "marketMoversCheck": {
             "lastCheck": datetime.now().isoformat(),
@@ -274,7 +302,7 @@ def update_state(events):
 
 
 def main():
-    test_mode = "--test" in sys.argv
+    load_config()
 
     print(f"[{datetime.now().isoformat()}] Starting portfolio check...")
 
@@ -293,7 +321,7 @@ def main():
         report = format_report(data, events)
         filepath = save_report(report, now)
         print(f"Report saved to: {filepath}")
-        
+
         print(f"\n⚠️ PORTFOLIO EVENTS DETECTED ({len(events)}):")
         for event in events:
             if event["type"] == "portfolio_move":

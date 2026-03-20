@@ -120,7 +120,7 @@ class BriefRenderer:
         lines.append(f"- **Hacker News API:** {len(fetched_content.get('hackernews', []))} stories")
         lines.append(f"- **GitHub Search API:** {len(fetched_content.get('github_trending', []))} repos")
         lines.append(f"- **Web page extraction:** {len(fetched_content.get('web_pages', []))} pages")
-        lines.append(f"- **Gemini web search:** Twitter accounts, unfetched web sources")
+        lines.append("- **Gemini web search:** Twitter accounts, unfetched web sources")
         lines.append("")
 
         # Twitter
