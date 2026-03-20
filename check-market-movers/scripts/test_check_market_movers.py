@@ -440,7 +440,7 @@ class TestGetMarketData(unittest.TestCase):
         result = cmm.get_market_data()
         self.assertIn('holdings', result)
         # All holdings should have None values
-        for ticker, holding in result['holdings'].items():
+        for _ticker, holding in result['holdings'].items():
             self.assertIsNone(holding['price'])
             self.assertIsNone(holding['change_pct'])
 

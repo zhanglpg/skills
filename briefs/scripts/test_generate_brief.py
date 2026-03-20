@@ -990,7 +990,7 @@ class TestGenerateBriefContent(unittest.TestCase):
             'rss': 'No RSS articles collected.',
             'twitter_block': '@karpathy',
         }
-        result = self.summarizer.summarize(template, prompt_vars)
+        self.summarizer.summarize(template, prompt_vars)
         mock_gemini.assert_called_once()
         prompt = mock_gemini.call_args[0][0]
         self.assertIn('Summarize:', prompt)
@@ -1794,7 +1794,7 @@ class TestGenerateBriefPipeline(unittest.TestCase):
             mocks['render'].return_value, '/tmp/test-brief.md')
 
     def test_output_logged_when_no_path(self):
-        mocks = self._mock_pipeline()
+        self._mock_pipeline()
         self.gen.generate_brief(output_path=None)
         # Should have logged the output (not saved to file)
         self.gen.logger.info.assert_called()
@@ -1882,6 +1882,98 @@ class TestFormatFailedSourcesWarningExtra(unittest.TestCase):
         result = self.renderer._format_failed_sources_warning(failed)
         for name in ['A', 'B', 'C']:
             self.assertIn(name, result)
+
+
+# ── P2: Tests for trafilatura code path in fetch_web_source ────────────────
+
+class TestFetchWebSourceTrafilatura(unittest.TestCase):
+    """Test the trafilatura-enabled code path in fetch_web_source."""
+
+    def setUp(self):
+        self.fetcher = _make_fetcher()
+
+    @patch.object(ft, '_HAS_TRAFILATURA', True)
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_trafilatura_extracts_content(self, mock_get):
+        mock_get.return_value = '<html><body><p>Long enough content for extraction.</p></body></html>'
+        mock_trafilatura = MagicMock()
+        mock_trafilatura.extract.return_value = 'Extracted via trafilatura with enough chars to pass the length check!!'
+        with patch.dict('sys.modules', {'trafilatura': mock_trafilatura}):
+            # Re-bind the module-level reference
+            original = getattr(ft, 'trafilatura', None)
+            ft.trafilatura = mock_trafilatura
+            try:
+                result = self.fetcher.fetch_web_source('Test', 'https://test.com')
+            finally:
+                if original is not None:
+                    ft.trafilatura = original
+        self.assertIsNotNone(result)
+        self.assertIn('Extracted via trafilatura', result['content'])
+
+    @patch.object(ft, '_HAS_TRAFILATURA', True)
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_trafilatura_returns_none_falls_to_empty(self, mock_get):
+        mock_get.return_value = '<html><body>short</body></html>'
+        mock_trafilatura = MagicMock()
+        mock_trafilatura.extract.return_value = None
+        with patch.dict('sys.modules', {'trafilatura': mock_trafilatura}):
+            original = getattr(ft, 'trafilatura', None)
+            ft.trafilatura = mock_trafilatura
+            try:
+                result = self.fetcher.fetch_web_source('Test', 'https://test.com')
+            finally:
+                if original is not None:
+                    ft.trafilatura = original
+        # None return + empty string < 50 chars → returns None
+        self.assertIsNone(result)
+
+
+# ── P2: Tests for generate_brief main() CLI ───────────────────────────────
+
+class TestMainCLI(unittest.TestCase):
+    """Tests for the main() CLI entry point."""
+
+    @patch.object(gb.BriefGenerator, 'generate_brief', return_value='# Brief')
+    @patch.object(gb.BriefGenerator, '__init__', return_value=None)
+    def test_default_args(self, mock_init, mock_gen):
+        mock_init.return_value = None
+        gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
+        gen_instance.config = gb.DEFAULT_CONFIG.copy()
+        gen_instance.config['output_dir'] = '/tmp/briefs'
+        gen_instance.logger = MagicMock()
+
+        with patch('generate_brief.BriefGenerator', return_value=gen_instance):
+            with patch('sys.argv', ['generate_brief.py']):
+                gb.main()
+        gen_instance.generate_brief.assert_called_once()
+
+    @patch.object(gb.BriefGenerator, 'generate_brief', return_value='# Brief')
+    def test_output_dir_override(self, mock_gen):
+        with patch('sys.argv', ['generate_brief.py', '--output_dir', '/tmp/custom']):
+            with patch.object(gb.BriefGenerator, '__init__', return_value=None):
+                gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
+                gen_instance.config = gb.DEFAULT_CONFIG.copy()
+                gen_instance.config['output_dir'] = '/tmp/briefs'
+                gen_instance.logger = MagicMock()
+                gen_instance.generate_brief = MagicMock(return_value='# Brief')
+
+                with patch('generate_brief.BriefGenerator', return_value=gen_instance):
+                    gb.main()
+                self.assertEqual(gen_instance.config['output_dir'], '/tmp/custom')
+
+    @patch('builtins.print')
+    def test_test_flag_prints_message(self, mock_print):
+        with patch('sys.argv', ['generate_brief.py', '--test']):
+            with patch.object(gb.BriefGenerator, '__init__', return_value=None):
+                gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
+                gen_instance.config = gb.DEFAULT_CONFIG.copy()
+                gen_instance.config['output_dir'] = '/tmp/briefs'
+                gen_instance.logger = MagicMock()
+                gen_instance.generate_brief = MagicMock(return_value='# Brief')
+
+                with patch('generate_brief.BriefGenerator', return_value=gen_instance):
+                    gb.main()
+                mock_print.assert_any_call("Running in test mode...")
 
 
 if __name__ == '__main__':

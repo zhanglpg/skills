@@ -1,0 +1,40 @@
+[project]
+name = "openclaw-skills"
+version = "0.1.0"
+description = "A curated collection of specialized AI agent workflows"
+requires-python = ">=3.10"
+dependencies = [
+    "yfinance>=0.2.0",
+    "pandas>=1.5.0",
+    "PyMuPDF>=1.23.0",
+]
+
+[project.optional-dependencies]
+web = [
+    "httpx>=0.24.0",
+    "trafilatura>=1.6.0",
+]
+dev = [
+    "ruff>=0.4.0",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E731",  # lambda assignment
+    "E402",  # module level import not at top of file (needed for sys.path manipulation)
+    "F401",  # unused imports (some are re-exported intentionally)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["E501", "F811"]
