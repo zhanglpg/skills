@@ -36,14 +36,12 @@ python3 scripts/digest_paper.py paper.pdf --output_dir ~/digests
 **The default prompt template produces generic academic summaries.** For Liping's Obsidian vault, the output should match his personal digest style:
 
 - TL;DR upfront (1-2 sentences, direct conclusion)
-- Voice: 思考型叙述，中英混用，短段落强观点
+- Voice: Narrate with thinking. Clear opinions. 
 - Tables for structured comparisons
 - `[[wikilinks]]` connecting to vault notes
 - Key quotes extracted
-- "值得思考的点" section with personal perspective
+- "Worth thinking" section with personal perspective
 - Obsidian frontmatter at bottom (date, status, tags, categories, related)
-
-See existing digests in `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/notes/gen-notes/digests/` for reference format.
 
 **To use the default academic format**, keep current prompt. **To match Liping's style**, update `prompts/digest-prompt.md` with instructions for the format above.
 
