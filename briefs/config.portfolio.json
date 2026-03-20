@@ -50,7 +50,7 @@
   "fetch_timeout": 15,
   "max_articles": 30,
   "output_dir": "~/.openclaw/workspace/briefs/investment",
-  "log_file": "~/.openclaw/workspace/briefs/investment/generate.log",
+  "log_file": "~/.openclaw/logs/skills/briefs/generate-portfolio.log",
 
   "_comment_template": "Template for daily portfolio/market brief output format.",
   "template": "templates/portfolio-brief.md",

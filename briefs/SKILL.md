@@ -69,7 +69,7 @@ If `httpx`/`trafilatura` are not installed, the script falls back to `urllib` an
   "fetch_timeout": 15,
   "max_articles": 30,
   "output_dir": "~/briefs",
-  "log_file": "~/briefs/generate.log",
+  "log_file": "~/.openclaw/logs/skills/briefs/generate.log",
   "template": "templates/ai-tech-brief.md",
   "brief_title": "Daily Brief"
 }
@@ -152,7 +152,7 @@ python3 scripts/generate_brief.py --test --output_dir /tmp/
 cat /tmp/*-brief.md
 
 # Check logs
-cat ~/briefs/generate.log
+cat ~/.openclaw/logs/skills/briefs/generate.log
 ```
 
 ## Troubleshooting
@@ -168,7 +168,7 @@ cat ~/briefs/generate.log
 The script fetches and parses RSS feeds directly. Check logs:
 
 ```bash
-cat ~/briefs/generate.log
+cat ~/.openclaw/logs/skills/briefs/generate.log
 ```
 
 ### API failures (arXiv, HN, GitHub)

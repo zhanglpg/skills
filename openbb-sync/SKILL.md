@@ -17,7 +17,7 @@ bash ~/.openclaw/skills/custom/openbb-sync/sync.sh
 echo $?  # 0=success, 1=pipeline failed, 2=dashboard failed
 
 # View logs
-tail -f ~/.openclaw/skills/custom/openbb-sync/logs/sync.log
+tail -f ~/.openclaw/logs/skills/openbb-sync/sync.log
 ```
 
 ## How It Works
@@ -54,7 +54,7 @@ Variables at the top of `sync.sh`:
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `OPENBB_DIR` | `$HOME/.openbb_platform` | OpenBB platform directory |
-| `LOG_FILE` | `~/.openclaw/skills/custom/openbb-sync/logs/sync.log` | Log file location |
+| `LOG_FILE` | `~/.openclaw/logs/skills/openbb-sync/sync.log` | Log file location |
 | `DASHBOARD_URL` | `http://localhost:8501` | Dashboard health check URL |
 
 ## Dependencies
@@ -73,11 +73,11 @@ Variables at the top of `sync.sh`:
 |------|---------|
 | `sync.sh` | Main sync script |
 | `SKILL.md` | This documentation |
-| `logs/sync.log` | Sync logs (created on first run) |
+| `~/.openclaw/logs/skills/openbb-sync/sync.log` | Sync logs (created on first run) |
 
 ## Logs
 
-**Location:** `~/.openclaw/skills/custom/openbb-sync/logs/sync.log`
+**Location:** `~/.openclaw/logs/skills/openbb-sync/sync.log`
 
 **Sample output:**
 ```

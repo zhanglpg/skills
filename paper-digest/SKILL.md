@@ -81,7 +81,7 @@ python3 scripts/digest_paper.py paper.pdf --config config.json
   "user_context": "ML researcher working on LLM agents and code generation. Interested in training efficiency, tool use, and reasoning.",
   "output_dir": "~/paper-digests",
   "gemini_timeout": 180,
-  "log_file": "~/paper-digests/digest.log"
+  "log_file": "~/.openclaw/logs/skills/paper-digest/digest.log"
 }
 ```
 

@@ -12,7 +12,7 @@ set -e
 
 # Configuration
 OPENBB_DIR="$HOME/.openbb_platform"
-LOG_FILE="$HOME/.openclaw/skills/custom/openbb-sync/logs/sync.log"
+LOG_FILE="$HOME/.openclaw/logs/skills/openbb-sync/sync.log"
 DASHBOARD_URL="http://localhost:8501"
 
 # Ensure log directory exists

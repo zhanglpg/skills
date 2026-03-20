@@ -303,7 +303,7 @@ def main(argv=None):
     output_dir = os.path.expanduser(output_dir)
     gemini_timeout = args.gemini_timeout or config.get('gemini_timeout', 180)
     user_context = args.user_context or config.get('user_context', '')
-    log_file = args.log_file or config.get('log_file')
+    log_file = args.log_file or config.get('log_file', '~/.openclaw/logs/skills/paper-digest/digest.log')
 
     logger = setup_logger(log_file)
 
