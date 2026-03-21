@@ -31,6 +31,10 @@ jobs:
       - name: Lint with ruff
         run: ruff check .
 
+      - name: Run shared tests
+        run: python -m unittest test_logging_utils -v
+        working-directory: shared
+
       - name: Run briefs tests
         run: python -m unittest test_generate_brief -v
         working-directory: briefs/scripts

@@ -924,6 +924,13 @@ class TestDefaultConfig(unittest.TestCase):
         self.assertEqual(gb.DEFAULT_CONFIG['template'], 'templates/ai-tech-brief.md')
         self.assertEqual(gb.DEFAULT_CONFIG['brief_title'], 'Daily Brief')
 
+    def test_log_file_defaults_to_tmp(self):
+        self.assertTrue(gb.DEFAULT_CONFIG['log_file'].startswith('/tmp/'))
+
+    def test_log_file_config_override(self):
+        gen = _make_generator(config_overrides={'log_file': '/custom/path/brief.log'})
+        self.assertEqual(gen.config['log_file'], '/custom/path/brief.log')
+
 
 class TestGeneratorInit(unittest.TestCase):
     def test_init_creates_sub_components(self):

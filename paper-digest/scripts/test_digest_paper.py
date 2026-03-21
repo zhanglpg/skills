@@ -308,5 +308,50 @@ class TestMainIntegration(unittest.TestCase):
             os.unlink(f.name)
 
 
+class TestLogFileDefault(unittest.TestCase):
+    """Tests for log file path defaults."""
+
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_default_log_file_uses_tmp(self, mock_extract, mock_gemini):
+        mock_extract.return_value = "Paper Title\nContent for testing"
+        mock_gemini.return_value = "## 1. Main Idea\nTest output"
+
+        with patch('digest_paper.setup_logger') as mock_setup:
+            mock_setup.return_value = MagicMock()
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+                f.write(b'fake pdf')
+                f.flush()
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    digest_paper.main([f.name, '--output_dir', tmpdir])
+                os.unlink(f.name)
+            # setup_logger should have been called with the default /tmp path
+            call_args = mock_setup.call_args
+            log_file_arg = call_args[0][0] if call_args[0] else call_args[1].get('log_file')
+            self.assertTrue(log_file_arg.startswith('/tmp/'))
+
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_config_overrides_log_file(self, mock_extract, mock_gemini):
+        mock_extract.return_value = "Paper Title\nContent for testing"
+        mock_gemini.return_value = "## 1. Main Idea\nTest output"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, 'config.json')
+            with open(config_path, 'w') as f:
+                json.dump({'log_file': '/custom/log/path.log'}, f)
+
+            with patch('digest_paper.setup_logger') as mock_setup:
+                mock_setup.return_value = MagicMock()
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as pf:
+                    pf.write(b'fake pdf')
+                    pf.flush()
+                    digest_paper.main([pf.name, '--config', config_path, '--output_dir', tmpdir])
+                    os.unlink(pf.name)
+                call_args = mock_setup.call_args
+                log_file_arg = call_args[0][0] if call_args[0] else call_args[1].get('log_file')
+                self.assertEqual(log_file_arg, '/custom/log/path.log')
+
+
 if __name__ == '__main__':
     unittest.main()

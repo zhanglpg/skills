@@ -485,5 +485,61 @@ class TestMain(unittest.TestCase):
         mock_state.assert_called_once()
 
 
+class TestLoadConfig(unittest.TestCase):
+    """Tests for load_config path handling."""
+
+    def test_output_dir_from_config(self):
+        from pathlib import Path
+        original_output = cmm.OUTPUT_DIR
+        original_state = cmm.STATE_FILE
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump({'output_dir': '/custom/output/dir'}, f)
+                f.flush()
+                cmm.load_config(f.name)
+                self.assertEqual(cmm.OUTPUT_DIR, Path('/custom/output/dir'))
+                os.unlink(f.name)
+        finally:
+            cmm.OUTPUT_DIR = original_output
+            cmm.STATE_FILE = original_state
+
+    def test_state_file_from_config(self):
+        from pathlib import Path
+        original_output = cmm.OUTPUT_DIR
+        original_state = cmm.STATE_FILE
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump({'state_file': '/custom/state.json'}, f)
+                f.flush()
+                cmm.load_config(f.name)
+                self.assertEqual(cmm.STATE_FILE, Path('/custom/state.json'))
+                os.unlink(f.name)
+        finally:
+            cmm.OUTPUT_DIR = original_output
+            cmm.STATE_FILE = original_state
+
+    def test_config_expands_tilde(self):
+        from pathlib import Path
+        original_output = cmm.OUTPUT_DIR
+        original_state = cmm.STATE_FILE
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump({
+                    'output_dir': '~/my-output',
+                    'state_file': '~/my-state.json',
+                }, f)
+                f.flush()
+                cmm.load_config(f.name)
+                # Should be expanded — no tilde in resulting path
+                self.assertNotIn('~', str(cmm.OUTPUT_DIR))
+                self.assertNotIn('~', str(cmm.STATE_FILE))
+                self.assertTrue(str(cmm.OUTPUT_DIR).startswith('/'))
+                self.assertTrue(str(cmm.STATE_FILE).startswith('/'))
+                os.unlink(f.name)
+        finally:
+            cmm.OUTPUT_DIR = original_output
+            cmm.STATE_FILE = original_state
+
+
 if __name__ == '__main__':
     unittest.main()
