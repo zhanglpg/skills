@@ -353,5 +353,44 @@ class TestLogFileDefault(unittest.TestCase):
                 self.assertEqual(log_file_arg, '/custom/log/path.log')
 
 
+class TestOutputDirAgentDataDirDefault(unittest.TestCase):
+    """Test output_dir defaults to /tmp when AGENT_DATA_DIR is unset."""
+
+    @patch.dict(os.environ, {}, clear=True)
+    @patch('digest_paper.setup_logger')
+    @patch('digest_paper.resolve_input')
+    @patch('digest_paper.extract_text_from_pdf')
+    @patch('digest_paper.load_template')
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.save_output')
+    def test_output_dir_defaults_to_tmp_when_agent_data_dir_unset(
+        self, mock_save, mock_gemini, mock_template, mock_extract,
+        mock_resolve, mock_logger
+    ):
+        os.environ.pop('AGENT_DATA_DIR', None)
+        mock_logger.return_value = MagicMock()
+        mock_resolve.return_value = ('/tmp/fake.pdf', 'fake.pdf')
+        mock_extract.return_value = "Title\nfake paper text"
+        mock_template.return_value = "{paper_text}\n{user_context}"
+        mock_gemini.return_value = "# Digest"
+        mock_save.return_value = Path('/tmp/digest.md')
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, 'config.json')
+            with open(config_path, 'w') as f:
+                json.dump({'output_dir': '$AGENT_DATA_DIR/paper-digests'}, f)
+
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as pf:
+                pf.write(b'fake pdf')
+                pf.flush()
+                digest_paper.main([pf.name, '--config', config_path])
+                os.unlink(pf.name)
+
+            # save_output was called with expanded path
+            call_args = mock_save.call_args
+            actual_output_dir = call_args[0][2] if len(call_args[0]) > 2 else call_args[1].get('output_dir')
+            self.assertEqual(actual_output_dir, '/tmp/paper-digests')
+
+
 if __name__ == '__main__':
     unittest.main()

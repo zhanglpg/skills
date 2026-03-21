@@ -20,7 +20,7 @@ from typing import Optional
 # Allow importing shared utilities from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from shared.logging_utils import setup_logger as _shared_setup_logger
+from shared.logging_utils import get_agent_data_dir, setup_logger as _shared_setup_logger
 from fetcher import ContentFetcher
 from summarizer import Summarizer
 from renderer import BriefRenderer
@@ -43,6 +43,7 @@ class BriefGenerator:
         with open(resolved, 'r') as f:
             self.config = json.load(f)
 
+        get_agent_data_dir()  # ensure AGENT_DATA_DIR is set for expandvars
         self.config['output_dir'] = os.path.expanduser(os.path.expandvars(self.config['output_dir']))
         self.config['log_file'] = os.path.expanduser(self.config['log_file'])
         os.makedirs(self.config['output_dir'], exist_ok=True)

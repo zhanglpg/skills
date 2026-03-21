@@ -76,6 +76,8 @@ def load_config(config_path=None):
             PORTFOLIO = cfg['portfolio']
         if 'thresholds' in cfg:
             THRESHOLDS.update(cfg['thresholds'])
+        if 'output_dir' in cfg or 'state_file' in cfg:
+            get_agent_data_dir()  # ensure AGENT_DATA_DIR is set for expandvars
         if 'output_dir' in cfg:
             OUTPUT_DIR = Path(os.path.expanduser(os.path.expandvars(cfg['output_dir'])))
         if 'state_file' in cfg:

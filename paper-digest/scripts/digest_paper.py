@@ -36,7 +36,7 @@ from typing import Optional, Tuple
 # Allow importing shared utilities from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from shared.logging_utils import setup_logger as _shared_setup_logger
+from shared.logging_utils import get_agent_data_dir, setup_logger as _shared_setup_logger
 
 # ---------------------------------------------------------------------------
 # PDF text extraction
@@ -300,6 +300,7 @@ def main(argv=None):
 
     # Merge CLI args over config
     output_dir = args.output_dir or config.get('output_dir', '~/paper-digests')
+    get_agent_data_dir()  # ensure AGENT_DATA_DIR is set for expandvars
     output_dir = os.path.expanduser(os.path.expandvars(output_dir))
     gemini_timeout = args.gemini_timeout or config.get('gemini_timeout', 180)
     user_context = args.user_context or config.get('user_context', '')

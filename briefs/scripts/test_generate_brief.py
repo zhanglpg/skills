@@ -984,6 +984,23 @@ class TestConfigFromFile(unittest.TestCase):
         finally:
             os.unlink(tmp_path)
 
+    @patch.dict(os.environ, {}, clear=True)
+    def test_output_dir_defaults_to_tmp_when_agent_data_dir_unset(self):
+        os.environ.pop('AGENT_DATA_DIR', None)
+        config = _TEST_CONFIG.copy()
+        config['output_dir'] = '$AGENT_DATA_DIR/workspace/briefs'
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(config, f)
+            tmp_path = f.name
+        try:
+            with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+                 patch('os.makedirs'):
+                mock_log.return_value = MagicMock()
+                gen = gb.BriefGenerator(config_path=tmp_path)
+                self.assertEqual(gen.config['output_dir'], '/tmp/workspace/briefs')
+        finally:
+            os.unlink(tmp_path)
+
 
 class TestGeneratorInit(unittest.TestCase):
     def test_init_creates_sub_components(self):
