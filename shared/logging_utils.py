@@ -5,6 +5,11 @@ import os
 from typing import Optional
 
 
+def get_agent_data_dir() -> str:
+    """Return the agent's data directory from AGENT_DATA_DIR env var, defaulting to /tmp."""
+    return os.environ.get('AGENT_DATA_DIR', '/tmp')
+
+
 def setup_logger(
     name: str,
     log_file: Optional[str] = None,

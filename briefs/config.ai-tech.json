@@ -60,8 +60,7 @@
   "rss_check_timeout": 10,
   "fetch_timeout": 15,
   "max_articles": 30,
-  "output_dir": "~/.openclaw/workspace/briefs/ai-tech",
-  "log_file": "~/.openclaw/logs/skills/briefs/generate.log",
+  "output_dir": "/tmp/workspace/briefs/ai-tech",
 
   "_comment_template": "Path to the output format template (relative to skill dir). Create different templates for different briefing purposes.",
   "template": "templates/ai-tech-brief.md",

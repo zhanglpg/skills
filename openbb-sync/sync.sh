@@ -12,7 +12,8 @@ set -e
 
 # Configuration
 OPENBB_DIR="$HOME/.openbb_platform"
-LOG_FILE="$HOME/.openclaw/logs/skills/openbb-sync/sync.log"
+AGENT_DATA_DIR="${AGENT_DATA_DIR:-/tmp}"
+LOG_FILE="$AGENT_DATA_DIR/logs/skills/openbb-sync/sync.log"
 DASHBOARD_URL="http://localhost:8501"
 
 # Ensure log directory exists

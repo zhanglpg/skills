@@ -36,7 +36,7 @@ from typing import Optional, Tuple
 # Allow importing shared utilities from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from shared.logging_utils import setup_logger as _shared_setup_logger
+from shared.logging_utils import setup_logger as _shared_setup_logger, get_agent_data_dir
 
 # ---------------------------------------------------------------------------
 # PDF text extraction
@@ -303,7 +303,7 @@ def main(argv=None):
     output_dir = os.path.expanduser(output_dir)
     gemini_timeout = args.gemini_timeout or config.get('gemini_timeout', 180)
     user_context = args.user_context or config.get('user_context', '')
-    log_file = args.log_file or config.get('log_file', '~/.openclaw/logs/skills/paper-digest/digest.log')
+    log_file = args.log_file or config.get('log_file', os.path.join(get_agent_data_dir(), 'logs', 'skills', 'paper-digest', 'digest.log'))
 
     logger = setup_logger(log_file)
 

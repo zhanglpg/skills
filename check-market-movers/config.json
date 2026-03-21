@@ -15,7 +15,7 @@
   },
   "etf_tickers": ["SPY", "FXI", "KWEB"],
   "china_etf_tickers": ["FXI", "KWEB"],
-  "output_dir": "~/.openclaw/workspace/briefs/investment/hourly-checks",
-  "state_file": "~/.openclaw/workspace-finance/memory/heartbeat-state.json",
+  "output_dir": "/tmp/workspace/briefs/investment/hourly-checks",
+  "state_file": "/tmp/workspace-finance/memory/heartbeat-state.json",
   "discord_channel": "1478375151270887577"
 }

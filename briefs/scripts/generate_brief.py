@@ -20,7 +20,7 @@ from typing import Optional
 # Allow importing shared utilities from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from shared.logging_utils import setup_logger as _shared_setup_logger
+from shared.logging_utils import setup_logger as _shared_setup_logger, get_agent_data_dir
 from fetcher import ContentFetcher
 from summarizer import Summarizer
 from renderer import BriefRenderer
@@ -38,7 +38,7 @@ DEFAULT_CONFIG = {
     'fetch_timeout': 15,
     'max_articles': 30,
     'output_dir': '~/briefs',
-    'log_file': '~/.openclaw/logs/skills/briefs/generate.log',
+    'log_file': os.path.join(get_agent_data_dir(), 'logs', 'skills', 'briefs', 'generate.log'),
     'template': 'templates/ai-tech-brief.md',
     'prompt': 'prompts/ai-tech-brief.md',
     'brief_title': 'Daily Brief',
@@ -86,7 +86,7 @@ class BriefGenerator:
     # ── Setup ──────────────────────────────────────────────────────────
 
     def _setup_logger(self) -> logging.Logger:
-        log_file = self.config.get('log_file', os.path.expanduser('~/.openclaw/logs/skills/briefs/generate.log'))
+        log_file = self.config.get('log_file', os.path.join(get_agent_data_dir(), 'logs', 'skills', 'briefs', 'generate.log'))
         return _shared_setup_logger('briefs', log_file=log_file)
 
     def _load_config(self, config_path: str):

@@ -20,6 +20,11 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
+# Allow importing shared utilities from the repo root
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from shared.logging_utils import get_agent_data_dir
+
 try:
     import yfinance as yf
 except ImportError:
@@ -53,8 +58,8 @@ THRESHOLDS = {
     "china_exposure": 4.0,   # % move affecting China holdings
 }
 
-OUTPUT_DIR = Path.home() / ".openclaw" / "workspace" / "briefs" / "investment" / "hourly-checks"
-STATE_FILE = Path.home() / ".openclaw" / "workspace-finance" / "memory" / "heartbeat-state.json"
+OUTPUT_DIR = Path(get_agent_data_dir()) / "workspace" / "briefs" / "investment" / "hourly-checks"
+STATE_FILE = Path(get_agent_data_dir()) / "workspace-finance" / "memory" / "heartbeat-state.json"
 DISCORD_CHANNEL = "1478375151270887577"
 
 
