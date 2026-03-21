@@ -540,6 +540,26 @@ class TestLoadConfig(unittest.TestCase):
             cmm.OUTPUT_DIR = original_output
             cmm.STATE_FILE = original_state
 
+    @patch.dict(os.environ, {'AGENT_DATA_DIR': '/my/agent/dir'})
+    def test_config_expands_agent_data_dir(self):
+        from pathlib import Path
+        original_output = cmm.OUTPUT_DIR
+        original_state = cmm.STATE_FILE
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump({
+                    'output_dir': '$AGENT_DATA_DIR/workspace/output',
+                    'state_file': '$AGENT_DATA_DIR/state.json',
+                }, f)
+                f.flush()
+                cmm.load_config(f.name)
+                self.assertEqual(cmm.OUTPUT_DIR, Path('/my/agent/dir/workspace/output'))
+                self.assertEqual(cmm.STATE_FILE, Path('/my/agent/dir/state.json'))
+                os.unlink(f.name)
+        finally:
+            cmm.OUTPUT_DIR = original_output
+            cmm.STATE_FILE = original_state
+
 
 if __name__ == '__main__':
     unittest.main()

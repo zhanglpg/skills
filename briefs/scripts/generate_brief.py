@@ -20,29 +20,10 @@ from typing import Optional
 # Allow importing shared utilities from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from shared.logging_utils import setup_logger as _shared_setup_logger, get_agent_data_dir
+from shared.logging_utils import setup_logger as _shared_setup_logger
 from fetcher import ContentFetcher
 from summarizer import Summarizer
 from renderer import BriefRenderer
-
-# Operational defaults — sources live in config.json alongside this script.
-DEFAULT_CONFIG = {
-    'arxiv_categories': ['cs.LG', 'cs.AI', 'cs.SE'],
-    'twitter_accounts': [],
-    'rss_sources': [],
-    'web_only_sources': [],
-    'timezone': 'Asia/Shanghai',
-    'timezone_offset': 8,
-    'gemini_timeout': 180,
-    'rss_check_timeout': 10,
-    'fetch_timeout': 15,
-    'max_articles': 30,
-    'output_dir': '~/briefs',
-    'log_file': os.path.join(get_agent_data_dir(), 'logs', 'skills', 'briefs', 'generate.log'),
-    'template': 'templates/ai-tech-brief.md',
-    'prompt': 'prompts/ai-tech-brief.md',
-    'brief_title': 'Daily Brief',
-}
 
 _SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_CONFIG_PATH = os.path.join(_SKILL_DIR, 'config.ai-tech.json')
@@ -52,32 +33,22 @@ class BriefGenerator:
     """Brief Generator — orchestrates fetch → summarize → render."""
 
     def __init__(self, config_path: Optional[str] = None):
-        self.config = DEFAULT_CONFIG.copy()
-
         # Load config BEFORE setting up logger so the config's log_file path is used
         resolved = config_path or DEFAULT_CONFIG_PATH
-        config_loaded = False
-        config_load_error = None
-        if resolved and os.path.exists(resolved):
-            try:
-                with open(resolved, 'r') as f:
-                    self.config.update(json.load(f))
-                config_loaded = True
-            except Exception as e:
-                config_load_error = e
+        if not resolved or not os.path.exists(resolved):
+            raise FileNotFoundError(
+                f"Config file not found: {resolved}. "
+                "A valid JSON config file is required."
+            )
+        with open(resolved, 'r') as f:
+            self.config = json.load(f)
 
-        self.config['output_dir'] = os.path.expanduser(self.config['output_dir'])
+        self.config['output_dir'] = os.path.expanduser(os.path.expandvars(self.config['output_dir']))
         self.config['log_file'] = os.path.expanduser(self.config['log_file'])
         os.makedirs(self.config['output_dir'], exist_ok=True)
 
         self.logger = self._setup_logger()
-
-        if config_loaded:
-            self.logger.info(f"Loaded config from {resolved}")
-        elif config_load_error:
-            self.logger.error(f"Failed to load config: {config_load_error}")
-        elif not config_path:
-            self.logger.warning(f"No config file found at {DEFAULT_CONFIG_PATH}. Using empty source lists.")
+        self.logger.info(f"Loaded config from {resolved}")
 
         self.fetcher = ContentFetcher(self.config, self.logger)
         self.summarizer = Summarizer(self.config, self.logger)
@@ -86,17 +57,7 @@ class BriefGenerator:
     # ── Setup ──────────────────────────────────────────────────────────
 
     def _setup_logger(self) -> logging.Logger:
-        log_file = self.config.get('log_file', os.path.join(get_agent_data_dir(), 'logs', 'skills', 'briefs', 'generate.log'))
-        return _shared_setup_logger('briefs', log_file=log_file)
-
-    def _load_config(self, config_path: str):
-        try:
-            with open(config_path, 'r') as f:
-                user_config = json.load(f)
-                self.config.update(user_config)
-            self.logger.info(f"Loaded config from {config_path}")
-        except Exception as e:
-            self.logger.error(f"Failed to load config: {e}")
+        return _shared_setup_logger('briefs', log_file=self.config['log_file'])
 
     # ── Utility ────────────────────────────────────────────────────────
 

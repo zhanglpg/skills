@@ -77,9 +77,9 @@ def load_config(config_path=None):
         if 'thresholds' in cfg:
             THRESHOLDS.update(cfg['thresholds'])
         if 'output_dir' in cfg:
-            OUTPUT_DIR = Path(os.path.expanduser(cfg['output_dir']))
+            OUTPUT_DIR = Path(os.path.expanduser(os.path.expandvars(cfg['output_dir'])))
         if 'state_file' in cfg:
-            STATE_FILE = Path(os.path.expanduser(cfg['state_file']))
+            STATE_FILE = Path(os.path.expanduser(os.path.expandvars(cfg['state_file'])))
         if 'discord_channel' in cfg:
             DISCORD_CHANNEL = cfg['discord_channel']
     except Exception as e:

@@ -85,14 +85,45 @@ ARXIV_RESPONSE = """\
 
 MALFORMED_XML = "<not valid xml><><>"
 
+# Minimal config used by test helpers — mirrors what a real config JSON provides.
+_TEST_CONFIG = {
+    'arxiv_categories': ['cs.LG', 'cs.AI', 'cs.SE'],
+    'twitter_accounts': [],
+    'rss_sources': [],
+    'web_only_sources': [],
+    'timezone': 'Asia/Shanghai',
+    'timezone_offset': 8,
+    'gemini_timeout': 180,
+    'rss_check_timeout': 10,
+    'fetch_timeout': 15,
+    'max_articles': 30,
+    'output_dir': '/tmp/briefs',
+    'log_file': '/tmp/logs/skills/briefs/generate.log',
+    'template': 'templates/ai-tech-brief.md',
+    'prompt': 'prompts/ai-tech-brief.md',
+    'brief_title': 'Daily Brief',
+}
+
 
 def _make_generator(config_overrides=None, skip_config_file=True):
     """Helper to create a BriefGenerator without touching the filesystem."""
+    config = _TEST_CONFIG.copy()
+    if config_overrides:
+        config.update(config_overrides)
     with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
          patch('os.makedirs'):
         mock_log.return_value = MagicMock()
         if skip_config_file:
-            gen = gb.BriefGenerator(config_path='/nonexistent/config.json')
+            # Write a temp config file with _TEST_CONFIG
+            with tempfile.NamedTemporaryFile(
+                mode='w', suffix='.json', delete=False
+            ) as f:
+                json.dump(config, f)
+                tmp_path = f.name
+            try:
+                gen = gb.BriefGenerator(config_path=tmp_path)
+            finally:
+                os.unlink(tmp_path)
         else:
             gen = gb.BriefGenerator()
         if config_overrides:
@@ -106,7 +137,7 @@ def _make_generator(config_overrides=None, skip_config_file=True):
 
 def _make_fetcher(config_overrides=None):
     """Helper to create a ContentFetcher with a mock logger."""
-    config = gb.DEFAULT_CONFIG.copy()
+    config = _TEST_CONFIG.copy()
     if config_overrides:
         config.update(config_overrides)
     logger = MagicMock()
@@ -115,7 +146,7 @@ def _make_fetcher(config_overrides=None):
 
 def _make_summarizer(config_overrides=None):
     """Helper to create a Summarizer with a mock logger."""
-    config = gb.DEFAULT_CONFIG.copy()
+    config = _TEST_CONFIG.copy()
     if config_overrides:
         config.update(config_overrides)
     logger = MagicMock()
@@ -124,7 +155,7 @@ def _make_summarizer(config_overrides=None):
 
 def _make_renderer(config_overrides=None):
     """Helper to create a BriefRenderer with a mock logger."""
-    config = gb.DEFAULT_CONFIG.copy()
+    config = _TEST_CONFIG.copy()
     if config_overrides:
         config.update(config_overrides)
     logger = MagicMock()
@@ -884,52 +915,74 @@ class TestSourceCoverageReport(unittest.TestCase):
 
 class TestLoadConfig(unittest.TestCase):
     def test_loads_valid_json(self):
-        gen = _make_generator()
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({'timezone_offset': 5, 'max_articles': 50}, f)
-            f.flush()
-            gen._load_config(f.name)
-        os.unlink(f.name)
+        gen = _make_generator(config_overrides={'timezone_offset': 5, 'max_articles': 50})
         self.assertEqual(gen.config['timezone_offset'], 5)
         self.assertEqual(gen.config['max_articles'], 50)
 
-    def test_invalid_json_does_not_crash(self):
-        gen = _make_generator()
+    def test_invalid_json_raises(self):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             f.write('not json at all {{{')
             f.flush()
-            gen._load_config(f.name)  # Should not raise
-        os.unlink(f.name)
+            tmp_path = f.name
+        try:
+            with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+                 patch('os.makedirs'):
+                mock_log.return_value = MagicMock()
+                with self.assertRaises(json.JSONDecodeError):
+                    gb.BriefGenerator(config_path=tmp_path)
+        finally:
+            os.unlink(tmp_path)
 
-    def test_nonexistent_file_does_not_crash(self):
+    def test_nonexistent_file_raises(self):
+        with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+             patch('os.makedirs'):
+            mock_log.return_value = MagicMock()
+            with self.assertRaises(FileNotFoundError):
+                gb.BriefGenerator(config_path='/nonexistent/path/config.json')
+
+
+class TestConfigFromFile(unittest.TestCase):
+    """Tests for config loading from JSON file."""
+
+    def test_config_values_from_file(self):
         gen = _make_generator()
-        gen._load_config('/nonexistent/path/config.json')  # Should not raise
+        # Values come from _TEST_CONFIG written to a temp file
+        self.assertEqual(gen.config['output_dir'], '/tmp/briefs')
+        self.assertTrue(gen.config['log_file'].startswith('/tmp/'))
 
-
-class TestDefaultConfig(unittest.TestCase):
-    def test_default_config_has_required_keys(self):
-        required = ['arxiv_categories', 'twitter_accounts', 'rss_sources',
-                     'web_only_sources', 'gemini_timeout', 'fetch_timeout',
-                     'output_dir', 'log_file']
-        for key in required:
-            self.assertIn(key, gb.DEFAULT_CONFIG)
-
-    def test_default_config_values(self):
-        self.assertEqual(gb.DEFAULT_CONFIG['arxiv_categories'], ['cs.LG', 'cs.AI', 'cs.SE'])
-        self.assertEqual(gb.DEFAULT_CONFIG['timezone_offset'], 8)
-
-    def test_default_config_has_template_fields(self):
-        self.assertIn('template', gb.DEFAULT_CONFIG)
-        self.assertIn('brief_title', gb.DEFAULT_CONFIG)
-        self.assertEqual(gb.DEFAULT_CONFIG['template'], 'templates/ai-tech-brief.md')
-        self.assertEqual(gb.DEFAULT_CONFIG['brief_title'], 'Daily Brief')
-
-    def test_log_file_defaults_to_tmp(self):
-        self.assertTrue(gb.DEFAULT_CONFIG['log_file'].startswith('/tmp/'))
-
-    def test_log_file_config_override(self):
+    def test_config_override(self):
         gen = _make_generator(config_overrides={'log_file': '/custom/path/brief.log'})
         self.assertEqual(gen.config['log_file'], '/custom/path/brief.log')
+
+    def test_real_config_file_populates_keys(self):
+        gen = _make_generator(skip_config_file=False)
+        # When loading the real config file, these keys should be present
+        self.assertIn('arxiv_categories', gen.config)
+        self.assertIn('output_dir', gen.config)
+        self.assertIn('template', gen.config)
+        self.assertIn('log_file', gen.config)
+
+    @patch.dict(os.environ, {'AGENT_DATA_DIR': '/my/agent'})
+    def test_output_dir_expands_agent_data_dir(self):
+        gen = _make_generator(
+            config_overrides={'output_dir': '$AGENT_DATA_DIR/workspace/briefs'}
+        )
+        # expandvars happens during __init__, but config_overrides are applied
+        # after init — so we verify expandvars works on the real config path
+        # by testing with a fresh generator
+        config = _TEST_CONFIG.copy()
+        config['output_dir'] = '$AGENT_DATA_DIR/workspace/briefs'
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(config, f)
+            tmp_path = f.name
+        try:
+            with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+                 patch('os.makedirs'):
+                mock_log.return_value = MagicMock()
+                gen = gb.BriefGenerator(config_path=tmp_path)
+                self.assertEqual(gen.config['output_dir'], '/my/agent/workspace/briefs')
+        finally:
+            os.unlink(tmp_path)
 
 
 class TestGeneratorInit(unittest.TestCase):
@@ -1945,7 +1998,7 @@ class TestMainCLI(unittest.TestCase):
     def test_default_args(self, mock_init, mock_gen):
         mock_init.return_value = None
         gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
-        gen_instance.config = gb.DEFAULT_CONFIG.copy()
+        gen_instance.config = _TEST_CONFIG.copy()
         gen_instance.config['output_dir'] = '/tmp/briefs'
         gen_instance.logger = MagicMock()
 
@@ -1959,7 +2012,7 @@ class TestMainCLI(unittest.TestCase):
         with patch('sys.argv', ['generate_brief.py', '--output_dir', '/tmp/custom']):
             with patch.object(gb.BriefGenerator, '__init__', return_value=None):
                 gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
-                gen_instance.config = gb.DEFAULT_CONFIG.copy()
+                gen_instance.config = _TEST_CONFIG.copy()
                 gen_instance.config['output_dir'] = '/tmp/briefs'
                 gen_instance.logger = MagicMock()
                 gen_instance.generate_brief = MagicMock(return_value='# Brief')
@@ -1973,7 +2026,7 @@ class TestMainCLI(unittest.TestCase):
         with patch('sys.argv', ['generate_brief.py', '--test']):
             with patch.object(gb.BriefGenerator, '__init__', return_value=None):
                 gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
-                gen_instance.config = gb.DEFAULT_CONFIG.copy()
+                gen_instance.config = _TEST_CONFIG.copy()
                 gen_instance.config['output_dir'] = '/tmp/briefs'
                 gen_instance.logger = MagicMock()
                 gen_instance.generate_brief = MagicMock(return_value='# Brief')

@@ -49,7 +49,8 @@
   "rss_check_timeout": 10,
   "fetch_timeout": 15,
   "max_articles": 30,
-  "output_dir": "/tmp/workspace/briefs/investment",
+  "output_dir": "$AGENT_DATA_DIR/workspace/briefs/investment",
+  "log_file": "/tmp/logs/skills/briefs/generate.log",
 
   "_comment_template": "Template for daily portfolio/market brief output format.",
   "template": "templates/portfolio-brief.md",

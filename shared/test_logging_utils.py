@@ -18,13 +18,32 @@ class TestGetAgentDataDir(unittest.TestCase):
 
     @patch.dict(os.environ, {}, clear=True)
     def test_defaults_to_tmp(self):
-        # Remove AGENT_DATA_DIR if present in the cleared env
         os.environ.pop('AGENT_DATA_DIR', None)
         self.assertEqual(get_agent_data_dir(), '/tmp')
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_sets_env_when_unset(self):
+        os.environ.pop('AGENT_DATA_DIR', None)
+        get_agent_data_dir()
+        self.assertEqual(os.environ['AGENT_DATA_DIR'], '/tmp')
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_warns_when_unset(self):
+        os.environ.pop('AGENT_DATA_DIR', None)
+        with self.assertLogs(level='WARNING') as cm:
+            get_agent_data_dir()
+        self.assertTrue(any('AGENT_DATA_DIR' in msg for msg in cm.output))
 
     @patch.dict(os.environ, {'AGENT_DATA_DIR': '/foo/bar'})
     def test_reads_env_var(self):
         self.assertEqual(get_agent_data_dir(), '/foo/bar')
+
+    @patch.dict(os.environ, {'AGENT_DATA_DIR': '/foo/bar'})
+    def test_no_warning_when_set(self):
+        # Should not produce a warning when AGENT_DATA_DIR is set
+        with self.assertRaises(AssertionError):
+            with self.assertLogs(level='WARNING'):
+                get_agent_data_dir()
 
 
 class TestSetupLogger(unittest.TestCase):
