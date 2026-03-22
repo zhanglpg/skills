@@ -1,2 +1,9 @@
-- name: Complexity Accounting
-  uses: zhanglpg/code-complexity-measure@v1
+name: Complexity Accounting
+on:
+  pull_request:
+
+jobs:
+  complexity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: zhanglpg/code-complexity-measure@v1
