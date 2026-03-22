@@ -67,28 +67,36 @@ is_git_repo() {
 check_uncommitted_changes() {
     local repo_path="$1"
     local check_untracked="$2"
-    
+
     cd "$repo_path" || exit 1
-    
-    # Check for staged and unstaged changes
-    local changes
-    changes=$(git status --porcelain 2>/dev/null)
-    
-    if [ -n "$changes" ]; then
-        echo "$changes"
+
+    # Get all status lines
+    local all_changes
+    all_changes=$(git status --porcelain 2>/dev/null)
+
+    if [ -z "$all_changes" ]; then
+        return 0
+    fi
+
+    # Filter: always check tracked file changes (staged/unstaged)
+    local tracked_changes
+    tracked_changes=$(echo "$all_changes" | grep -v "^??" || true)
+
+    if [ -n "$tracked_changes" ]; then
+        echo "$tracked_changes"
         return 1
     fi
-    
-    # Optionally check for untracked files
+
+    # Only check untracked files if configured
     if [ "$check_untracked" = "true" ]; then
         local untracked
-        untracked=$(git status --porcelain | grep "^??" || true)
+        untracked=$(echo "$all_changes" | grep "^??" || true)
         if [ -n "$untracked" ]; then
             echo "$untracked"
             return 1
         fi
     fi
-    
+
     return 0
 }
 
@@ -313,68 +321,78 @@ check_github_actions() {
     return 0
 }
 
-# Fix broken workflows
+# Fix broken workflows by fetching failure logs and spawning Claude Code
 fix_broken_workflows() {
     local repo_path="$1"
     local remote="$2"
     local branch="$3"
-    local workflow_file="$4"
-    
-    log_info "Attempting to fix broken workflow: $workflow_file"
-    
+
     cd "$repo_path" || exit 1
-    
-    if [ ! -f "$workflow_file" ]; then
-        log_warning "Workflow file not found: $workflow_file"
-        return 0
-    fi
-    
-    # Get recent failed run details
-    local failed_run
-    failed_run=$(gh run list --repo "$remote" --branch "$branch" --status failure --limit 1 --json databaseId,name 2>/dev/null) || {
+
+    # Get recent failed runs with workflow names
+    local failed_runs
+    failed_runs=$(gh run list --repo "$remote" --branch "$branch" --status failure --limit 5 --json databaseId,name,workflowName 2>/dev/null) || {
         log_warning "Failed to fetch failed run details"
         return $ERR_GH_CLI
     }
-    
-    if [ -z "$failed_run" ] || [ "$failed_run" = "null" ] || [ "$failed_run" = "[]" ]; then
+
+    if [ -z "$failed_runs" ] || [ "$failed_runs" = "null" ] || [ "$failed_runs" = "[]" ]; then
         log_info "No failed runs to analyze"
         return 0
     fi
-    
-    local run_id
-    run_id=$(echo "$failed_run" | jq -r '.[0].databaseId' 2>/dev/null)
-    
-    if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-        log_warning "Could not extract run ID"
-        return 0
-    fi
-    
-    # Get failure logs
-    log_info "Analyzing failure from run #$run_id..."
-    
-    # Spawn Claude Code to analyze and fix
-    local prompt="Analyze the following GitHub Actions workflow file and identify potential issues that could cause failures.
 
-Workflow file: $workflow_file
+    # Process each failed run
+    local fixed_any=false
+    echo "$failed_runs" | jq -c '.[]' 2>/dev/null | while read -r run; do
+        local run_id workflow_name
+        run_id=$(echo "$run" | jq -r '.databaseId' 2>/dev/null)
+        workflow_name=$(echo "$run" | jq -r '.workflowName // .name' 2>/dev/null)
 
-Common issues to check:
-1. Syntax errors in YAML
-2. Deprecated actions or versions
-3. Missing required inputs
-4. Incorrect environment variable references
-5. Job dependency issues
-6. Timeout configurations
-7. Runner compatibility
+        if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            continue
+        fi
 
-Please review the workflow and fix any issues found. Make minimal changes to resolve failures."
+        log_info "Analyzing failed run #$run_id ($workflow_name)..."
 
-    local fix_output
-    fix_output=$($CLAUDE_PATH -p "$prompt" --model sonnet --permission-mode acceptEdits 2>&1) || {
-        log_warning "Automated fix failed"
-        return $ERR_CLAUDE
-    }
-    
-    log_success "Workflow fix attempted"
+        # Fetch the actual failure logs
+        local failure_logs
+        failure_logs=$(gh run view "$run_id" --repo "$remote" --log-failed 2>/dev/null | tail -100) || {
+            log_warning "Could not fetch logs for run #$run_id"
+            continue
+        }
+
+        if [ -z "$failure_logs" ]; then
+            failure_logs="(No failure logs available)"
+        fi
+
+        # Spawn Claude Code with both the workflow file and actual failure logs
+        local prompt="A GitHub Actions workflow has failed in this repository.
+
+Repository: $repo_path
+Workflow: $workflow_name
+Failed run ID: $run_id
+
+## Failure logs (last 100 lines):
+$failure_logs
+
+## Task:
+1. Read the relevant workflow file(s) under .github/workflows/
+2. Analyze the failure logs above to understand the root cause
+3. Fix the issue — it may be in the workflow YAML, in the code, or in dependencies
+4. Make minimal changes to resolve the failure
+
+Please fix the issue."
+
+        local fix_output
+        fix_output=$($CLAUDE_PATH -p "$prompt" --model sonnet --permission-mode acceptEdits 2>&1) || {
+            log_warning "Automated fix failed for $workflow_name"
+            continue
+        }
+
+        log_success "Fix attempted for $workflow_name (run #$run_id)"
+        fixed_any=true
+    done
+
     return 0
 }
 
@@ -497,7 +515,7 @@ sanitize_repo() {
     fi
     
     # Commit and push if changes were made
-    if [ "$readme_changes" != "No changes needed" ] && [ "$readme_changes" != "No README present" ]; then
+    if [ "$readme_changes" = "Updated based on code analysis" ]; then
         local commit_prefix
         commit_prefix=$(get_setting "commitPrefix" "docs:")
         commit_and_push "$repo_path" "${commit_prefix} update README to reflect current codebase" "$branch" || {
@@ -518,16 +536,11 @@ sanitize_repo() {
             auto_fix=$(get_setting "autoFixWorkflows" "true")
             if [ "$auto_fix" = "true" ]; then
                 log_info "Attempting to fix broken workflows..."
-                # Discover and fix all workflow files in the repo
-                find "$repo_path/.github/workflows" -name '*.yml' -o -name '*.yaml' 2>/dev/null | while read -r wf; do
-                    fix_broken_workflows "$repo_path" "$remote" "$branch" "$wf" || true
-                    fixes_applied="Attempted fixes for $wf"
-                done
-                
-                # Commit workflow fixes
-                if [ "$fixes_applied" != "None" ]; then
-                    commit_and_push "$repo_path" "fix: resolve workflow issues" "$branch" || true
-                fi
+                fix_broken_workflows "$repo_path" "$remote" "$branch" || true
+                fixes_applied="Attempted fixes"
+
+                # Commit workflow fixes if any changes were made
+                commit_and_push "$repo_path" "fix: resolve workflow issues" "$branch" || true
             fi
         }
         
