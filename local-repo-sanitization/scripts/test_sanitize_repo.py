@@ -620,6 +620,211 @@ class TestCheckTestCoverageInCI(unittest.TestCase):
             )
             self.assertEqual(rc, 0)
 
+    def test_multiple_missing_tests(self):
+        """All missing tests should be reported, not just the first."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_existing -v
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "a/test_existing.py": "import unittest\n",
+            "b/test_alpha.py": "import unittest\n",
+            "c/test_beta.py": "import unittest\n",
+            "d/test_gamma.py": "import unittest\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_alpha.py", out)
+            self.assertIn("test_beta.py", out)
+            self.assertIn("test_gamma.py", out)
+            self.assertNotIn("test_existing", out.split("missing")[0]
+                             if "missing" in out else out)
+
+    def test_test_yml_fallback(self):
+        """Should detect test.yml as alternative workflow name."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_foo -v
+        """)
+        files = {
+            ".github/workflows/test.yml": workflow,
+            "test_foo.py": "import unittest\n",
+            "test_missing.py": "import unittest\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_missing.py", out)
+
+    def test_tests_yml_takes_priority_over_test_yml(self):
+        """tests.yml should be preferred when both exist."""
+        workflow_tests = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_foo -v
+                  - run: python -m unittest test_bar -v
+        """)
+        workflow_test = textwrap.dedent("""\
+            name: Test
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_foo -v
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow_tests,
+            ".github/workflows/test.yml": workflow_test,
+            "test_foo.py": "import unittest\n",
+            "test_bar.py": "import unittest\n",
+        }
+        with TempGitRepo(files) as repo:
+            # tests.yml has both, so all covered
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertEqual(rc, 0)
+
+    def test_multiple_exclusions(self):
+        """Multiple entries in .ci-skip-tests should all be excluded."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: echo "placeholder"
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "test_a.py": "import unittest\n",
+            "test_b.py": "import unittest\n",
+            "test_c.py": "import unittest\n",
+            ".ci-skip-tests": "test_a\ntest_b\ntest_c\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertEqual(rc, 0)
+
+    def test_partial_exclusion(self):
+        """Only excluded tests should be skipped, others still reported."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: echo "placeholder"
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "test_included.py": "import unittest\n",
+            "test_excluded.py": "import unittest\n",
+            ".ci-skip-tests": "test_excluded\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_included.py", out)
+            self.assertNotIn("test_excluded.py", out)
+
+    def test_deeply_nested_test_files(self):
+        """Test files in deeply nested directories should be found."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: echo "placeholder"
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "a/b/c/test_deep.py": "import unittest\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_deep.py", out)
+
+    def test_empty_ci_skip_tests_file(self):
+        """An empty .ci-skip-tests file should not exclude anything."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: echo "placeholder"
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "test_foo.py": "import unittest\n",
+            ".ci-skip-tests": "",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_foo.py", out)
+
+    def test_exclusion_only_matches_exact_module_name(self):
+        """Exclusion should match exact module name, not partial."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: echo "placeholder"
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "test_foo.py": "import unittest\n",
+            "test_foobar.py": "import unittest\n",
+            ".ci-skip-tests": "test_foo\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            # test_foo excluded, but test_foobar should still be missing
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_foobar.py", out)
+
 
 if __name__ == "__main__":
     unittest.main()
