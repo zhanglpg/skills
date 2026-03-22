@@ -66,13 +66,15 @@ If any test files are missing from the workflow:
 
 ### Step 4: Fix broken GitHub Actions
 
-Check recent workflow runs:
+Get the latest run of each workflow:
 
 ```bash
-gh run list --repo <remote> --branch <branch> --limit 5 --json status,conclusion,name,databaseId,workflowName
+gh run list --repo <remote> --branch <branch> --limit 20 --json status,conclusion,name,databaseId,workflowName
 ```
 
-If any runs have `conclusion: "failure"`:
+Group by `workflowName` and take only the most recent run of each. Check whether that latest run has `conclusion: "failure"`.
+
+For each workflow whose latest run is failing:
 1. Fetch the failure logs: `gh run view <databaseId> --repo <remote> --log-failed | tail -100`
 2. Read the relevant workflow file and any code it references
 3. Analyze the root cause from the logs
@@ -81,7 +83,7 @@ If any runs have `conclusion: "failure"`:
 6. Commit: `git commit -m "fix: resolve <workflow_name> failure"`
 7. Push: `git push origin <branch>`
 
-If all workflows are passing, move on.
+If the latest run of every workflow is passing, move on.
 
 ### Step 5: Summary report
 
