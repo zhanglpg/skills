@@ -45,7 +45,8 @@ class BriefGenerator:
 
         get_agent_data_dir()  # ensure AGENT_DATA_DIR is set for expandvars
         self.config['output_dir'] = os.path.expanduser(os.path.expandvars(self.config['output_dir']))
-        self.config['log_file'] = os.path.expanduser(self.config['log_file'])
+        if 'log_file' in self.config:
+            self.config['log_file'] = os.path.expanduser(self.config['log_file'])
         os.makedirs(self.config['output_dir'], exist_ok=True)
 
         self.logger = self._setup_logger()
@@ -58,7 +59,7 @@ class BriefGenerator:
     # ── Setup ──────────────────────────────────────────────────────────
 
     def _setup_logger(self) -> logging.Logger:
-        return _shared_setup_logger('briefs', log_file=self.config['log_file'])
+        return _shared_setup_logger('briefs', log_file=self.config.get('log_file'))
 
     # ── Utility ────────────────────────────────────────────────────────
 
