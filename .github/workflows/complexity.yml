@@ -6,4 +6,6 @@ jobs:
   complexity:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: zhanglpg/code-complexity-measure@v1
