@@ -1,0 +1,79 @@
+{
+  "repos": [
+    {
+      "name": "skills",
+      "path": "~/.openclaw/skills/custom/briefs",
+      "remote": "zhanglpg/skills",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/test.yml"
+      ]
+    },
+    {
+      "name": "agentic-coding-skills",
+      "path": "~/.openclaw/workspace-coding/agentic-coding-skills",
+      "remote": "zhanglpg/agentic-coding-skills",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/lint.yml"
+      ]
+    },
+    {
+      "name": "md-serve",
+      "path": "~/Claudews/md-serve",
+      "remote": "zhanglpg/md-serve",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/build.yml",
+        ".github/workflows/deploy.yml"
+      ]
+    },
+    {
+      "name": "code-complexity-measure",
+      "path": "~/.openclaw/workspace-coding/code-complexity-measure",
+      "remote": "zhanglpg/code-complexity-measure",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "name": "CppTools",
+      "path": "~/.openclaw/workspace-coding/CppTools",
+      "remote": "zhanglpg/CppTools",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/build.yml",
+        ".github/workflows/test.yml"
+      ]
+    },
+    {
+      "name": "miscscripts",
+      "path": "~/.openclaw/workspace-coding/miscscripts",
+      "remote": "zhanglpg/miscscripts",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/lint.yml"
+      ]
+    },
+    {
+      "name": "openbb-integration",
+      "path": "~/.openclaw/workspace-coding/openbb-integration",
+      "remote": "zhanglpg/openbb-integration",
+      "branch": "main",
+      "workflows": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/test.yml"
+      ]
+    }
+  ],
+  "settings": {
+    "claudePath": "/Users/lipingzhang/.local/bin/claude",
+    "checkUntrackedFiles": false,
+    "autoFixWorkflows": true,
+    "commitPrefix": "docs:",
+    "dryRun": false
+  }
+}
