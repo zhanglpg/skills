@@ -25,12 +25,6 @@ See `briefs/SKILL.md` for how to configure the pipeline for other topics.
 
 Monitors and reports significant market movements, including top gainers, losers, and most active stocks.
 
-### Local Repo Sanitization
-
-**Location:** `local-repo-sanitization/`
-
-Automated maintenance for GitHub repositories: verifies clean working directory, analyzes and updates READMEs, ensures test CI coverage, and fixes broken GitHub Actions. Runs as a daily cron job.
-
 ### OpenBB Sync
 
 **Location:** `openbb-sync/`
