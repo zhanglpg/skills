@@ -19,51 +19,59 @@ Two pre-built configurations are included:
 
 See `briefs/SKILL.md` for how to configure the pipeline for other topics.
 
-**Installation:**
-```bash
-# Copy to your OpenClaw skills directory
-cp -r briefs ~/.openclaw/workspace-coding/skills/ai-tech-brief
+### Check Market Movers
 
-# Optional: install for better web content fetching
-pip install httpx trafilatura
-```
+**Location:** `check-market-movers/`
 
-**Usage:**
-```bash
-# Run via cron (configured in OpenClaw)
-openclaw cron run ai-tech-daily-brief
+Monitors and reports significant market movements, including top gainers, losers, and most active stocks.
 
-# Or generate manually
-cd briefs
-python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp/
+### Local Repo Sanitization
 
-# Generate a portfolio/market brief
-python3 scripts/generate_brief.py --config config.portfolio.json --output_dir /tmp/
-```
+**Location:** `local-repo-sanitization/`
 
-**Dependencies:**
-- `gemini-cli` (for Twitter/X search and summarization)
-- Python 3
-- `httpx` + `trafilatura` (optional, for better web content fetching)
+Automated maintenance for GitHub repositories: verifies clean working directory, analyzes and updates READMEs, ensures test CI coverage, and fixes broken GitHub Actions. Runs as a daily cron job.
+
+### OpenBB Sync
+
+**Location:** `openbb-sync/`
+
+Synchronizes financial data using the OpenBB platform for market analysis and portfolio tracking.
+
+### Paper Digest
+
+**Location:** `paper-digest/`
+
+Processes and summarizes academic papers from arXiv and other sources into digestible summaries.
+
+### Paper Queue
+
+**Location:** `paper-queue/`
+
+Manages a queue of papers to read, tracking progress and prioritizing reading list.
+
+### Paper Summarizer
+
+**Location:** `paper-summarizer/`
+
+Generates structured summaries of research papers with key findings, methodology, and takeaways.
+
+### Shared
+
+**Location:** `shared/`
+
+Shared utilities and common code used across multiple skills.
 
 ## Skill Structure
 
+Each skill follows a consistent structure:
+
 ```
-briefs/
+skill-name/
 ├── SKILL.md                    # Skill definition and instructions
-├── config.ai-tech.json         # AI tech brief sources and settings
-├── config.portfolio.json       # Portfolio/market brief sources and settings
+├── config.json                 # Configuration (if applicable)
 ├── scripts/                    # Executable scripts
-│   ├── generate_brief.py       # Main orchestration
-│   ├── fetcher.py              # Content fetching (RSS, APIs, web)
-│   ├── summarizer.py           # Gemini CLI integration
-│   ├── renderer.py             # Template rendering & output
-│   └── test_generate_brief.py # Unit tests
 ├── templates/                  # Output format templates
-│   ├── ai-tech-brief.md
-│   └── portfolio-brief.md
 └── references/                 # Reference documentation
-    └── sources.md
 ```
 
 ## Contributing
