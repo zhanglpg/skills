@@ -151,7 +151,7 @@ class TestResolveArxiv(unittest.TestCase):
     @patch("sources.fetch_arxiv_metadata")
     def test_bare_id(self, mock_fetch):
         mock_fetch.return_value = {"title": "Paper", "arxiv_id": "2401.12345"}
-        result = resolve_arxiv("2401.12345")
+        resolve_arxiv("2401.12345")
         mock_fetch.assert_called_once_with("2401.12345")
 
     @patch("sources.fetch_arxiv_metadata")

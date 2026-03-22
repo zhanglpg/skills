@@ -299,7 +299,7 @@ def cmd_stats(args, config, db, logger):
     """Show queue statistics."""
     stats = db.get_stats()
     print(f"Total papers: {stats['total']}")
-    print(f"By status:")
+    print("By status:")
     for status, count in stats["by_status"].items():
         print(f"  {status}: {count}")
     if stats["avg_priority_to_read"]:

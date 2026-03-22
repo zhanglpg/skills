@@ -138,7 +138,7 @@ class TestCmdList(CLITestBase):
         self.db.add_paper(title="Paper A")
         self.db.add_paper(title="Paper B")
         self.db.update_status(1, "reading")
-        args = self.parser.parse_args(["list", "--status", "reading"])
+        self.parser.parse_args(["list", "--status", "reading"])
         papers = self.db.list_papers(status="reading")
         self.assertEqual(len(papers), 1)
 

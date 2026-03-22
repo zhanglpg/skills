@@ -390,7 +390,7 @@ class TestUpdateCitationCount(unittest.TestCase):
         self.assertEqual(paper["citation_count"], 42)
 
     def test_updates_timestamp(self):
-        paper_before = self.db.get_paper(1)
+        self.db.get_paper(1)
         import time
         time.sleep(0.05)  # Ensure timestamp difference
         self.db.update_citation_count(1, 10)
