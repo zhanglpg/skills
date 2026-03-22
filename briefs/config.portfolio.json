@@ -1,0 +1,80 @@
+{
+  "_comment": "Portfolio Brief Configuration - daily financial market and investment brief. Loaded by generate_brief.py via --config flag.",
+  "_rss_status_note": "RSS URLs curated March 2026. Financial RSS feeds tend to be more reliable than tech blogs.",
+
+  "arxiv_categories": [],
+
+  "twitter_accounts": [
+    "unusual_whales", "zaborsky", "DeItaone", "Fxhedgers",
+    "markets", "lisaabramowicz1", "elerianm",
+    "TruthGundlach", "biaborern", "dampedspring"
+  ],
+
+  "_comment_rss_sources": "Financial news outlets with RSS feeds. Probed at runtime; failures are noted in the brief.",
+  "rss_sources": [
+    {"name": "Reuters Business",       "rss": "https://www.rssboard.org/rss-redirect/rss/reuters/businessNews", "category": "news",       "rss_status": "untested"},
+    {"name": "CNBC Top News",          "rss": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "category": "news", "rss_status": "untested"},
+    {"name": "MarketWatch",            "rss": "http://feeds.marketwatch.com/marketwatch/topstories/",       "category": "news",       "rss_status": "untested"},
+    {"name": "Yahoo Finance",          "rss": "https://finance.yahoo.com/news/rssindex",                    "category": "news",       "rss_status": "untested"},
+    {"name": "Seeking Alpha Market News","rss": "https://seekingalpha.com/market_currents.xml",             "category": "analysis",   "rss_status": "untested"},
+    {"name": "Calculated Risk",        "rss": "https://www.calculatedriskblog.com/feeds/posts/default",     "category": "analysis",   "rss_status": "untested"},
+    {"name": "Abnormal Returns",       "rss": "https://abnormalreturns.com/feed/",                          "category": "analysis",   "rss_status": "untested"},
+    {"name": "The Reformed Broker",    "rss": "https://thereformedbroker.com/feed/",                        "category": "analysis",   "rss_status": "untested"},
+    {"name": "Marginal Revolution",    "rss": "https://marginalrevolution.com/feed",                        "category": "macro",      "rss_status": "untested"},
+    {"name": "FT Alphaville",          "rss": "https://www.ft.com/alphaville?format=rss",                   "category": "analysis",   "rss_status": "untested"}
+  ],
+
+  "_comment_web_only_sources": "Sources with no RSS feed or where RSS is unreliable. Content fetched via web extraction or Gemini CLI.",
+  "web_only_sources": [
+    {"name": "Bloomberg Markets",           "url": "https://www.bloomberg.com/markets",                "category": "news"},
+    {"name": "Financial Times",             "url": "https://www.ft.com",                               "category": "news"},
+    {"name": "WSJ Markets",                 "url": "https://www.wsj.com/news/markets",                 "category": "news"},
+    {"name": "Matt Levine (Money Stuff)",   "url": "https://www.bloomberg.com/opinion/authors/ARbTQlRLRjE/matthew-s-levine", "category": "newsletter"},
+    {"name": "The Daily Shot",              "url": "https://dailyshotbrief.com",                       "category": "newsletter"},
+    {"name": "Kyla Scanlon",                "url": "https://kylascanlon.com",                          "category": "newsletter"},
+    {"name": "Odd Lots (Bloomberg)",        "url": "https://www.bloomberg.com/oddlots-podcast",        "category": "podcast"},
+    {"name": "Macro Voices",                "url": "https://www.macrovoices.com",                      "category": "podcast"},
+    {"name": "The All-In Podcast",          "url": "https://www.allinpodcast.co",                      "category": "podcast"},
+    {"name": "Fed Reserve Press Releases",  "url": "https://www.federalreserve.gov/newsevents/pressreleases.htm", "category": "central_bank"},
+    {"name": "ECB Press Releases",          "url": "https://www.ecb.europa.eu/press/pr/html/index.en.html",       "category": "central_bank"},
+    {"name": "CME FedWatch",                "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html", "category": "data"},
+    {"name": "FRED Economic Data",          "url": "https://fred.stlouisfed.org",                      "category": "data"},
+    {"name": "Finviz Map",                  "url": "https://finviz.com/map.ashx",                      "category": "data"},
+    {"name": "Earnings Whispers",           "url": "https://www.earningswhispers.com/calendar",        "category": "earnings"}
+  ],
+
+  "timezone": "Asia/Shanghai",
+  "timezone_offset": 8,
+  "gemini_timeout": 180,
+  "rss_check_timeout": 10,
+  "fetch_timeout": 15,
+  "max_articles": 30,
+  "output_dir": "$AGENT_DATA_DIR/workspace/briefs/investment",
+  "log_file": "/tmp/logs/skills/briefs/generate.log",
+
+  "_comment_template": "Template for daily portfolio/market brief output format.",
+  "template": "templates/portfolio-brief.md",
+
+  "_comment_prompt": "Editorial instructions prompt for the LLM — what to prioritize, how to handle portfolio context.",
+  "prompt": "prompts/portfolio-brief.md",
+
+  "brief_title": "Daily Portfolio Brief",
+
+  "_comment_extra_data": "Pre-exported quantitative data (JSON) for portfolio briefs. Generated by ~/.openbb_platform/src/brief_exporter.py.",
+  "extra_data_path": "~/.openbb_platform/data/brief_data.json",
+
+  "_comment_portfolio": "Holdings grouped by sector/theme. Used to prioritize and contextualize stories in the brief.",
+  "portfolio_holdings": {
+    "Tech": ["GOOGL", "NVDA"],
+    "Semiconductors": ["NVDA", "TSMC"],
+    "China Internet": ["BABA"],
+    "US Broad Market": ["SPY"],
+    "China Indices": ["FXI", "KWEB"]
+  },
+
+  "_comment_watchlist": "Tickers and themes to monitor but not currently held.",
+  "watchlist": {
+    "tickers": ["AAPL", "MSFT", "META", "AMZN", "TSLA", "AMD", "AVGO"],
+    "themes": ["AI infrastructure spending", "Fed rate cuts", "China stimulus", "semiconductor supply chain", "US-China tech relations"]
+  }
+}

@@ -1,0 +1,75 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas PyMuPDF
+          pip install ruff
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Run shared tests
+        run: python -m unittest test_logging_utils -v
+        working-directory: shared
+
+      - name: Run briefs tests
+        run: python -m unittest test_generate_brief -v
+        working-directory: briefs/scripts
+
+      - name: Run briefs OpenBB integration tests
+        run: python -m unittest test_openbb_integration -v
+        working-directory: briefs/scripts
+
+      - name: Run check-market-movers tests
+        run: python -m unittest test_check_market_movers -v
+        working-directory: check-market-movers/scripts
+
+      - name: Run paper-digest tests
+        run: python -m unittest test_digest_paper -v
+        working-directory: paper-digest/scripts
+
+      - name: Run paper-queue tests
+        run: python -m unittest test_paper_queue -v
+        working-directory: paper-queue/scripts
+
+      - name: Run paper-queue scorer tests
+        run: python -m unittest test_scorer -v
+        working-directory: paper-queue/scripts
+
+      - name: Run paper-queue sources tests
+        run: python -m unittest test_sources -v
+        working-directory: paper-queue/scripts
+
+      - name: Run paper-queue storage tests
+        run: python -m unittest test_storage -v
+        working-directory: paper-queue/scripts
+
+      - name: Run paper-queue suggester tests
+        run: python -m unittest test_suggester -v
+        working-directory: paper-queue/scripts

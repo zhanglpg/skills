@@ -17,8 +17,11 @@ openclaw cron run ai-tech-daily-brief
 cd skills/briefs
 python3 scripts/generate_brief.py --output_dir /tmp/
 
-# Use a custom config
+# Use the AI tech config
 python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp/
+
+# Use the portfolio/market brief config
+python3 scripts/generate_brief.py --config config.portfolio.json --output_dir /tmp/
 ```
 
 ## How It Works
@@ -46,7 +49,9 @@ If `httpx`/`trafilatura` are not installed, the script falls back to `urllib` an
 
 ## Configuration
 
-**Config file:** `config.ai-tech.json` (loaded automatically; pass `--config` to use a different file)
+**Config files:**
+- `config.ai-tech.json` — AI technology news (loaded by default; pass `--config` to use a different file)
+- `config.portfolio.json` — Financial markets and portfolio tracking
 
 ```json
 {
@@ -64,7 +69,7 @@ If `httpx`/`trafilatura` are not installed, the script falls back to `urllib` an
   "fetch_timeout": 15,
   "max_articles": 30,
   "output_dir": "~/briefs",
-  "log_file": "~/briefs/generate.log",
+  "log_file": "~/.openclaw/logs/skills/briefs/generate.log",
   "template": "templates/ai-tech-brief.md",
   "brief_title": "Daily Brief"
 }
@@ -75,6 +80,24 @@ If `httpx`/`trafilatura` are not installed, the script falls back to `urllib` an
 **arxiv_categories:** Leave as `[]` to skip arXiv fetching.
 
 **twitter_accounts:** List of handles without `@`. Fetched via Gemini web search.
+
+**portfolio_holdings** (optional): Holdings grouped by sector/theme. When present, the summarizer injects portfolio context into the Gemini prompt so it can prioritize and map stories to your positions. The template gains "Portfolio Impact" and "Watchlist Alerts" sections.
+
+```json
+"portfolio_holdings": {
+  "Tech": ["AAPL", "MSFT", "NVDA"],
+  "Energy": ["XOM", "CVX"]
+}
+```
+
+**watchlist** (optional): Tickers and themes to monitor but not currently held. Supports both concrete symbols and qualitative themes.
+
+```json
+"watchlist": {
+  "tickers": ["AMZN", "TSLA"],
+  "themes": ["Fed rate cuts", "AI infrastructure spending"]
+}
+```
 
 ## Templates
 
@@ -90,6 +113,10 @@ The template file (set via `"template"` in config) defines the output format. It
 | `$github_count` | Number of GitHub repos fetched |
 | `$web_count` | Number of web pages fetched |
 | `$twitter_count` | Number of Twitter accounts searched |
+| `$holdings_count` | Number of held tickers (portfolio config only) |
+| `$sector_count` | Number of sector groups (portfolio config only) |
+| `$watchlist_ticker_count` | Number of watchlist tickers (portfolio config only) |
+| `$watchlist_theme_count` | Number of watchlist themes (portfolio config only) |
 
 The filled template is passed to Gemini as the required output format. See `templates/ai-tech-brief.md` for an example.
 
@@ -125,7 +152,7 @@ python3 scripts/generate_brief.py --test --output_dir /tmp/
 cat /tmp/*-brief.md
 
 # Check logs
-cat ~/briefs/generate.log
+cat ~/.openclaw/logs/skills/briefs/generate.log
 ```
 
 ## Troubleshooting
@@ -141,7 +168,7 @@ cat ~/briefs/generate.log
 The script fetches and parses RSS feeds directly. Check logs:
 
 ```bash
-cat ~/briefs/generate.log
+cat ~/.openclaw/logs/skills/briefs/generate.log
 ```
 
 ### API failures (arXiv, HN, GitHub)
@@ -169,7 +196,9 @@ openclaw cron runs --id ai-tech-daily-brief --limit 5
 |------|---------|
 | `references/sources.md` | Complete source list with URLs |
 | `config.ai-tech.json` | AI tech brief configuration |
+| `config.portfolio.json` | Portfolio/market brief configuration |
 | `templates/ai-tech-brief.md` | AI tech brief output template |
+| `templates/portfolio-brief.md` | Portfolio brief output template |
 
 ---
 

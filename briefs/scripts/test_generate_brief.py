@@ -85,14 +85,45 @@ ARXIV_RESPONSE = """\
 
 MALFORMED_XML = "<not valid xml><><>"
 
+# Minimal config used by test helpers — mirrors what a real config JSON provides.
+_TEST_CONFIG = {
+    'arxiv_categories': ['cs.LG', 'cs.AI', 'cs.SE'],
+    'twitter_accounts': [],
+    'rss_sources': [],
+    'web_only_sources': [],
+    'timezone': 'Asia/Shanghai',
+    'timezone_offset': 8,
+    'gemini_timeout': 180,
+    'rss_check_timeout': 10,
+    'fetch_timeout': 15,
+    'max_articles': 30,
+    'output_dir': '/tmp/briefs',
+    'log_file': '/tmp/logs/skills/briefs/generate.log',
+    'template': 'templates/ai-tech-brief.md',
+    'prompt': 'prompts/ai-tech-brief.md',
+    'brief_title': 'Daily Brief',
+}
+
 
 def _make_generator(config_overrides=None, skip_config_file=True):
     """Helper to create a BriefGenerator without touching the filesystem."""
+    config = _TEST_CONFIG.copy()
+    if config_overrides:
+        config.update(config_overrides)
     with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
          patch('os.makedirs'):
         mock_log.return_value = MagicMock()
         if skip_config_file:
-            gen = gb.BriefGenerator(config_path='/nonexistent/config.json')
+            # Write a temp config file with _TEST_CONFIG
+            with tempfile.NamedTemporaryFile(
+                mode='w', suffix='.json', delete=False
+            ) as f:
+                json.dump(config, f)
+                tmp_path = f.name
+            try:
+                gen = gb.BriefGenerator(config_path=tmp_path)
+            finally:
+                os.unlink(tmp_path)
         else:
             gen = gb.BriefGenerator()
         if config_overrides:
@@ -106,7 +137,7 @@ def _make_generator(config_overrides=None, skip_config_file=True):
 
 def _make_fetcher(config_overrides=None):
     """Helper to create a ContentFetcher with a mock logger."""
-    config = gb.DEFAULT_CONFIG.copy()
+    config = _TEST_CONFIG.copy()
     if config_overrides:
         config.update(config_overrides)
     logger = MagicMock()
@@ -115,7 +146,7 @@ def _make_fetcher(config_overrides=None):
 
 def _make_summarizer(config_overrides=None):
     """Helper to create a Summarizer with a mock logger."""
-    config = gb.DEFAULT_CONFIG.copy()
+    config = _TEST_CONFIG.copy()
     if config_overrides:
         config.update(config_overrides)
     logger = MagicMock()
@@ -124,7 +155,7 @@ def _make_summarizer(config_overrides=None):
 
 def _make_renderer(config_overrides=None):
     """Helper to create a BriefRenderer with a mock logger."""
-    config = gb.DEFAULT_CONFIG.copy()
+    config = _TEST_CONFIG.copy()
     if config_overrides:
         config.update(config_overrides)
     logger = MagicMock()
@@ -713,6 +744,10 @@ class TestRunGemini(unittest.TestCase):
 class TestValidateBrief(unittest.TestCase):
     def setUp(self):
         self.renderer = _make_renderer()
+        self.template = (
+            "## Top Stories\n## Twitter Updates\n## Newsletter Highlights\n"
+            "## AI Lab Updates\n## Research Papers\n## Hacker News\n## GitHub Trending\n"
+        )
 
     def test_valid_brief(self):
         brief = (
@@ -727,19 +762,19 @@ class TestValidateBrief(unittest.TestCase):
             "Hacker News\n"
             "GitHub trending\n"
         )
-        self.assertTrue(self.renderer.validate_brief(brief))
+        self.assertTrue(self.renderer.validate_brief(brief, self.template))
 
     def test_missing_heading(self):
         brief = "No headings here, just text https://example.com"
-        self.assertFalse(self.renderer.validate_brief(brief))
+        self.assertFalse(self.renderer.validate_brief(brief, self.template))
 
     def test_missing_url(self):
         brief = "# Title\n## Section\nNo links here"
-        self.assertFalse(self.renderer.validate_brief(brief))
+        self.assertFalse(self.renderer.validate_brief(brief, self.template))
 
     def test_low_source_coverage_still_valid(self):
         brief = "# Title\n## Section\nhttps://example.com\nTwitter only"
-        self.assertTrue(self.renderer.validate_brief(brief))
+        self.assertTrue(self.renderer.validate_brief(brief, self.template))
 
 
 class TestFormatMethods(unittest.TestCase):
@@ -880,45 +915,91 @@ class TestSourceCoverageReport(unittest.TestCase):
 
 class TestLoadConfig(unittest.TestCase):
     def test_loads_valid_json(self):
-        gen = _make_generator()
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump({'timezone_offset': 5, 'max_articles': 50}, f)
-            f.flush()
-            gen._load_config(f.name)
-        os.unlink(f.name)
+        gen = _make_generator(config_overrides={'timezone_offset': 5, 'max_articles': 50})
         self.assertEqual(gen.config['timezone_offset'], 5)
         self.assertEqual(gen.config['max_articles'], 50)
 
-    def test_invalid_json_does_not_crash(self):
-        gen = _make_generator()
+    def test_invalid_json_raises(self):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             f.write('not json at all {{{')
             f.flush()
-            gen._load_config(f.name)  # Should not raise
-        os.unlink(f.name)
+            tmp_path = f.name
+        try:
+            with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+                 patch('os.makedirs'):
+                mock_log.return_value = MagicMock()
+                with self.assertRaises(json.JSONDecodeError):
+                    gb.BriefGenerator(config_path=tmp_path)
+        finally:
+            os.unlink(tmp_path)
 
-    def test_nonexistent_file_does_not_crash(self):
+    def test_nonexistent_file_raises(self):
+        with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+             patch('os.makedirs'):
+            mock_log.return_value = MagicMock()
+            with self.assertRaises(FileNotFoundError):
+                gb.BriefGenerator(config_path='/nonexistent/path/config.json')
+
+
+class TestConfigFromFile(unittest.TestCase):
+    """Tests for config loading from JSON file."""
+
+    def test_config_values_from_file(self):
         gen = _make_generator()
-        gen._load_config('/nonexistent/path/config.json')  # Should not raise
+        # Values come from _TEST_CONFIG written to a temp file
+        self.assertEqual(gen.config['output_dir'], '/tmp/briefs')
+        self.assertTrue(gen.config['log_file'].startswith('/tmp/'))
 
+    def test_config_override(self):
+        gen = _make_generator(config_overrides={'log_file': '/custom/path/brief.log'})
+        self.assertEqual(gen.config['log_file'], '/custom/path/brief.log')
 
-class TestDefaultConfig(unittest.TestCase):
-    def test_default_config_has_required_keys(self):
-        required = ['arxiv_categories', 'twitter_accounts', 'rss_sources',
-                     'web_only_sources', 'gemini_timeout', 'fetch_timeout',
-                     'output_dir', 'log_file']
-        for key in required:
-            self.assertIn(key, gb.DEFAULT_CONFIG)
+    def test_real_config_file_populates_keys(self):
+        gen = _make_generator(skip_config_file=False)
+        # When loading the real config file, these keys should be present
+        self.assertIn('arxiv_categories', gen.config)
+        self.assertIn('output_dir', gen.config)
+        self.assertIn('template', gen.config)
+        self.assertIn('log_file', gen.config)
 
-    def test_default_config_values(self):
-        self.assertEqual(gb.DEFAULT_CONFIG['arxiv_categories'], ['cs.LG', 'cs.AI', 'cs.SE'])
-        self.assertEqual(gb.DEFAULT_CONFIG['timezone_offset'], 8)
+    @patch.dict(os.environ, {'AGENT_DATA_DIR': '/my/agent'})
+    def test_output_dir_expands_agent_data_dir(self):
+        gen = _make_generator(
+            config_overrides={'output_dir': '$AGENT_DATA_DIR/workspace/briefs'}
+        )
+        # expandvars happens during __init__, but config_overrides are applied
+        # after init — so we verify expandvars works on the real config path
+        # by testing with a fresh generator
+        config = _TEST_CONFIG.copy()
+        config['output_dir'] = '$AGENT_DATA_DIR/workspace/briefs'
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(config, f)
+            tmp_path = f.name
+        try:
+            with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+                 patch('os.makedirs'):
+                mock_log.return_value = MagicMock()
+                gen = gb.BriefGenerator(config_path=tmp_path)
+                self.assertEqual(gen.config['output_dir'], '/my/agent/workspace/briefs')
+        finally:
+            os.unlink(tmp_path)
 
-    def test_default_config_has_template_fields(self):
-        self.assertIn('template', gb.DEFAULT_CONFIG)
-        self.assertIn('brief_title', gb.DEFAULT_CONFIG)
-        self.assertEqual(gb.DEFAULT_CONFIG['template'], 'templates/ai-tech-brief.md')
-        self.assertEqual(gb.DEFAULT_CONFIG['brief_title'], 'Daily Brief')
+    @patch.dict(os.environ, {}, clear=True)
+    def test_output_dir_defaults_to_tmp_when_agent_data_dir_unset(self):
+        os.environ.pop('AGENT_DATA_DIR', None)
+        config = _TEST_CONFIG.copy()
+        config['output_dir'] = '$AGENT_DATA_DIR/workspace/briefs'
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(config, f)
+            tmp_path = f.name
+        try:
+            with patch.object(gb.BriefGenerator, '_setup_logger') as mock_log, \
+                 patch('os.makedirs'):
+                mock_log.return_value = MagicMock()
+                gen = gb.BriefGenerator(config_path=tmp_path)
+                self.assertEqual(gen.config['output_dir'], '/tmp/workspace/briefs')
+        finally:
+            os.unlink(tmp_path)
 
 
 class TestGeneratorInit(unittest.TestCase):
@@ -981,35 +1062,25 @@ class TestGenerateBriefContent(unittest.TestCase):
 
     @patch.object(sm.Summarizer, 'run_gemini', return_value='# Brief\n## Section\nhttps://example.com')
     def test_calls_gemini_with_prompt(self, mock_gemini):
-        content_sections = {
+        template = "Summarize: {rss}\nTwitter: {twitter_block}"
+        prompt_vars = {
             'rss': 'No RSS articles collected.',
-            'arxiv': 'No arXiv papers collected.',
-            'hackernews': 'No Hacker News stories collected.',
-            'github': 'No GitHub trending repos collected.',
-            'web': 'No web page content collected.',
+            'twitter_block': '@karpathy',
         }
-        context = {
-            'twitter_accounts': ['karpathy'],
-            'unfetched_web': [],
-            'failed_note': '',
-        }
-        result = self.summarizer.summarize(content_sections, 'template text', context)
+        self.summarizer.summarize(template, prompt_vars)
         mock_gemini.assert_called_once()
         prompt = mock_gemini.call_args[0][0]
-        self.assertIn('summarizer', prompt)
+        self.assertIn('Summarize:', prompt)
         self.assertIn('@karpathy', prompt)
 
     @patch.object(sm.Summarizer, 'run_gemini', return_value='brief content')
     def test_includes_failed_sources_note(self, mock_gemini):
-        content_sections = {
-            'rss': '', 'arxiv': '', 'hackernews': '', 'github': '', 'web': '',
+        template = "Content: {rss}\nNote: {failed_note}"
+        prompt_vars = {
+            'rss': '',
+            'failed_note': 'NOTE: The following RSS sources were UNREACHABLE: BadSource.',
         }
-        context = {
-            'twitter_accounts': [],
-            'unfetched_web': [],
-            'failed_note': '\n\nNOTE: The following RSS sources were UNREACHABLE: BadSource. You may still find their content via web search.',
-        }
-        self.summarizer.summarize(content_sections, 'template', context)
+        self.summarizer.summarize(template, prompt_vars)
         prompt = mock_gemini.call_args[0][0]
         self.assertIn('BadSource', prompt)
         self.assertIn('UNREACHABLE', prompt)
@@ -1065,19 +1136,21 @@ class TestBuildPrompt(unittest.TestCase):
         self.summarizer = _make_summarizer()
 
     def test_prompt_contains_all_sections(self):
-        content_sections = {
+        template = (
+            "{rss}\n{arxiv}\n{hackernews}\n{github}\n{web}\n"
+            "{twitter_block}\n{unavailable_web_block}\n{output_format}"
+        )
+        prompt_vars = {
             'rss': 'RSS content here',
             'arxiv': 'arXiv content here',
             'hackernews': 'HN content here',
             'github': 'GitHub content here',
             'web': 'Web content here',
+            'twitter_block': '@testuser',
+            'unavailable_web_block': 'Some Blog',
+            'output_format': 'template output',
         }
-        context = {
-            'twitter_accounts': ['testuser'],
-            'unfetched_web': ['Some Blog'],
-            'failed_note': '',
-        }
-        prompt = self.summarizer.build_prompt(content_sections, 'template output', context)
+        prompt = self.summarizer.build_prompt(template, prompt_vars)
         self.assertIn('RSS content here', prompt)
         self.assertIn('arXiv content here', prompt)
         self.assertIn('HN content here', prompt)
@@ -1086,7 +1159,6 @@ class TestBuildPrompt(unittest.TestCase):
         self.assertIn('@testuser', prompt)
         self.assertIn('Some Blog', prompt)
         self.assertIn('template output', prompt)
-        self.assertIn('ACCURACY REQUIREMENTS', prompt)
 
 
 class TestGetFormattedSections(unittest.TestCase):
@@ -1102,6 +1174,883 @@ class TestGetFormattedSections(unittest.TestCase):
         sections = self.fetcher.get_formatted_sections()
         self.assertEqual(sections['rss'], 'No RSS articles collected.')
         self.assertEqual(sections['arxiv'], 'No arXiv papers collected.')
+
+
+# ── Additional Tests for Renderer ────────────────────────────────────────
+
+class TestExtractSections(unittest.TestCase):
+    def setUp(self):
+        self.renderer = _make_renderer()
+
+    def test_extracts_h2_headings(self):
+        template = "# Title\n## Top Stories\n## Twitter Updates\n## Research Papers\n"
+        sections = self.renderer.extract_sections(template)
+        self.assertEqual(sections, ['Top Stories', 'Twitter Updates', 'Research Papers'])
+
+    def test_empty_template_returns_empty(self):
+        sections = self.renderer.extract_sections("")
+        self.assertEqual(sections, [])
+
+    def test_no_h2_headings_returns_empty(self):
+        template = "# H1 only\n### H3 only\nPlain text"
+        sections = self.renderer.extract_sections(template)
+        self.assertEqual(sections, [])
+
+    def test_strips_trailing_whitespace(self):
+        template = "## Section One  \n## Section Two\n"
+        sections = self.renderer.extract_sections(template)
+        self.assertEqual(sections[0], 'Section One')
+
+    def test_does_not_include_h1_headings(self):
+        template = "# Main Title\n## Sub Section\n"
+        sections = self.renderer.extract_sections(template)
+        self.assertNotIn('Main Title', sections)
+        self.assertIn('Sub Section', sections)
+
+    def test_multiple_sections_order_preserved(self):
+        template = "## Alpha\n## Beta\n## Gamma\n"
+        sections = self.renderer.extract_sections(template)
+        self.assertEqual(sections, ['Alpha', 'Beta', 'Gamma'])
+
+
+class TestValidateBriefWithTemplate(unittest.TestCase):
+    """Tests for validate_brief using the correct two-argument signature."""
+
+    def setUp(self):
+        self.renderer = _make_renderer()
+        self.template = (
+            "# Brief Template\n"
+            "## Top Stories\n"
+            "## Twitter Updates\n"
+            "## Newsletter Highlights\n"
+            "## Research Papers\n"
+            "## Hacker News\n"
+            "## GitHub Trending\n"
+        )
+
+    def test_valid_brief_passes(self):
+        brief = (
+            "# Daily Brief\n"
+            "## Top Stories\nhttps://example.com story one\n"
+            "## Twitter Updates\nsome updates\n"
+            "## Newsletter Highlights\ncontent\n"
+            "## Research Papers\npapers here\n"
+        )
+        self.assertTrue(self.renderer.validate_brief(brief, self.template))
+
+    def test_missing_heading_fails(self):
+        brief = "No headings here just text https://example.com"
+        self.assertFalse(self.renderer.validate_brief(brief, self.template))
+
+    def test_missing_url_fails(self):
+        brief = "# Title\n## Top Stories\nNo links here at all"
+        self.assertFalse(self.renderer.validate_brief(brief, self.template))
+
+    def test_low_section_coverage_still_validates(self):
+        # Brief has a heading and URL even with few matching sections
+        brief = "# Title\n## Top Stories\nhttps://example.com content"
+        # validate_brief returns True even with low coverage (just logs a warning)
+        self.assertTrue(self.renderer.validate_brief(brief, self.template))
+
+    def test_template_with_no_sections(self):
+        # When template has no ## headings, validation falls back to True
+        brief = "# Title\nhttps://example.com"
+        empty_template = "# Main Title\nNo sections here"
+        self.assertTrue(self.renderer.validate_brief(brief, empty_template))
+
+    def test_all_sections_present_passes(self):
+        brief = (
+            "# Brief\nhttps://start.com\n"
+            "## Top Stories\ncontent\n"
+            "## Twitter Updates\ncontent\n"
+            "## Newsletter Highlights\ncontent\n"
+            "## Research Papers\ncontent\n"
+            "## Hacker News\ncontent\n"
+            "## GitHub Trending\ncontent\n"
+        )
+        self.assertTrue(self.renderer.validate_brief(brief, self.template))
+
+
+class TestRenderOutput(unittest.TestCase):
+    def setUp(self):
+        self.renderer = _make_renderer({
+            'twitter_accounts': ['testuser'],
+            'rss_sources': [],
+            'web_only_sources': [],
+        })
+        self.fetched_content = {
+            'rss': [], 'arxiv': [], 'hackernews': [],
+            'github_trending': [], 'web_pages': [],
+        }
+
+    def test_output_contains_brief(self):
+        brief = "# My Brief\nhttps://example.com\nContent here"
+        result = self.renderer.render_output(brief, [], self.fetched_content, {})
+        self.assertIn("# My Brief", result)
+
+    def test_no_failed_sources_no_warning_block(self):
+        brief = "# Brief\nhttps://example.com"
+        result = self.renderer.render_output(brief, [], self.fetched_content, {})
+        self.assertNotIn("Source Access Issues", result)
+
+    def test_failed_sources_adds_warning(self):
+        brief = "# Brief\nhttps://example.com"
+        failed = [{'name': 'BadSrc', 'url': 'https://bad.com', 'error': 'Timeout'}]
+        result = self.renderer.render_output(brief, failed, self.fetched_content, {})
+        self.assertIn("Source Access Issues", result)
+        self.assertIn("BadSrc", result)
+
+    def test_coverage_report_always_appended(self):
+        brief = "# Brief\nhttps://example.com"
+        result = self.renderer.render_output(brief, [], self.fetched_content, {})
+        self.assertIn("Source Coverage Report", result)
+
+    def test_output_order_brief_then_coverage(self):
+        brief = "# Brief\nhttps://example.com"
+        result = self.renderer.render_output(brief, [], self.fetched_content, {})
+        brief_pos = result.find("# Brief")
+        coverage_pos = result.find("Source Coverage Report")
+        self.assertLess(brief_pos, coverage_pos)
+
+
+class TestSave(unittest.TestCase):
+    def setUp(self):
+        self.renderer = _make_renderer()
+
+    def test_saves_content_to_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'brief.md')
+            self.renderer.save("# Test Brief\nContent", path)
+            with open(path) as f:
+                content = f.read()
+        self.assertEqual(content, "# Test Brief\nContent")
+
+    def test_creates_parent_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'subdir', 'nested', 'brief.md')
+            self.renderer.save("content", path)
+            self.assertTrue(os.path.exists(path))
+
+    def test_overwrites_existing_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'brief.md')
+            self.renderer.save("first content", path)
+            self.renderer.save("second content", path)
+            with open(path) as f:
+                content = f.read()
+        self.assertEqual(content, "second content")
+
+    def test_empty_output_dir_uses_cwd(self):
+        # When output_path has no directory component, it writes to current dir
+        with tempfile.TemporaryDirectory() as tmpdir:
+            orig_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                self.renderer.save("content", 'brief.md')
+                self.assertTrue(os.path.exists(os.path.join(tmpdir, 'brief.md')))
+            finally:
+                os.chdir(orig_dir)
+                if os.path.exists(os.path.join(tmpdir, 'brief.md')):
+                    os.unlink(os.path.join(tmpdir, 'brief.md'))
+
+
+class TestGenerateSourceCoverageReportFailedSources(unittest.TestCase):
+    """Additional coverage report tests focusing on failed source status."""
+
+    def setUp(self):
+        self.renderer = _make_renderer({
+            'twitter_accounts': [],
+            'rss_sources': [
+                {'name': 'GoodFeed', 'category': 'newsletter'},
+                {'name': 'FailedFeed', 'category': 'newsletter'},
+            ],
+            'web_only_sources': [
+                {'name': 'UnfetchedSrc', 'url': 'https://unfetched.com', 'category': 'podcast'},
+            ],
+        })
+        self.fetched_content = {
+            'rss': [{'title': 'a'}], 'arxiv': [], 'hackernews': [],
+            'github_trending': [], 'web_pages': [],
+        }
+
+    def test_failed_source_shows_access_failed_status(self):
+        failed = [{'name': 'FailedFeed', 'url': 'https://fail.com', 'error': 'Timeout'}]
+        report = self.renderer.generate_source_coverage_report(
+            self.fetched_content, {}, failed)
+        self.assertIn('Access failed', report)
+        self.assertIn('FailedFeed', report)
+
+    def test_source_with_articles_shows_count(self):
+        report = self.renderer.generate_source_coverage_report(
+            self.fetched_content, {'GoodFeed': 3}, [])
+        self.assertIn('3 articles', report)
+
+    def test_source_with_zero_articles_shows_no_articles(self):
+        report = self.renderer.generate_source_coverage_report(
+            self.fetched_content, {}, [])
+        self.assertIn('No articles found', report)
+
+    def test_web_only_unfetched_shows_gemini_search(self):
+        report = self.renderer.generate_source_coverage_report(
+            self.fetched_content, {}, [])
+        self.assertIn('via Gemini search', report)
+
+
+# ── Additional Tests for Summarizer ──────────────────────────────────────
+
+class TestBuildPromptCorrect(unittest.TestCase):
+    """Tests using the actual build_prompt(prompt_template, prompt_vars) signature."""
+
+    def setUp(self):
+        self.summarizer = _make_summarizer()
+
+    def test_substitutes_single_placeholder(self):
+        result = self.summarizer.build_prompt("Hello {name}!", {'name': 'World'})
+        self.assertEqual(result, "Hello World!")
+
+    def test_unknown_placeholder_left_as_empty_string(self):
+        # defaultdict(str) means unknown keys resolve to ''
+        result = self.summarizer.build_prompt("Hello {unknown}!", {})
+        self.assertEqual(result, "Hello !")
+
+    def test_multiple_placeholders_all_substituted(self):
+        template = "{rss}\n{arxiv}\n{hackernews}"
+        vars_ = {'rss': 'RSS data', 'arxiv': 'arXiv data', 'hackernews': 'HN data'}
+        result = self.summarizer.build_prompt(template, vars_)
+        self.assertIn('RSS data', result)
+        self.assertIn('arXiv data', result)
+        self.assertIn('HN data', result)
+
+    def test_empty_prompt_vars_leaves_template_blanks(self):
+        result = self.summarizer.build_prompt("Content: {content}", {})
+        self.assertEqual(result, "Content: ")
+
+    def test_empty_template_returns_empty(self):
+        result = self.summarizer.build_prompt("", {'key': 'value'})
+        self.assertEqual(result, "")
+
+    def test_template_without_placeholders_unchanged(self):
+        template = "No placeholders here"
+        result = self.summarizer.build_prompt(template, {'key': 'value'})
+        self.assertEqual(result, template)
+
+
+class TestSummarizeCorrect(unittest.TestCase):
+    """Tests using the actual summarize(prompt_template, prompt_vars) signature."""
+
+    def setUp(self):
+        self.summarizer = _make_summarizer()
+
+    @patch.object(sm.Summarizer, 'run_gemini', return_value='Summary output')
+    def test_summarize_calls_run_gemini(self, mock_gemini):
+        result = self.summarizer.summarize("Template {data}", {'data': 'some content'})
+        mock_gemini.assert_called_once()
+        self.assertEqual(result, 'Summary output')
+
+    @patch.object(sm.Summarizer, 'run_gemini', return_value='Summary output')
+    def test_summarize_builds_prompt_before_calling_gemini(self, mock_gemini):
+        self.summarizer.summarize("Hello {name}", {'name': 'Test'})
+        prompt_used = mock_gemini.call_args[0][0]
+        self.assertEqual(prompt_used, "Hello Test")
+
+    @patch.object(sm.Summarizer, 'run_gemini', return_value='Error: Gemini CLI failed after all retry attempts')
+    def test_summarize_returns_gemini_output_on_failure(self, mock_gemini):
+        result = self.summarizer.summarize("template", {})
+        self.assertIn('Error', result)
+
+    @patch.object(sm.Summarizer, 'run_gemini', return_value='ok')
+    def test_summarize_logs_info(self, mock_gemini):
+        self.summarizer.summarize("template {x}", {'x': 'y'})
+        self.summarizer.logger.info.assert_called()
+
+
+class TestRunGeminiEnvironment(unittest.TestCase):
+    """Tests that run_gemini sets up the environment correctly."""
+
+    def setUp(self):
+        self.summarizer = _make_summarizer({'gemini_timeout': 60})
+
+    @patch('subprocess.run')
+    def test_path_env_contains_system_dirs(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout='ok')
+        self.summarizer.run_gemini('prompt')
+        call_kwargs = mock_run.call_args[1]
+        env = call_kwargs.get('env', {})
+        self.assertIn('/usr/bin', env.get('PATH', ''))
+
+    @patch('subprocess.run')
+    def test_uses_config_timeout(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout='ok')
+        self.summarizer.run_gemini('prompt')
+        call_kwargs = mock_run.call_args[1]
+        self.assertEqual(call_kwargs.get('timeout'), 60)
+
+    @patch('subprocess.run')
+    def test_captures_output(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout='result')
+        self.summarizer.run_gemini('prompt')
+        call_kwargs = mock_run.call_args[1]
+        self.assertTrue(call_kwargs.get('capture_output'))
+        self.assertTrue(call_kwargs.get('text'))
+
+    @patch('subprocess.run')
+    def test_gemini_command_format(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout='result')
+        self.summarizer.run_gemini('my prompt')
+        call_args = mock_run.call_args[0][0]
+        self.assertEqual(call_args[0], 'gemini')
+        self.assertIn('-p', call_args)
+        self.assertIn('my prompt', call_args)
+
+    @patch('subprocess.run')
+    @patch('time.sleep')
+    def test_exponential_backoff_on_failure(self, mock_sleep, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stderr='error')
+        self.summarizer.run_gemini('prompt', retry=2)
+        # With retry=2, we get 3 attempts and 2 sleeps (2^0=1s, 2^1=2s)
+        sleep_calls = [c[0][0] for c in mock_sleep.call_args_list]
+        self.assertEqual(len(sleep_calls), 2)
+        self.assertEqual(sleep_calls[0], 1)
+        self.assertEqual(sleep_calls[1], 2)
+
+
+# ── Additional Tests for Fetcher ─────────────────────────────────────────
+
+class TestFetchAll(unittest.TestCase):
+    def setUp(self):
+        self.fetcher = _make_fetcher({
+            'rss_sources': [
+                {'name': 'Feed', 'rss': 'https://feed.com/rss', 'category': 'newsletter'}
+            ],
+            'web_only_sources': [
+                {'name': 'Blog', 'url': 'https://blog.com', 'category': 'newsletter'}
+            ],
+            'arxiv_categories': ['cs.LG'],
+        })
+
+    @patch.object(ft.ContentFetcher, 'fetch_web_sources_parallel', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_github_trending', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_hackernews_top', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_arxiv_papers', return_value=[])
+    @patch.object(ft.ContentFetcher, 'check_and_fetch_rss', return_value=([], []))
+    def test_fetch_all_calls_all_stages(self, mock_rss, mock_arxiv, mock_hn, mock_gh, mock_web):
+        ok, failed = self.fetcher.fetch_all()
+        mock_rss.assert_called_once()
+        mock_arxiv.assert_called_once()
+        mock_hn.assert_called_once()
+        mock_gh.assert_called_once()
+        mock_web.assert_called_once()
+
+    @patch.object(ft.ContentFetcher, 'fetch_web_sources_parallel', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_github_trending', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_hackernews_top', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_arxiv_papers', return_value=[])
+    @patch.object(ft.ContentFetcher, 'check_and_fetch_rss')
+    def test_fetch_all_returns_ok_and_failed(self, mock_rss, *_):
+        mock_rss.return_value = (
+            [{'name': 'Feed', 'url': 'https://feed.com/rss', 'article_count': 2}],
+            [{'name': 'Bad', 'url': 'https://bad.com/rss', 'error': 'Timeout'}],
+        )
+        ok, failed = self.fetcher.fetch_all()
+        self.assertEqual(len(ok), 1)
+        self.assertEqual(len(failed), 1)
+
+    @patch.object(ft.ContentFetcher, 'fetch_web_sources_parallel', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_github_trending', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_hackernews_top', return_value=[])
+    @patch.object(ft.ContentFetcher, 'fetch_arxiv_papers', return_value=[])
+    @patch.object(ft.ContentFetcher, 'check_and_fetch_rss')
+    def test_fetch_all_stores_failed_sources(self, mock_rss, *_):
+        failed_list = [{'name': 'Bad', 'url': 'https://bad.com', 'error': 'Timeout'}]
+        mock_rss.return_value = ([], failed_list)
+        self.fetcher.fetch_all()
+        self.assertEqual(self.fetcher.failed_sources, failed_list)
+
+
+class TestHttpGetDefaultTimeout(unittest.TestCase):
+    """Tests that _http_get uses the config fetch_timeout as default."""
+
+    @patch.object(ft, '_HAS_HTTPX', False)
+    @patch('urllib.request.urlopen')
+    def test_uses_config_fetch_timeout(self, mock_urlopen):
+        fetcher = _make_fetcher({'fetch_timeout': 25})
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'ok'
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        fetcher._http_get('https://example.com')
+        _, kwargs = mock_urlopen.call_args
+        self.assertEqual(kwargs.get('timeout'), 25)
+
+    @patch.object(ft, '_HAS_HTTPX', False)
+    @patch('urllib.request.urlopen')
+    def test_explicit_timeout_overrides_config(self, mock_urlopen):
+        fetcher = _make_fetcher({'fetch_timeout': 25})
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'ok'
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+
+        fetcher._http_get('https://example.com', timeout=5)
+        _, kwargs = mock_urlopen.call_args
+        self.assertEqual(kwargs.get('timeout'), 5)
+
+
+class TestFetchGithubTrendingExtra(unittest.TestCase):
+    """Additional edge case tests for fetch_github_trending."""
+
+    def setUp(self):
+        self.fetcher = _make_fetcher()
+
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_description_truncated_to_200(self, mock_get):
+        long_desc = 'x' * 300
+        mock_get.return_value = json.dumps({
+            'items': [{'full_name': 'u/r', 'html_url': 'https://github.com/u/r',
+                       'description': long_desc, 'stargazers_count': 1, 'language': 'Python'}]
+        })
+        repos = self.fetcher.fetch_github_trending()
+        self.assertLessEqual(len(repos[0]['description']), 200)
+
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_stores_in_fetched_content(self, mock_get):
+        mock_get.return_value = json.dumps({
+            'items': [{'full_name': 'u/r', 'html_url': 'https://github.com/u/r',
+                       'description': 'desc', 'stargazers_count': 10, 'language': 'Go'}]
+        })
+        self.fetcher.fetch_github_trending()
+        self.assertEqual(len(self.fetcher.fetched_content['github_trending']), 1)
+
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_empty_items_list(self, mock_get):
+        mock_get.return_value = json.dumps({'items': []})
+        repos = self.fetcher.fetch_github_trending()
+        self.assertEqual(repos, [])
+
+
+class TestFetchArxivExtra(unittest.TestCase):
+    """Additional edge case tests for fetch_arxiv_papers."""
+
+    def setUp(self):
+        self.fetcher = _make_fetcher({'arxiv_categories': ['cs.AI']})
+
+    @patch.object(ft.ContentFetcher, '_http_get', return_value=ARXIV_RESPONSE)
+    def test_summary_truncated_to_300(self, mock_get):
+        papers = self.fetcher.fetch_arxiv_papers()
+        for p in papers:
+            self.assertLessEqual(len(p['summary']), 300)
+
+    @patch.object(ft.ContentFetcher, '_http_get', return_value=ARXIV_RESPONSE)
+    def test_title_whitespace_stripped(self, mock_get):
+        papers = self.fetcher.fetch_arxiv_papers()
+        for p in papers:
+            self.assertEqual(p['title'], p['title'].strip())
+
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_entry_without_arxiv_id_skipped(self, mock_get):
+        # Entry with no abs/ link → no arxiv_id → skipped
+        xml = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>No ID Paper</title>
+    <summary>A paper without an abs link.</summary>
+    <published>2026-03-01T00:00:00Z</published>
+    <link href="https://arxiv.org/pdf/2603.01234" rel="related"/>
+    <author><name>Author</name></author>
+  </entry>
+</feed>"""
+        mock_get.return_value = xml
+        papers = self.fetcher.fetch_arxiv_papers()
+        self.assertEqual(papers, [])
+
+
+# ── P1: Tests for _build_portfolio_context ────────────────────────────────
+
+class TestBuildPortfolioContext(unittest.TestCase):
+    def test_empty_when_no_holdings_no_watchlist(self):
+        gen = _make_generator()
+        result = gen._build_portfolio_context()
+        self.assertEqual(result, '')
+
+    def test_returns_content_with_holdings(self):
+        gen = _make_generator({
+            'portfolio_holdings': {
+                'Tech': ['GOOG', 'NVDA'],
+                'Semiconductors': ['TSM'],
+            },
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('PORTFOLIO CONTEXT', result)
+        self.assertIn('Current Holdings', result)
+        self.assertIn('**Tech:**', result)
+        self.assertIn('GOOG, NVDA', result)
+        self.assertIn('**Semiconductors:**', result)
+        self.assertIn('TSM', result)
+
+    def test_counts_total_positions_and_sectors(self):
+        gen = _make_generator({
+            'portfolio_holdings': {
+                'Tech': ['GOOG', 'NVDA'],
+                'China': ['BABA', 'FXI', 'KWEB'],
+            },
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('5 tickers', result)
+        self.assertIn('2 sectors', result)
+
+    def test_returns_content_with_watchlist_only(self):
+        gen = _make_generator({
+            'watchlist': {
+                'tickers': ['AAPL', 'MSFT'],
+                'themes': ['Quantum Computing', 'Robotics'],
+            },
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('Watchlist', result)
+        self.assertIn('AAPL, MSFT', result)
+        self.assertIn('Quantum Computing, Robotics', result)
+
+    def test_watchlist_tickers_only(self):
+        gen = _make_generator({
+            'watchlist': {'tickers': ['AAPL']},
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('Watchlist', result)
+        self.assertIn('AAPL', result)
+        self.assertNotIn('Themes', result)
+
+    def test_watchlist_themes_only(self):
+        gen = _make_generator({
+            'watchlist': {'themes': ['AI Safety']},
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('AI Safety', result)
+        self.assertNotIn('Tickers', result)
+
+    def test_both_holdings_and_watchlist(self):
+        gen = _make_generator({
+            'portfolio_holdings': {'Tech': ['GOOG']},
+            'watchlist': {'tickers': ['AAPL'], 'themes': ['EV']},
+        })
+        result = gen._build_portfolio_context()
+        self.assertIn('Current Holdings', result)
+        self.assertIn('Watchlist', result)
+        self.assertIn('GOOG', result)
+        self.assertIn('AAPL', result)
+        self.assertIn('EV', result)
+
+    def test_empty_holdings_dict_returns_empty(self):
+        gen = _make_generator({
+            'portfolio_holdings': {},
+            'watchlist': {},
+        })
+        result = gen._build_portfolio_context()
+        self.assertEqual(result, '')
+
+
+# ── P1: Expanded Tests for generate_brief Pipeline ───────────────────────
+
+class TestGenerateBriefPipeline(unittest.TestCase):
+    """Tests for the full generate_brief orchestration method."""
+
+    def setUp(self):
+        self.gen = _make_generator({
+            'twitter_accounts': ['karpathy', 'AndrewYNg'],
+            'rss_sources': [],
+            'web_only_sources': [],
+            'template': 'templates/ai-tech-brief.md',
+            'prompt': 'prompts/ai-tech-brief.md',
+            'brief_title': 'Test Brief',
+        })
+
+    def _mock_pipeline(self, brief_output='# Brief\nhttps://example.com\n## Top Stories\nContent'):
+        """Set up standard mocks for the generate_brief pipeline."""
+        patches = {
+            'fetch_all': patch.object(
+                ft.ContentFetcher, 'fetch_all',
+                return_value=([], [])),
+            'load_template': patch.object(
+                rd.BriefRenderer, 'load_template',
+                return_value='# $brief_title\n## Top Stories\n## Research Papers'),
+            'fill_template': patch.object(
+                rd.BriefRenderer, 'fill_template',
+                return_value='# Test Brief\n## Top Stories\n## Research Papers'),
+            'get_sections': patch.object(
+                ft.ContentFetcher, 'get_formatted_sections',
+                return_value={
+                    'rss': 'RSS data', 'arxiv': 'arXiv data',
+                    'hackernews': 'HN data', 'github': 'GH data', 'web': 'Web data'}),
+            'summarize': patch.object(
+                sm.Summarizer, 'summarize',
+                return_value=brief_output),
+            'validate': patch.object(
+                rd.BriefRenderer, 'validate_brief',
+                return_value=True),
+            'render': patch.object(
+                rd.BriefRenderer, 'render_output',
+                return_value=brief_output + '\n---\nCoverage Report'),
+        }
+        mocks = {}
+        for name, p in patches.items():
+            mocks[name] = p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches.values()])
+        return mocks
+
+    def test_pipeline_calls_all_stages(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        mocks['fetch_all'].assert_called_once()
+        mocks['summarize'].assert_called_once()
+        mocks['validate'].assert_called_once()
+        mocks['render'].assert_called_once()
+
+    def test_twitter_block_includes_accounts(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('@karpathy', prompt_vars['twitter_block'])
+        self.assertIn('@AndrewYNg', prompt_vars['twitter_block'])
+
+    def test_no_twitter_accounts_message(self):
+        self.gen.config['twitter_accounts'] = []
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['twitter_block'], 'No Twitter/X accounts configured.')
+
+    def test_failed_sources_note_in_prompt(self):
+        mocks = self._mock_pipeline()
+        mocks['fetch_all'].return_value = (
+            [],
+            [{'name': 'BadFeed', 'url': 'https://bad.com', 'error': 'Timeout'}],
+        )
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('BadFeed', prompt_vars['failed_note'])
+        self.assertIn('UNREACHABLE', prompt_vars['failed_note'])
+
+    def test_no_failed_sources_empty_note(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['failed_note'], '')
+
+    def test_unfetched_web_sources_block(self):
+        self.gen.config['web_only_sources'] = [
+            {'name': 'UnfetchedBlog', 'url': 'https://blog.com', 'category': 'newsletter'},
+        ]
+        mocks = self._mock_pipeline()
+        # No web pages fetched, so UnfetchedBlog should appear in unavailable block
+        self.gen.fetcher.fetched_content['web_pages'] = []
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('UnfetchedBlog', prompt_vars['unavailable_web_block'])
+        self.assertIn('Unavailable', prompt_vars['unavailable_web_block'])
+
+    def test_fetched_web_sources_not_in_unavailable(self):
+        self.gen.config['web_only_sources'] = [
+            {'name': 'FetchedBlog', 'url': 'https://blog.com', 'category': 'newsletter'},
+        ]
+        mocks = self._mock_pipeline()
+        self.gen.fetcher.fetched_content['web_pages'] = [{'source': 'FetchedBlog'}]
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['unavailable_web_block'], '')
+
+    def test_output_saved_when_path_provided(self):
+        mocks = self._mock_pipeline()
+        save_patcher = patch.object(rd.BriefRenderer, 'save')
+        save_mock = save_patcher.start()
+        self.addCleanup(save_patcher.stop)
+        self.gen.generate_brief(output_path='/tmp/test-brief.md')
+        save_mock.assert_called_once_with(
+            mocks['render'].return_value, '/tmp/test-brief.md')
+
+    def test_output_logged_when_no_path(self):
+        self._mock_pipeline()
+        self.gen.generate_brief(output_path=None)
+        # Should have logged the output (not saved to file)
+        self.gen.logger.info.assert_called()
+
+    def test_validation_failure_continues_generation(self):
+        mocks = self._mock_pipeline()
+        mocks['validate'].return_value = False
+        result = self.gen.generate_brief()
+        # Should still return content despite validation warning
+        self.assertIn('Coverage Report', result)
+        self.gen.logger.warning.assert_called()
+
+    def test_portfolio_vars_in_template(self):
+        self.gen.config['portfolio_holdings'] = {
+            'Tech': ['GOOG', 'NVDA'],
+            'China': ['BABA'],
+        }
+        self.gen.config['watchlist'] = {
+            'tickers': ['AAPL'],
+            'themes': ['EV'],
+        }
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        template_vars = mocks['fill_template'].call_args[0][1]
+        self.assertEqual(template_vars['holdings_count'], '3')
+        self.assertEqual(template_vars['sector_count'], '2')
+        self.assertEqual(template_vars['watchlist_ticker_count'], '1')
+        self.assertEqual(template_vars['watchlist_theme_count'], '1')
+
+    def test_portfolio_context_passed_to_summarizer(self):
+        self.gen.config['portfolio_holdings'] = {'Tech': ['GOOG']}
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertIn('PORTFOLIO CONTEXT', prompt_vars['portfolio_context'])
+        self.assertIn('GOOG', prompt_vars['portfolio_context'])
+
+    def test_no_portfolio_context_when_empty(self):
+        mocks = self._mock_pipeline()
+        self.gen.generate_brief()
+        prompt_vars = mocks['summarize'].call_args[0][1]
+        self.assertEqual(prompt_vars['portfolio_context'], '')
+
+    def test_content_count_aliases(self):
+        """Verify hackernews→hn, github_trending→github, web_pages→web aliases."""
+        mocks = self._mock_pipeline()
+        self.gen.fetcher.fetched_content = {
+            'rss': [{'title': 'a'}],
+            'arxiv': [{'title': 'b'}, {'title': 'c'}],
+            'hackernews': [{'title': 'd'}] * 5,
+            'github_trending': [{'name': 'e'}] * 3,
+            'web_pages': [{'source': 'f'}],
+        }
+        self.gen.generate_brief()
+        template_vars = mocks['fill_template'].call_args[0][1]
+        self.assertEqual(template_vars['rss_count'], '1')
+        self.assertEqual(template_vars['arxiv_count'], '2')
+        self.assertEqual(template_vars['hn_count'], '5')
+        self.assertEqual(template_vars['github_count'], '3')
+        self.assertEqual(template_vars['web_count'], '1')
+
+
+class TestFormatFailedSourcesWarningExtra(unittest.TestCase):
+    """Extra tests for _format_failed_sources_warning."""
+
+    def setUp(self):
+        self.renderer = _make_renderer()
+
+    def test_url_shown_in_parens(self):
+        failed = [{'name': 'MySrc', 'url': 'https://my.com', 'error': 'Timeout'}]
+        result = self.renderer._format_failed_sources_warning(failed)
+        self.assertIn('(`https://my.com`)', result)
+
+    def test_missing_url_no_parens(self):
+        failed = [{'name': 'NoURL', 'error': 'No URL configured'}]
+        result = self.renderer._format_failed_sources_warning(failed)
+        self.assertNotIn('(``)', result)
+
+    def test_multiple_failed_sources_all_listed(self):
+        failed = [
+            {'name': 'A', 'url': '', 'error': 'err1'},
+            {'name': 'B', 'url': '', 'error': 'err2'},
+            {'name': 'C', 'url': '', 'error': 'err3'},
+        ]
+        result = self.renderer._format_failed_sources_warning(failed)
+        for name in ['A', 'B', 'C']:
+            self.assertIn(name, result)
+
+
+# ── P2: Tests for trafilatura code path in fetch_web_source ────────────────
+
+class TestFetchWebSourceTrafilatura(unittest.TestCase):
+    """Test the trafilatura-enabled code path in fetch_web_source."""
+
+    def setUp(self):
+        self.fetcher = _make_fetcher()
+
+    @patch.object(ft, '_HAS_TRAFILATURA', True)
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_trafilatura_extracts_content(self, mock_get):
+        mock_get.return_value = '<html><body><p>Long enough content for extraction.</p></body></html>'
+        mock_trafilatura = MagicMock()
+        mock_trafilatura.extract.return_value = 'Extracted via trafilatura with enough chars to pass the length check!!'
+        with patch.dict('sys.modules', {'trafilatura': mock_trafilatura}):
+            # Re-bind the module-level reference
+            original = getattr(ft, 'trafilatura', None)
+            ft.trafilatura = mock_trafilatura
+            try:
+                result = self.fetcher.fetch_web_source('Test', 'https://test.com')
+            finally:
+                if original is not None:
+                    ft.trafilatura = original
+        self.assertIsNotNone(result)
+        self.assertIn('Extracted via trafilatura', result['content'])
+
+    @patch.object(ft, '_HAS_TRAFILATURA', True)
+    @patch.object(ft.ContentFetcher, '_http_get')
+    def test_trafilatura_returns_none_falls_to_empty(self, mock_get):
+        mock_get.return_value = '<html><body>short</body></html>'
+        mock_trafilatura = MagicMock()
+        mock_trafilatura.extract.return_value = None
+        with patch.dict('sys.modules', {'trafilatura': mock_trafilatura}):
+            original = getattr(ft, 'trafilatura', None)
+            ft.trafilatura = mock_trafilatura
+            try:
+                result = self.fetcher.fetch_web_source('Test', 'https://test.com')
+            finally:
+                if original is not None:
+                    ft.trafilatura = original
+        # None return + empty string < 50 chars → returns None
+        self.assertIsNone(result)
+
+
+# ── P2: Tests for generate_brief main() CLI ───────────────────────────────
+
+class TestMainCLI(unittest.TestCase):
+    """Tests for the main() CLI entry point."""
+
+    @patch.object(gb.BriefGenerator, 'generate_brief', return_value='# Brief')
+    @patch.object(gb.BriefGenerator, '__init__', return_value=None)
+    def test_default_args(self, mock_init, mock_gen):
+        mock_init.return_value = None
+        gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
+        gen_instance.config = _TEST_CONFIG.copy()
+        gen_instance.config['output_dir'] = '/tmp/briefs'
+        gen_instance.logger = MagicMock()
+
+        with patch('generate_brief.BriefGenerator', return_value=gen_instance):
+            with patch('sys.argv', ['generate_brief.py']):
+                gb.main()
+        gen_instance.generate_brief.assert_called_once()
+
+    @patch.object(gb.BriefGenerator, 'generate_brief', return_value='# Brief')
+    def test_output_dir_override(self, mock_gen):
+        with patch('sys.argv', ['generate_brief.py', '--output_dir', '/tmp/custom']):
+            with patch.object(gb.BriefGenerator, '__init__', return_value=None):
+                gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
+                gen_instance.config = _TEST_CONFIG.copy()
+                gen_instance.config['output_dir'] = '/tmp/briefs'
+                gen_instance.logger = MagicMock()
+                gen_instance.generate_brief = MagicMock(return_value='# Brief')
+
+                with patch('generate_brief.BriefGenerator', return_value=gen_instance):
+                    gb.main()
+                self.assertEqual(gen_instance.config['output_dir'], '/tmp/custom')
+
+    @patch('builtins.print')
+    def test_test_flag_prints_message(self, mock_print):
+        with patch('sys.argv', ['generate_brief.py', '--test']):
+            with patch.object(gb.BriefGenerator, '__init__', return_value=None):
+                gen_instance = gb.BriefGenerator.__new__(gb.BriefGenerator)
+                gen_instance.config = _TEST_CONFIG.copy()
+                gen_instance.config['output_dir'] = '/tmp/briefs'
+                gen_instance.logger = MagicMock()
+                gen_instance.generate_brief = MagicMock(return_value='# Brief')
+
+                with patch('generate_brief.BriefGenerator', return_value=gen_instance):
+                    gb.main()
+                mock_print.assert_any_call("Running in test mode...")
 
 
 if __name__ == '__main__':

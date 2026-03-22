@@ -13,7 +13,11 @@ Generates daily briefs from curated sources using a fetch-first, summarize-secon
 - Passes all verified content to Gemini CLI for summarization into a configurable template
 - Appends a source coverage report to every output
 
-Configured via `briefs/config.ai-tech.json` for AI technology news. See `briefs/SKILL.md` for how to configure the pipeline for other topics.
+Two pre-built configurations are included:
+- `briefs/config.ai-tech.json` — AI technology news (arXiv, AI labs, HN, GitHub trending)
+- `briefs/config.portfolio.json` — Financial markets & portfolio tracking (market data, macro, earnings)
+
+See `briefs/SKILL.md` for how to configure the pipeline for other topics.
 
 **Installation:**
 ```bash
@@ -32,6 +36,9 @@ openclaw cron run ai-tech-daily-brief
 # Or generate manually
 cd briefs
 python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp/
+
+# Generate a portfolio/market brief
+python3 scripts/generate_brief.py --config config.portfolio.json --output_dir /tmp/
 ```
 
 **Dependencies:**
@@ -45,6 +52,7 @@ python3 scripts/generate_brief.py --config config.ai-tech.json --output_dir /tmp
 briefs/
 ├── SKILL.md                    # Skill definition and instructions
 ├── config.ai-tech.json         # AI tech brief sources and settings
+├── config.portfolio.json       # Portfolio/market brief sources and settings
 ├── scripts/                    # Executable scripts
 │   ├── generate_brief.py       # Main orchestration
 │   ├── fetcher.py              # Content fetching (RSS, APIs, web)
@@ -52,7 +60,8 @@ briefs/
 │   ├── renderer.py             # Template rendering & output
 │   └── test_generate_brief.py # Unit tests
 ├── templates/                  # Output format templates
-│   └── ai-tech-brief.md
+│   ├── ai-tech-brief.md
+│   └── portfolio-brief.md
 └── references/                 # Reference documentation
     └── sources.md
 ```
