@@ -1,6 +1,6 @@
 ---
 name: paper-summarizer
-description: Summarize academic papers, articles, blog posts, and essays, then save structured notes to Liping's Obsidian vault (gen-notes/ folder). Use when: user shares an arXiv link, paper URL, blog post URL, or paper title and wants it summarized and saved. Also use when asked to work through Liping's reading backlog from his Obsidian AI.md note.
+description: "Summarize academic papers, articles, blog posts, and essays, then save structured notes to Liping's Obsidian vault (gen-notes/ folder). Use when: user shares an arXiv link, paper URL, blog post URL, or paper title and wants it summarized and saved. Also use when asked to work through Liping's reading backlog from his Obsidian AI.md note."
 ---
 
 # Paper Summarizer
