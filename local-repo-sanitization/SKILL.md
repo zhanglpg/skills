@@ -56,11 +56,7 @@ Edit `config.json` to customize repositories and settings:
       "name": "repo-name",
       "path": "~/path/to/repo",
       "remote": "username/repo-name",
-      "branch": "main",
-      "workflows": [
-        ".github/workflows/ci.yml",
-        ".github/workflows/deploy.yml"
-      ]
+      "branch": "main"
     }
   ]
 }
@@ -74,7 +70,6 @@ Edit `config.json` to customize repositories and settings:
 | `path` | string | Yes | Local path (supports `~` expansion) |
 | `remote` | string | Yes | GitHub remote in `owner/repo` format |
 | `branch` | string | Yes | Default branch name |
-| `workflows` | array | No | List of workflow files to check |
 
 ## Safety Checks
 

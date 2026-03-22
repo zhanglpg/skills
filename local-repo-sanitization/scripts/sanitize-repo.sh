@@ -420,8 +420,7 @@ sanitize_repo() {
     local repo_name="$2"
     local remote="$3"
     local branch="$4"
-    local workflows="$5"
-    local check_untracked="$6"
+    local check_untracked="$5"
     
     log_info "Starting sanitization for: $repo_name"
     log_info "Path: $repo_path"
@@ -517,10 +516,10 @@ sanitize_repo() {
             # Attempt to fix if enabled
             local auto_fix
             auto_fix=$(get_setting "autoFixWorkflows" "true")
-            if [ "$auto_fix" = "true" ] && [ -n "$workflows" ]; then
+            if [ "$auto_fix" = "true" ]; then
                 log_info "Attempting to fix broken workflows..."
-                # Parse workflows array and fix each
-                echo "$workflows" | jq -r '.[]' 2>/dev/null | while read -r wf; do
+                # Discover and fix all workflow files in the repo
+                find "$repo_path/.github/workflows" -name '*.yml' -o -name '*.yaml' 2>/dev/null | while read -r wf; do
                     fix_broken_workflows "$repo_path" "$remote" "$branch" "$wf" || true
                     fixes_applied="Attempted fixes for $wf"
                 done
@@ -563,17 +562,16 @@ sanitize_all() {
             continue
         fi
         
-        local repo_path remote branch workflows check_untracked
+        local repo_path remote branch check_untracked
         repo_path=$(get_repo_config "$repo_name" "path")
         remote=$(get_repo_config "$repo_name" "remote")
         branch=$(get_repo_config "$repo_name" "branch")
-        workflows=$(get_repo_config "$repo_name" "workflows")
         check_untracked=$(get_setting "checkUntrackedFiles" "false")
-        
+
         # Expand path
         repo_path=$(expand_path "$repo_path")
-        
-        sanitize_repo "$repo_path" "$repo_name" "$remote" "$branch" "$workflows" "$check_untracked"
+
+        sanitize_repo "$repo_path" "$repo_name" "$remote" "$branch" "$check_untracked"
         
         local result=$?
         if [ $result -eq 0 ]; then
@@ -650,28 +648,26 @@ main() {
             local repo_name="unknown"
             local remote=""
             local branch="main"
-            local workflows="[]"
             local check_untracked="false"
-            
+
             # Search config for matching path
             if [ -f "$CONFIG_FILE" ] && command -v jq &> /dev/null; then
                 local expanded_path="$repo_path"
                 repo_name=$(jq -r --arg path "$expanded_path" '.repos[] | select(.path == $path or .path == "'"$repo_path"'") | .name' "$CONFIG_FILE" 2>/dev/null | head -1)
-                
+
                 if [ -n "$repo_name" ] && [ "$repo_name" != "null" ]; then
                     remote=$(get_repo_config "$repo_name" "remote")
                     branch=$(get_repo_config "$repo_name" "branch")
-                    workflows=$(get_repo_config "$repo_name" "workflows")
                     check_untracked=$(get_setting "checkUntrackedFiles" "false")
                 fi
             fi
-            
+
             if [ -z "$repo_name" ] || [ "$repo_name" = "null" ]; then
                 repo_name=$(basename "$repo_path")
                 log_warning "Repository not in config, using defaults"
             fi
-            
-            sanitize_repo "$repo_path" "$repo_name" "$remote" "$branch" "$workflows" "$check_untracked"
+
+            sanitize_repo "$repo_path" "$repo_name" "$remote" "$branch" "$check_untracked"
             exit $?
             ;;
     esac
