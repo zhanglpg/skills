@@ -209,6 +209,120 @@ class TestResolveTwitter(unittest.TestCase):
         self.assertEqual(len(papers), 0)
 
 
+class TestResolveTwitterEdgeCases(unittest.TestCase):
+    @patch("sources.fetch_arxiv_metadata")
+    @patch("sources._fetch_text")
+    def test_non_arxiv_paper_url_in_tweet(self, mock_fetch_text, mock_arxiv):
+        """Tweets with non-arXiv URLs should create manual entries."""
+        mock_fetch_text.return_value = """
+        <html><body>
+        Check out https://www.semanticscholar.org/paper/some-paper-id
+        </body></html>
+        """
+        papers = resolve_twitter("https://x.com/user/status/123")
+        self.assertEqual(len(papers), 1)
+        self.assertEqual(papers[0]["source"], "twitter")
+        self.assertIsNone(papers[0]["arxiv_id"])
+        self.assertIn("semanticscholar.org", papers[0]["url"])
+        mock_arxiv.assert_not_called()
+
+    @patch("sources.fetch_arxiv_metadata")
+    @patch("sources._fetch_text")
+    def test_tweet_author_extracted(self, mock_fetch_text, mock_arxiv):
+        mock_fetch_text.return_value = SAMPLE_TWEET_HTML
+        mock_arxiv.return_value = {
+            "title": "P", "arxiv_id": "2401.12345", "authors": "",
+            "abstract": "", "url": "", "source": "arxiv", "topics": [],
+        }
+        papers = resolve_twitter("https://twitter.com/ylecun/status/789")
+        self.assertEqual(papers[0]["source_meta"]["tweet_author"], "ylecun")
+
+    @patch("sources.fetch_arxiv_metadata")
+    @patch("sources._fetch_text")
+    def test_arxiv_resolve_fails_gracefully(self, mock_fetch_text, mock_arxiv):
+        """When arXiv metadata fetch fails, that paper is skipped."""
+        mock_fetch_text.return_value = SAMPLE_TWEET_MULTI_URLS
+        mock_arxiv.side_effect = [
+            ValueError("Not found"),
+            {"title": "Paper 2", "arxiv_id": "2402.67890", "authors": "",
+             "abstract": "", "url": "", "source": "arxiv", "topics": []},
+        ]
+        papers = resolve_twitter("https://x.com/user/status/123")
+        self.assertEqual(len(papers), 1)
+        self.assertEqual(papers[0]["arxiv_id"], "2402.67890")
+
+
+class TestFetchText(unittest.TestCase):
+    @patch("sources.urlopen")
+    def test_fetch_text_success(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"Hello World"
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_urlopen.return_value = mock_resp
+        from sources import _fetch_text
+        result = _fetch_text("https://example.com")
+        self.assertEqual(result, "Hello World")
+
+    @patch("sources.urlopen")
+    def test_fetch_text_timeout(self, mock_urlopen):
+        from urllib.error import URLError
+        mock_urlopen.side_effect = URLError("timeout")
+        from sources import _fetch_text
+        with self.assertRaises(URLError):
+            _fetch_text("https://example.com", timeout=5)
+
+
+class TestParseArxivEntryEdgeCases(unittest.TestCase):
+    def test_entry_missing_elements(self):
+        """Entry with minimal elements should not crash."""
+        import xml.etree.ElementTree as ET
+        xml = """<?xml version="1.0"?>
+        <feed xmlns="http://www.w3.org/2005/Atom"
+              xmlns:arxiv="http://arxiv.org/schemas/atom">
+          <entry>
+            <id>http://arxiv.org/abs/2401.99999v1</id>
+          </entry>
+        </feed>"""
+        root = ET.fromstring(xml)
+        entry = root.findall(f"{ATOM_NS}entry")[0]
+        result = _parse_arxiv_entry(entry)
+        self.assertEqual(result["title"], "Untitled")
+        self.assertIsNone(result["abstract"])
+        self.assertEqual(result["authors"], "")
+
+    def test_entry_with_no_id(self):
+        """Entry with no id element."""
+        import xml.etree.ElementTree as ET
+        xml = """<?xml version="1.0"?>
+        <feed xmlns="http://www.w3.org/2005/Atom"
+              xmlns:arxiv="http://arxiv.org/schemas/atom">
+          <entry>
+            <title>Some Title</title>
+          </entry>
+        </feed>"""
+        root = ET.fromstring(xml)
+        entry = root.findall(f"{ATOM_NS}entry")[0]
+        result = _parse_arxiv_entry(entry)
+        self.assertEqual(result["title"], "Some Title")
+        self.assertIsNone(result["arxiv_id"])
+
+
+class TestExtractArxivIdEdgeCases(unittest.TestCase):
+    def test_five_digit_id(self):
+        self.assertEqual(_extract_arxiv_id("2401.12345"), "2401.12345")
+
+    def test_four_digit_id(self):
+        self.assertEqual(_extract_arxiv_id("2401.1234"), "2401.1234")
+
+    def test_empty_string(self):
+        self.assertIsNone(_extract_arxiv_id(""))
+
+    def test_partial_match_no_confusion(self):
+        # Should not match just digits without proper format
+        self.assertIsNone(_extract_arxiv_id("12345"))
+
+
 class TestResolveManual(unittest.TestCase):
     def test_basic(self):
         result = resolve_manual(title="My Paper")

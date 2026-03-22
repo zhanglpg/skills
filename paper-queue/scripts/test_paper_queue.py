@@ -11,7 +11,10 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from paper_queue import build_parser, cmd_add, cmd_list, cmd_status, cmd_score, cmd_stats, load_config, resolve_db_path, main
+from paper_queue import (
+    build_parser, cmd_add, cmd_list, cmd_status, cmd_score, cmd_stats,
+    cmd_digest, cmd_suggest, load_config, resolve_db_path, setup_logger, main,
+)
 from storage import QueueDB
 
 
@@ -211,6 +214,176 @@ class TestCmdInit(unittest.TestCase):
             db_path = os.path.join(tmp, "queue.db")
             main(["--db", db_path, "init"])
             ret = main(["--db", db_path, "init"])
+            self.assertEqual(ret, 1)
+
+
+class TestCmdAddFallbackManualUrl(CLITestBase):
+    """Test that a non-arXiv, non-Twitter URL falls back to manual entry."""
+
+    @patch("paper_queue.score_paper")
+    def test_add_generic_url(self, mock_score):
+        mock_score.return_value = (2.0, [])
+        args = self.parser.parse_args(["add", "https://example.com/my-paper.pdf"])
+        ret = cmd_add(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 0)
+        papers = self.db.list_papers()
+        self.assertEqual(len(papers), 1)
+        self.assertIn("example.com", papers[0]["title"])
+
+    def test_add_no_paper_arg(self):
+        args = self.parser.parse_args(["add"])
+        ret = cmd_add(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 1)
+
+
+class TestCmdDigest(CLITestBase):
+    def test_digest_nonexistent_paper(self):
+        args = self.parser.parse_args(["digest", "999"])
+        ret = cmd_digest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 1)
+
+    def test_digest_no_url_or_arxiv_id(self):
+        self.db.add_paper(title="Manual Paper Only")
+        args = self.parser.parse_args(["digest", "1"])
+        ret = cmd_digest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 1)
+
+    @patch("paper_queue.subprocess.run")
+    @patch("paper_queue.os.path.isfile")
+    def test_digest_script_not_found(self, mock_isfile, mock_run):
+        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
+        # The digest script doesn't exist
+        mock_isfile.side_effect = lambda p: p == self.db_path
+        args = self.parser.parse_args(["digest", "1"])
+        ret = cmd_digest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 1)
+        mock_run.assert_not_called()
+
+    @patch("paper_queue.subprocess.run")
+    @patch("paper_queue.os.path.isfile", return_value=True)
+    def test_digest_subprocess_failure(self, mock_isfile, mock_run):
+        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
+        mock_run.return_value = MagicMock(returncode=1, stderr="Some error")
+        args = self.parser.parse_args(["digest", "1"])
+        ret = cmd_digest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 1)
+
+    @patch("paper_queue.subprocess.run")
+    @patch("paper_queue.os.path.isfile", return_value=True)
+    def test_digest_success_no_output_dir(self, mock_isfile, mock_run):
+        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
+        mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="Done")
+        args = self.parser.parse_args(["digest", "1"])
+        ret = cmd_digest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 0)
+        paper = self.db.get_paper(1)
+        self.assertEqual(paper["status"], "digested")
+
+    @patch("paper_queue.subprocess.run")
+    @patch("paper_queue.os.path.isfile", return_value=True)
+    def test_digest_success_with_output_dir(self, mock_isfile, mock_run):
+        with tempfile.TemporaryDirectory() as out_dir:
+            # Write a fake digest file
+            digest_file = os.path.join(out_dir, "digest_2401.12345.md")
+            with open(digest_file, "w") as f:
+                f.write("# Digest\n")
+            self.db.add_paper(title="Paper", arxiv_id="2401.12345")
+            mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            config = {**self.config, "digest_output_dir": out_dir}
+            args = self.parser.parse_args(["digest", "1"])
+            ret = cmd_digest(args, config, self.db, self.logger)
+            self.assertEqual(ret, 0)
+            paper = self.db.get_paper(1)
+            self.assertEqual(paper["status"], "digested")
+            self.assertIsNotNone(paper["digest_path"])
+
+
+class TestCmdSuggest(CLITestBase):
+    @patch("suggester.suggest_related")
+    def test_suggest_empty(self, mock_suggest):
+        mock_suggest.return_value = []
+        args = self.parser.parse_args(["suggest"])
+        ret = cmd_suggest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 0)
+
+    @patch("suggester.suggest_related")
+    def test_suggest_with_results(self, mock_suggest):
+        mock_suggest.return_value = [
+            {"title": "Suggested Paper", "arxiv_id": "2405.11111"},
+            {"title": "Another Suggestion That Has A Very Long Title That Should Be Truncated By Display", "arxiv_id": "2405.22222"},
+        ]
+        args = self.parser.parse_args(["suggest"])
+        ret = cmd_suggest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 0)
+
+    @patch("suggester.suggest_related")
+    def test_suggest_with_paper_id(self, mock_suggest):
+        mock_suggest.return_value = [{"title": "S", "arxiv_id": "2405.33333"}]
+        self.db.add_paper(title="Focus", arxiv_id="2401.00001", topics=["cs.LG"])
+        args = self.parser.parse_args(["suggest", "1"])
+        ret = cmd_suggest(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 0)
+
+
+class TestCmdScoreEdgeCases(CLITestBase):
+    def test_score_nonexistent_paper(self):
+        args = self.parser.parse_args(["score", "999"])
+        ret = cmd_score(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 1)
+
+    @patch("paper_queue.score_paper")
+    def test_score_empty_queue(self, mock_score):
+        args = self.parser.parse_args(["score"])
+        ret = cmd_score(args, self.config, self.db, self.logger)
+        self.assertEqual(ret, 0)  # "No to-read papers to score"
+
+
+class TestResolveDbPath(unittest.TestCase):
+    def test_default_path(self):
+        path = resolve_db_path({})
+        self.assertIn("paper-queue", path)
+        self.assertIn("queue.db", path)
+
+    def test_override(self):
+        path = resolve_db_path({}, db_override="/tmp/custom.db")
+        self.assertEqual(path, "/tmp/custom.db")
+
+    def test_config_path(self):
+        path = resolve_db_path({"db_path": "/data/my-queue.db"})
+        self.assertEqual(path, "/data/my-queue.db")
+
+    def test_expandvars(self):
+        os.environ["TEST_PQ_DIR"] = "/test/dir"
+        path = resolve_db_path({"db_path": "$TEST_PQ_DIR/queue.db"})
+        self.assertEqual(path, "/test/dir/queue.db")
+        del os.environ["TEST_PQ_DIR"]
+
+
+class TestSetupLogger(unittest.TestCase):
+    def test_setup_logger_no_log_file(self):
+        logger = setup_logger({})
+        self.assertIsNotNone(logger)
+
+    def test_setup_logger_with_log_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = os.path.join(tmp, "test.log")
+            logger = setup_logger({"log_file": log_path})
+            self.assertIsNotNone(logger)
+
+
+class TestMainNoCommand(unittest.TestCase):
+    def test_no_command_shows_help(self):
+        ret = main([])
+        self.assertEqual(ret, 1)
+
+
+class TestMainExceptionHandling(unittest.TestCase):
+    @patch("paper_queue.cmd_list", side_effect=RuntimeError("boom"))
+    def test_command_exception_returns_1(self, mock_cmd):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "queue.db")
+            main(["--db", db_path, "init"])
+            ret = main(["--db", db_path, "list"])
             self.assertEqual(ret, 1)
 
 

@@ -262,5 +262,193 @@ class TestStats(unittest.TestCase):
         self.assertIn("rag", stats["topics"])
 
 
+class TestGetAllTopics(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def test_empty_queue(self):
+        topics = self.db.get_all_topics()
+        self.assertEqual(topics, [])
+
+    def test_aggregates_topics(self):
+        self.db.add_paper(title="P1", topics=["cs.LG", "cs.AI"])
+        self.db.add_paper(title="P2", topics=["cs.AI", "cs.CL"])
+        topics = self.db.get_all_topics()
+        self.assertIn("cs.lg", topics)
+        self.assertIn("cs.ai", topics)
+        self.assertIn("cs.cl", topics)
+        # Topics are deduplicated
+        self.assertEqual(len(topics), 3)
+
+    def test_ignores_null_topics(self):
+        self.db.add_paper(title="P1")
+        self.db.add_paper(title="P2", topics=["cs.LG"])
+        topics = self.db.get_all_topics()
+        self.assertEqual(topics, ["cs.lg"])
+
+    def test_handles_invalid_json_topics(self):
+        # Manually insert a paper with invalid JSON topics
+        self.db._conn.execute(
+            "INSERT INTO papers (title, topics, added_at, updated_at) VALUES (?, ?, ?, ?)",
+            ("Bad", "not-valid-json", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z"),
+        )
+        self.db._conn.commit()
+        topics = self.db.get_all_topics()
+        self.assertEqual(topics, [])
+
+    def test_sorted_output(self):
+        self.db.add_paper(title="P1", topics=["cs.CL", "cs.AI"])
+        topics = self.db.get_all_topics()
+        self.assertEqual(topics, sorted(topics))
+
+
+class TestListPapersSorting(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
+        self.db.add_paper(title="Bravo", arxiv_id="0001.00001")
+        self.db.add_paper(title="Alpha", arxiv_id="0002.00002")
+        self.db.update_score(1, 3.0, [])
+        self.db.update_score(2, 7.0, [])
+        self.db.update_citation_count(1, 100)
+        self.db.update_citation_count(2, 10)
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def test_sort_by_title(self):
+        papers = self.db.list_papers(sort_by="title")
+        self.assertEqual(papers[0]["title"], "Alpha")
+
+    def test_sort_by_citation_count(self):
+        papers = self.db.list_papers(sort_by="citation_count")
+        self.assertEqual(papers[0]["citation_count"], 100)
+
+    def test_sort_by_added_at(self):
+        papers = self.db.list_papers(sort_by="added_at")
+        # Returns papers sorted by added_at DESC; both were added in sequence
+        self.assertEqual(len(papers), 2)
+
+    def test_invalid_sort_defaults_to_priority(self):
+        papers = self.db.list_papers(sort_by="nonexistent")
+        # Falls back to priority_score DESC
+        self.assertEqual(papers[0]["title"], "Alpha")  # Higher priority
+
+
+class TestRowToDict(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def test_topics_deserialized(self):
+        self.db.add_paper(title="P", topics=["cs.LG", "cs.AI"])
+        paper = self.db.get_paper(1)
+        self.assertIsInstance(paper["topics"], list)
+        self.assertEqual(paper["topics"], ["cs.LG", "cs.AI"])
+
+    def test_source_meta_deserialized(self):
+        self.db.add_paper(title="P", source_meta={"key": "value"})
+        paper = self.db.get_paper(1)
+        self.assertIsInstance(paper["source_meta"], dict)
+        self.assertEqual(paper["source_meta"]["key"], "value")
+
+    def test_invalid_json_stays_string(self):
+        # Force invalid JSON into topics column
+        self.db._conn.execute(
+            "INSERT INTO papers (title, topics, added_at, updated_at) VALUES (?, ?, ?, ?)",
+            ("P", "not-json", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z"),
+        )
+        self.db._conn.commit()
+        paper = self.db.get_paper(1)
+        # Should stay as string, not crash
+        self.assertEqual(paper["topics"], "not-json")
+
+
+class TestUpdateCitationCount(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
+        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def test_updates_count(self):
+        self.db.update_citation_count(1, 42)
+        paper = self.db.get_paper(1)
+        self.assertEqual(paper["citation_count"], 42)
+
+    def test_updates_timestamp(self):
+        paper_before = self.db.get_paper(1)
+        import time
+        time.sleep(0.05)  # Ensure timestamp difference
+        self.db.update_citation_count(1, 10)
+        paper_after = self.db.get_paper(1)
+        self.assertIsNotNone(paper_after["updated_at"])
+
+
+class TestGetScoreComponents(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
+        self.db.add_paper(title="Paper")
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def test_no_components(self):
+        sc = self.db.get_score_components(1)
+        self.assertEqual(sc, [])
+
+    def test_returns_all_components(self):
+        components = [
+            {"component": "citations", "value": 7.0, "detail": "100 citations"},
+            {"component": "recency", "value": 9.0, "detail": "Recent"},
+            {"component": "queue_affinity", "value": 5.0, "detail": "Partial"},
+        ]
+        self.db.update_score(1, 7.0, components)
+        sc = self.db.get_score_components(1)
+        self.assertEqual(len(sc), 3)
+        comp_names = {c["component"] for c in sc}
+        self.assertEqual(comp_names, {"citations", "recency", "queue_affinity"})
+
+
+class TestStatsEdgeCases(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def test_empty_queue_stats(self):
+        stats = self.db.get_stats()
+        self.assertEqual(stats["total"], 0)
+        self.assertEqual(stats["by_status"], {})
+        self.assertEqual(stats["avg_priority_to_read"], 0)
+        self.assertEqual(stats["topics"], [])
+
+    def test_avg_priority_with_scored_papers(self):
+        self.db.add_paper(title="P1")
+        self.db.add_paper(title="P2")
+        self.db.update_score(1, 6.0, [])
+        self.db.update_score(2, 8.0, [])
+        stats = self.db.get_stats()
+        self.assertEqual(stats["avg_priority_to_read"], 7.0)
+
+
 if __name__ == "__main__":
     unittest.main()
