@@ -73,7 +73,3 @@ jobs:
       - name: Run paper-queue suggester tests
         run: python -m unittest test_suggester -v
         working-directory: paper-queue/scripts
-
-      - name: Run local-repo-sanitization tests
-        run: python -m unittest test_sanitize_repo -v
-        working-directory: local-repo-sanitization/scripts

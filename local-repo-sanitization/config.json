@@ -42,12 +42,5 @@
       "remote": "zhanglpg/openbb-integration",
       "branch": "main"
     }
-  ],
-  "settings": {
-    "claudePath": "/Users/lipingzhang/.local/bin/claude",
-    "checkUntrackedFiles": false,
-    "autoFixWorkflows": true,
-    "commitPrefix": "docs:",
-    "dryRun": false
-  }
+  ]
 }

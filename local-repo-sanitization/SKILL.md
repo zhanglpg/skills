@@ -1,256 +1,105 @@
-# local-repo-sanitization Skill
+---
+name: local-repo-sanitization
+description: "Sanitize local GitHub repos: deep-analyze and update READMEs, ensure all tests are in CI, fix broken GitHub Actions. Use when: asked to sanitize repos, check repo health, or run repo maintenance. Also runs as a daily cron job."
+---
 
-## Purpose
+# Local Repo Sanitization
 
-This skill sanitizes local GitHub repositories by ensuring README files accurately reflect the actual codebase, checking GitHub Actions workflow health, and maintaining repository hygiene.
+Automated maintenance for all configured GitHub repositories. For each repo: verify working directory is clean, deep-analyze and update README, ensure test CI coverage, and fix broken GitHub Actions.
 
-## Description
+## Config
 
-The `local-repo-sanitization` skill provides automated repository maintenance by:
+Read the repo list from `config.json` in the same directory as this file (`~/.openclaw/skills/custom/local-repo-sanitization/config.json`).
 
-1. **Detecting uncommitted changes** - Prevents modifications when local work is in progress
-2. **Analyzing README accuracy** - Uses Claude Code to compare README documentation with actual code
-3. **Updating documentation** - Automatically fixes discrepancies between README and codebase
-4. **Checking CI/CD health** - Monitors GitHub Actions workflow status
-5. **Fixing broken workflows** - Attempts to repair failing GitHub Actions configurations
+Each entry has: `name`, `path` (supports `~`), `remote` (owner/repo), `branch`.
 
-## Usage
+## Workflow
 
-### Sanitize a Single Repository
+Process each repo in `config.json`. If a repo path doesn't exist, report it and move to the next one.
 
-```bash
-~/.openclaw/skills/custom/local-repo-sanitization/scripts/sanitize-repo.sh <repo-path>
-```
-
-Example:
-```bash
-~/.openclaw/skills/custom/local-repo-sanitization/scripts/sanitize-repo.sh ~/.openclaw/workspace-coding/agentic-coding-skills
-```
-
-### Check Repository Health (Read-Only)
+### Step 1: Safety check
 
 ```bash
-~/.openclaw/skills/custom/local-repo-sanitization/scripts/check-health.sh <repo-path>
+cd <repo_path>
+git status --porcelain
 ```
 
-Example:
+- Filter out `??` lines (untracked files are OK).
+- If any tracked changes remain (modified, staged, deleted): **SKIP this repo entirely**. Report it as dirty in the summary. Do not modify anything.
+- If clean, pull latest: `git pull`
+
+### Step 2: Deep README analysis and update
+
+Read the README file and explore the actual codebase — directory structure, main modules, scripts, configs, entry points.
+
+Compare the README against reality:
+- Are there sections describing features that no longer exist?
+- Are there modules or scripts not mentioned in the README?
+- Are installation/setup instructions still accurate?
+- Does the project structure section match the actual file tree?
+
+If discrepancies are found:
+1. Update the README — preserve existing style, only change what's necessary
+2. Stage only the README: `git add README.md`
+3. Commit: `git commit -m "docs: update README to reflect current codebase"`
+4. Push: `git push origin <branch>`
+
+If the README is accurate, move on.
+
+### Step 3: Test CI coverage
+
+Find all `test_*.py` files in the repo (excluding `.git/`).
+
+Find the test workflow — check for `.github/workflows/tests.yml` or `.github/workflows/test.yml`.
+
+If no test workflow exists or no test files exist, skip this step.
+
+For each test file, check if its module name (e.g., `test_foo` from `test_foo.py`) appears in the workflow YAML.
+
+**Exclusions:** If a `.ci-skip-tests` file exists at the repo root, each line is a module name to exclude from this check (e.g., `test_foo`).
+
+If any test files are missing from the workflow:
+1. Add the appropriate step(s) to the workflow YAML, following the existing step pattern (name, `python -m unittest <module> -v`, `working-directory`)
+2. Stage: `git add .github/workflows/`
+3. Commit: `git commit -m "ci: add missing test modules to workflow"`
+4. Push: `git push origin <branch>`
+
+### Step 4: Fix broken GitHub Actions
+
+Check recent workflow runs:
+
 ```bash
-~/.openclaw/skills/custom/local-repo-sanitization/scripts/check-health.sh ~/.openclaw/workspace-coding/agentic-coding-skills
+gh run list --repo <remote> --branch <branch> --limit 5 --json status,conclusion,name,databaseId,workflowName
 ```
 
-### Sanitize All Configured Repositories
+If any runs have `conclusion: "failure"`:
+1. Fetch the failure logs: `gh run view <databaseId> --repo <remote> --log-failed | tail -100`
+2. Read the relevant workflow file and any code it references
+3. Analyze the root cause from the logs
+4. Fix the issue — it may be in the workflow YAML, the code, or dependencies
+5. Stage the changed files specifically (not `git add -A`)
+6. Commit: `git commit -m "fix: resolve <workflow_name> failure"`
+7. Push: `git push origin <branch>`
 
-```bash
-cd ~/.openclaw/skills/custom/local-repo-sanitization
-./scripts/sanitize-repo.sh --all
-```
+If all workflows are passing, move on.
 
-## Configuration
+### Step 5: Summary report
 
-Edit `config.json` to customize repositories and settings:
-
-```json
-{
-  "repos": [
-    {
-      "name": "repo-name",
-      "path": "~/path/to/repo",
-      "remote": "username/repo-name",
-      "branch": "main"
-    }
-  ]
-}
-```
-
-### Configuration Options
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Friendly name for the repository |
-| `path` | string | Yes | Local path (supports `~` expansion) |
-| `remote` | string | Yes | GitHub remote in `owner/repo` format |
-| `branch` | string | Yes | Default branch name |
-
-## Safety Checks
-
-### Uncommitted Changes Detection
-
-**CRITICAL:** The skill will **STOP immediately** if uncommitted changes are detected:
-
-- Modified tracked files
-- Staged changes
-- Untracked files (optional, configurable)
-
-When uncommitted changes are found:
-1. Script exits with error code `1`
-2. Clear error message is displayed
-3. **No modifications are made** to the repository
-4. User must commit or stash changes before running sanitization
-
-This prevents:
-- Loss of work-in-progress
-- Accidental commits of incomplete changes
-- Conflicts with local development
-
-## Task Workflow
-
-### sanitize-repo.sh Workflow
-
-1. **Validate Input**
-   - Check if repo path exists
-   - Verify it's a git repository
-   - Load configuration
-
-2. **Safety Check**
-   - Detect uncommitted changes (`git status --porcelain`)
-   - Exit with error if changes found
-
-3. **Deep README Analysis**
-   - Spawn Claude Code subagent
-   - Analyze actual code structure
-   - Compare with README content
-   - Identify discrepancies
-
-4. **Update README**
-   - Apply necessary documentation updates
-   - Ensure accuracy with codebase
-
-5. **Commit and Push**
-   - Stage README changes
-   - Create descriptive commit message
-   - Push to remote repository
-
-6. **Validate Test CI Coverage**
-   - Find all `test_*.py` files in the repo
-   - Check each is referenced in the test workflow (`.github/workflows/tests.yml` or `test.yml`)
-   - Respect `.ci-skip-tests` exclusion file (one module name per line, e.g. `test_foo`)
-   - If missing tests found, spawn Claude Code to add them to the workflow
-   - Commit and push
-
-7. **Check GitHub Actions**
-   - Query recent workflow runs
-   - Identify failed runs
-
-8. **Fix Broken Workflows** (if any)
-   - Analyze failure reasons
-   - Attempt automated fixes
-   - Commit and push fixes
-
-9. **Report Results**
-   - Repository status (OK/ERROR/UNCOMMITTED)
-   - README changes made
-   - Workflow status
-   - Fixes applied
-
-### check-health.sh Workflow
-
-1. **Validate Input**
-   - Check if repo path exists
-   - Verify it's a git repository
-
-2. **Check Uncommitted Changes**
-   - Report any pending changes
-   - Does NOT exit or modify
-
-3. **Check GitHub Actions Status**
-   - Query recent workflow runs
-   - Report pass/fail status
-
-4. **Report Health Summary**
-   - Clean/dirty status
-   - CI/CD health
-   - Recommendations
-
-## Output Format
-
-### Success Output
+After processing all repos, output a summary table:
 
 ```
-[OK] Repository: agentic-coding-skills
-├─ README: Updated (3 sections added, 2 sections modified)
-├─ Commit: "docs: update README to reflect current codebase"
-├─ Push: Success (origin/main)
-├─ Workflows: All passing (3/3)
-└─ Status: SANITIZED
+Repo Sanitization Summary
+─────────────────────────
+skills:                 clean | README: ok        | Tests: ok    | CI: passing
+agentic-coding-skills:  clean | README: updated   | Tests: ok    | CI: passing
+md-serve:               DIRTY | (skipped)
+code-complexity-measure: clean | README: ok       | Tests: 1 added | CI: fixed
 ```
 
-### Error Output (Uncommitted Changes)
+## Important rules
 
-```
-[ERROR] Repository: agentic-coding-skills
-├─ Status: UNCOMMITTED CHANGES DETECTED
-├─ Modified files:
-│  ├─ M src/index.ts
-│  └─ M package.json
-├─ Action: Commit or stash changes before sanitization
-└─ Exit Code: 1
-```
-
-### Health Check Output
-
-```
-[HEALTH] Repository: agentic-coding-skills
-├─ Working Directory: Clean
-├─ Uncommitted Changes: None
-├─ GitHub Actions:
-│  ├─ CI: ✅ Passing (2h ago)
-│  ├─ Deploy: ✅ Passing (1d ago)
-│  └─ Lint: ⚠️ Failed (3h ago)
-└─ Recommendations: Check lint workflow
-```
-
-## Prerequisites
-
-- Git installed and configured
-- GitHub CLI (`gh`) authenticated
-- Claude Code CLI (`claude`) available
-- Node.js (for script execution)
-
-## Files
-
-```
-local-repo-sanitization/
-├── SKILL.md              # This documentation
-├── config.json           # Repository configuration
-└── scripts/
-    ├── sanitize-repo.sh  # Main sanitization script
-    └── check-health.sh   # Health check script
-```
-
-## Error Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Uncommitted changes detected |
-| 2 | Repository path not found |
-| 3 | Not a git repository |
-| 4 | GitHub CLI error |
-| 5 | Claude Code analysis failed |
-
-## Security Considerations
-
-- Scripts only operate on configured repositories
-- No external data exfiltration
-- All changes are committed with descriptive messages
-- Push requires proper GitHub authentication
-- Read-only health checks available for auditing
-
-## Troubleshooting
-
-### "Uncommitted changes detected"
-Commit or stash your local changes before running sanitization:
-```bash
-git add . && git commit -m "WIP"
-# or
-git stash
-```
-
-### "Repository not found"
-Verify the path in `config.json` exists and is accessible.
-
-### "GitHub CLI not authenticated"
-Run `gh auth login` to authenticate with GitHub.
-
-### "Claude Code analysis failed"
-Ensure Claude Code CLI is installed and accessible at `/Users/lipingzhang/.local/bin/claude`.
+- **Never modify a dirty repo.** If there are uncommitted tracked changes, skip it entirely.
+- **Stage specific files**, not `git add -A`. Only stage what you changed.
+- **One commit per concern.** README changes, CI changes, and workflow fixes get separate commits.
+- **Preserve style.** When editing READMEs or workflow files, match the existing formatting.
+- **Don't over-edit.** Only change what's actually wrong. If the README is fine, don't touch it.
