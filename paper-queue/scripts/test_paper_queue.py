@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from paper_queue import build_parser, cmd_add, cmd_list, cmd_status, cmd_score, cmd_stats, load_config, get_db
+from paper_queue import build_parser, cmd_add, cmd_list, cmd_status, cmd_score, cmd_stats, load_config, resolve_db_path, main
 from storage import QueueDB
 
 
@@ -21,7 +21,7 @@ class CLITestBase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self.tmp.name, "queue.db")
-        self.db = QueueDB(self.db_path)
+        self.db = QueueDB.init_db(self.db_path)
         self.config = {"scoring_weights": {"citations": 0.3, "recency": 0.3, "queue_affinity": 0.4}}
         self.logger = MagicMock()
         self.parser = build_parser()
@@ -196,6 +196,36 @@ class TestLoadConfig(unittest.TestCase):
             config = load_config(f.name)
             self.assertEqual(config["db_path"], "/tmp/test.db")
             os.unlink(f.name)
+
+
+class TestCmdInit(unittest.TestCase):
+    def test_init_creates_db(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "queue.db")
+            ret = main(["--db", db_path, "init"])
+            self.assertEqual(ret, 0)
+            self.assertTrue(os.path.isfile(db_path))
+
+    def test_init_rejects_existing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "queue.db")
+            main(["--db", db_path, "init"])
+            ret = main(["--db", db_path, "init"])
+            self.assertEqual(ret, 1)
+
+
+class TestFailFastNoDB(unittest.TestCase):
+    def test_list_without_init_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "nonexistent.db")
+            ret = main(["--db", db_path, "list"])
+            self.assertEqual(ret, 1)
+
+    def test_add_without_init_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "nonexistent.db")
+            ret = main(["--db", db_path, "add", "--manual", "--title", "Test"])
+            self.assertEqual(ret, 1)
 
 
 if __name__ == "__main__":
