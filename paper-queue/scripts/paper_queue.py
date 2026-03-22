@@ -52,13 +52,12 @@ def setup_logger(config: dict):
     return _shared_setup_logger("paper-queue", log_file=log_file or None)
 
 
-def get_db(config: dict, db_override: Optional[str] = None) -> QueueDB:
+def resolve_db_path(config: dict, db_override: Optional[str] = None) -> str:
     agent_dir = get_agent_data_dir()
     db_path = db_override or config.get(
         "db_path", os.path.join(agent_dir, "paper-queue", "queue.db")
     )
-    db_path = os.path.expandvars(os.path.expanduser(db_path))
-    return QueueDB(db_path)
+    return os.path.expandvars(os.path.expanduser(db_path))
 
 
 # ---------------------------------------------------------------------------
@@ -360,12 +359,15 @@ def build_parser() -> argparse.ArgumentParser:
     # stats
     subs.add_parser("stats", help="Show queue statistics")
 
+    # init
+    subs.add_parser("init", help="Initialize a new queue database")
+
     return parser
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not args.command:
         parser.print_help()
@@ -373,7 +375,25 @@ def main() -> int:
 
     config = load_config(args.config)
     logger = setup_logger(config)
-    db = get_db(config, args.db)
+    db_path = resolve_db_path(config, args.db)
+
+    # Handle init separately — it creates the DB
+    if args.command == "init":
+        try:
+            db = QueueDB.init_db(db_path)
+            db.close()
+            print(f"Queue initialized: {db_path}")
+            return 0
+        except FileExistsError:
+            print(f"Queue already exists: {db_path}")
+            return 1
+
+    # All other commands require an existing DB
+    try:
+        db = QueueDB(db_path)
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        return 1
 
     commands = {
         "add": cmd_add,

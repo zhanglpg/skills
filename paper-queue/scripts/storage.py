@@ -16,13 +16,33 @@ class QueueDB:
 
     def __init__(self, db_path: str):
         db_path = os.path.expandvars(os.path.expanduser(db_path))
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        if not os.path.isfile(db_path):
+            raise FileNotFoundError(
+                f"Queue database not found: {db_path}\n"
+                f"Run with --init to create a new queue."
+            )
         self.db_path = db_path
         self._conn = sqlite3.connect(db_path)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
-        self._create_tables()
+
+    @classmethod
+    def init_db(cls, db_path: str) -> "QueueDB":
+        """Create a new queue database. Returns the opened QueueDB instance."""
+        db_path = os.path.expandvars(os.path.expanduser(db_path))
+        if os.path.isfile(db_path):
+            raise FileExistsError(f"Database already exists: {db_path}")
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        instance = cls.__new__(cls)
+        instance.db_path = db_path
+        instance._conn = conn
+        instance._create_tables()
+        return instance
 
     def _create_tables(self) -> None:
         self._conn.executescript("""

@@ -11,12 +11,11 @@ from storage import QueueDB
 
 
 class TestQueueDBInit(unittest.TestCase):
-    def test_creates_db_and_tables(self):
+    def test_init_db_creates_tables(self):
         with tempfile.TemporaryDirectory() as tmp:
             db_path = os.path.join(tmp, "sub", "queue.db")
-            db = QueueDB(db_path)
+            db = QueueDB.init_db(db_path)
             self.assertTrue(os.path.exists(db_path))
-            # Check tables exist
             conn = sqlite3.connect(db_path)
             tables = [r[0] for r in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -26,11 +25,35 @@ class TestQueueDBInit(unittest.TestCase):
             conn.close()
             db.close()
 
+    def test_open_existing_db(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "queue.db")
+            db = QueueDB.init_db(db_path)
+            db.add_paper(title="Test")
+            db.close()
+            # Re-open existing DB
+            db2 = QueueDB(db_path)
+            self.assertEqual(len(db2.list_papers()), 1)
+            db2.close()
+
+    def test_fail_fast_when_db_missing(self):
+        with self.assertRaises(FileNotFoundError) as ctx:
+            QueueDB("/nonexistent/path/queue.db")
+        self.assertIn("--init", str(ctx.exception))
+
+    def test_init_db_rejects_existing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = os.path.join(tmp, "queue.db")
+            db = QueueDB.init_db(db_path)
+            db.close()
+            with self.assertRaises(FileExistsError):
+                QueueDB.init_db(db_path)
+
 
 class TestAddPaper(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
 
     def tearDown(self):
         self.db.close()
@@ -77,7 +100,7 @@ class TestAddPaper(unittest.TestCase):
 class TestGetByArxivId(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
 
     def tearDown(self):
         self.db.close()
@@ -96,7 +119,7 @@ class TestGetByArxivId(unittest.TestCase):
 class TestListPapers(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
         self.db.add_paper(title="Low Priority", arxiv_id="0001.00001")
         self.db.add_paper(title="High Priority", arxiv_id="0002.00002")
         self.db.update_score(2, 9.5, [{"component": "citations", "value": 9.5}])
@@ -130,7 +153,7 @@ class TestListPapers(unittest.TestCase):
 class TestUpdateStatus(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
         self.db.add_paper(title="Paper", arxiv_id="2401.12345")
 
     def tearDown(self):
@@ -151,7 +174,7 @@ class TestUpdateStatus(unittest.TestCase):
 class TestUpdateScore(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
         self.db.add_paper(title="Paper", arxiv_id="2401.12345")
 
     def tearDown(self):
@@ -180,7 +203,7 @@ class TestUpdateScore(unittest.TestCase):
 class TestDigestPath(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
         self.db.add_paper(title="Paper", arxiv_id="2401.12345")
 
     def tearDown(self):
@@ -197,7 +220,7 @@ class TestDigestPath(unittest.TestCase):
 class TestSearch(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
         self.db.add_paper(title="Attention Is All You Need", abstract="Transformer architecture")
         self.db.add_paper(title="BERT", abstract="Bidirectional encoders")
 
@@ -221,7 +244,7 @@ class TestSearch(unittest.TestCase):
 class TestStats(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.db = QueueDB(os.path.join(self.tmp.name, "queue.db"))
+        self.db = QueueDB.init_db(os.path.join(self.tmp.name, "queue.db"))
         self.db.add_paper(title="P1", topics=["transformers"])
         self.db.add_paper(title="P2", topics=["RAG"])
         self.db.update_status(2, "reading")
