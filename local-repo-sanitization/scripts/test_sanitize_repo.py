@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
+import textwrap
 import unittest
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -520,6 +521,104 @@ class TestPrintStatusReport(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("ERROR", out)
         self.assertIn("UNCOMMITTED", out)
+
+
+# ---------------------------------------------------------------------------
+# Tests for check_test_coverage_in_ci
+# ---------------------------------------------------------------------------
+class TestCheckTestCoverageInCI(unittest.TestCase):
+    def test_no_test_workflow_returns_zero(self):
+        """Repos without a test workflow should pass."""
+        with TempGitRepo({"README.md": "# Test\n", "test_foo.py": "pass\n"}) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("No test workflow", out)
+
+    def test_all_tests_covered(self):
+        """When all test files are in the workflow, should pass."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_foo -v
+                    working-directory: scripts
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "scripts/test_foo.py": "import unittest\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("All test files are included", out)
+
+    def test_missing_test_detected(self):
+        """Test files not in the workflow should be reported."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_foo -v
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "scripts/test_foo.py": "import unittest\n",
+            "scripts/test_bar.py": "import unittest\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertNotEqual(rc, 0)
+            self.assertIn("test_bar.py", out)
+            self.assertNotIn("test_foo.py", out)
+
+    def test_excluded_test_not_reported(self):
+        """Tests listed in .ci-skip-tests should be skipped."""
+        workflow = textwrap.dedent("""\
+            name: Tests
+            on: push
+            jobs:
+              test:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: python -m unittest test_foo -v
+        """)
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "scripts/test_foo.py": "import unittest\n",
+            "scripts/test_bar.py": "import unittest\n",
+            ".ci-skip-tests": "test_bar\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertEqual(rc, 0)
+            self.assertNotIn("test_bar.py", out)
+
+    def test_no_test_files_returns_zero(self):
+        """Repos with no test files should pass."""
+        workflow = "name: Tests\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n"
+        files = {
+            ".github/workflows/tests.yml": workflow,
+            "src/main.py": "print('hello')\n",
+        }
+        with TempGitRepo(files) as repo:
+            rc, out, _ = source_and_call(
+                f'check_test_coverage_in_ci "{repo.path}"'
+            )
+            self.assertEqual(rc, 0)
 
 
 if __name__ == "__main__":

@@ -396,6 +396,111 @@ Please fix the issue."
     return 0
 }
 
+# Check that all test files are included in the CI test workflow
+check_test_coverage_in_ci() {
+    local repo_path="$1"
+
+    cd "$repo_path" || return 1
+
+    # Find the test workflow
+    local test_workflow=""
+    for wf in .github/workflows/tests.yml .github/workflows/test.yml; do
+        if [ -f "$wf" ]; then
+            test_workflow="$wf"
+            break
+        fi
+    done
+    if [ -z "$test_workflow" ]; then
+        log_info "No test workflow found, skipping test coverage check"
+        echo ""
+        return 0
+    fi
+
+    # Find all test_*.py files
+    local all_tests
+    all_tests=$(find . -name 'test_*.py' -not -path './.git/*' | sed 's|^\./||' | sort)
+
+    if [ -z "$all_tests" ]; then
+        log_info "No test files found"
+        echo ""
+        return 0
+    fi
+
+    # Load exclusions from .ci-skip-tests if present
+    local exclusions=""
+    if [ -f ".ci-skip-tests" ]; then
+        exclusions=$(cat .ci-skip-tests)
+    fi
+
+    # Check which tests are referenced in the workflow
+    local missing=""
+    while read -r test_file; do
+        [ -z "$test_file" ] && continue
+        local module_name
+        module_name=$(basename "$test_file" .py)
+        # Check if excluded
+        if [ -n "$exclusions" ] && echo "$exclusions" | grep -qx "$module_name"; then
+            log_info "Skipping excluded test: $module_name"
+            continue
+        fi
+        # Check if referenced in workflow
+        if ! grep -q "$module_name" "$test_workflow"; then
+            missing="${missing}${test_file}\n"
+        fi
+    done <<< "$all_tests"
+
+    if [ -z "$missing" ]; then
+        log_success "All test files are included in CI"
+        echo ""
+        return 0
+    fi
+
+    log_warning "Test files missing from CI workflow ($test_workflow):"
+    echo -e "$missing" | while read -r f; do
+        [ -n "$f" ] && echo "  - $f"
+    done
+    echo -e "$missing"
+    return 1
+}
+
+# Fix missing tests in CI workflow by spawning Claude Code
+fix_missing_tests_in_ci() {
+    local repo_path="$1"
+    local missing_tests="$2"
+
+    cd "$repo_path" || return 1
+
+    local test_workflow=""
+    for wf in .github/workflows/tests.yml .github/workflows/test.yml; do
+        if [ -f "$wf" ]; then
+            test_workflow="$wf"
+            break
+        fi
+    done
+
+    log_info "Adding missing test files to $test_workflow..."
+
+    local prompt="The following test files exist in this repository but are NOT included in the CI workflow at $test_workflow:
+
+$missing_tests
+
+Please add steps for each missing test file to the workflow, following the exact same pattern as the existing test steps. Each step should:
+1. Have a descriptive name
+2. Use: python -m unittest <module_name> -v
+3. Set the correct working-directory based on where the test file is located
+
+Add them after the existing test steps. Make minimal changes — only add the missing entries."
+
+    local fix_output
+    fix_output=$($CLAUDE_PATH -p "$prompt" --model sonnet --permission-mode acceptEdits 2>&1) || {
+        log_warning "Failed to add missing tests to CI"
+        return $ERR_CLAUDE
+    }
+
+    log_success "Added missing tests to CI workflow"
+    return 0
+}
+
 # Print repository status report
 print_status_report() {
     local repo_name="$1"
@@ -522,7 +627,23 @@ sanitize_repo() {
             log_warning "Failed to commit changes"
         }
     fi
-    
+
+    # Check test coverage in CI
+    local test_ci_status="Not checked"
+    local missing_tests
+    missing_tests=$(check_test_coverage_in_ci "$repo_path" 2>&1)
+    if [ $? -ne 0 ] && [ -n "$missing_tests" ]; then
+        test_ci_status="Missing tests"
+        local auto_fix
+        auto_fix=$(get_setting "autoFixWorkflows" "true")
+        if [ "$auto_fix" = "true" ]; then
+            fix_missing_tests_in_ci "$repo_path" "$missing_tests" || true
+            commit_and_push "$repo_path" "ci: add missing test modules to CI workflow" "$branch" || true
+        fi
+    else
+        test_ci_status="All covered"
+    fi
+
     # Check GitHub Actions
     local workflow_status="Not checked"
     local fixes_applied="None"

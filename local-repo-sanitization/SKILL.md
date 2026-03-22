@@ -120,16 +120,23 @@ This prevents:
    - Create descriptive commit message
    - Push to remote repository
 
-6. **Check GitHub Actions**
+6. **Validate Test CI Coverage**
+   - Find all `test_*.py` files in the repo
+   - Check each is referenced in the test workflow (`.github/workflows/tests.yml` or `test.yml`)
+   - Respect `.ci-skip-tests` exclusion file (one module name per line, e.g. `test_foo`)
+   - If missing tests found, spawn Claude Code to add them to the workflow
+   - Commit and push
+
+7. **Check GitHub Actions**
    - Query recent workflow runs
    - Identify failed runs
 
-7. **Fix Broken Workflows** (if any)
+8. **Fix Broken Workflows** (if any)
    - Analyze failure reasons
    - Attempt automated fixes
    - Commit and push fixes
 
-8. **Report Results**
+9. **Report Results**
    - Repository status (OK/ERROR/UNCOMMITTED)
    - README changes made
    - Workflow status
