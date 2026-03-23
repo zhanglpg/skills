@@ -64,6 +64,7 @@ skill-name/
 ├── SKILL.md                    # Skill definition and instructions
 ├── config.json                 # Configuration (if applicable)
 ├── scripts/                    # Executable scripts
+├── prompts/                    # Prompt templates for LLM calls
 ├── templates/                  # Output format templates
 └── references/                 # Reference documentation
 ```
