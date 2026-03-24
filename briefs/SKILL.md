@@ -267,9 +267,6 @@ Remaining noteworthy items. One line each.
 - `config.ai-tech.json` — AI technology news brief
 - `config.portfolio.json` — Financial markets and portfolio tracking
 
-**References:**
-- `references/portfolio-sources.md` — Extended source list with quality guidelines
-
 ## Scheduling
 
 **Cron Expression:** `0 9 * * *` (9:00 AM Asia/Shanghai)
