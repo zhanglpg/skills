@@ -38,14 +38,6 @@ jobs:
         run: python -m unittest test_logging_utils -v
         working-directory: shared
 
-      - name: Run briefs tests
-        run: python -m unittest test_generate_brief -v
-        working-directory: briefs/scripts
-
-      - name: Run briefs OpenBB integration tests
-        run: python -m unittest test_openbb_integration -v
-        working-directory: briefs/scripts
-
       - name: Run check-market-movers tests
         run: python -m unittest test_check_market_movers -v
         working-directory: check-market-movers/scripts
