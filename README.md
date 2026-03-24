@@ -8,16 +8,12 @@ Curated agent skills for specialized workflows.
 
 **Location:** `briefs/`
 
-Generates daily briefs from curated sources using a fetch-first, summarize-second pipeline:
-- Fetches RSS feeds, arXiv papers, Hacker News stories, GitHub trending repos, and web pages
-- Passes all verified content to Gemini CLI for summarization into a configurable template
-- Appends a source coverage report to every output
+LLM-native skill that generates daily tech briefs. The LLM directly fetches and curates content from configured sources (arXiv, GitHub Trending, news sites, blogs, RSS feeds) using web tools, then assembles a structured Markdown brief.
 
-Two pre-built configurations are included:
-- `briefs/config.ai-tech.json` — AI technology news (arXiv, AI labs, HN, GitHub trending)
-- `briefs/config.portfolio.json` — Financial markets & portfolio tracking (market data, macro, earnings)
+Pre-built configuration included:
+- `briefs/config.ai-tech.json` — AI technology news (arXiv, AI labs, HN, GitHub trending, newsletters)
 
-See `briefs/SKILL.md` for how to configure the pipeline for other topics.
+See `briefs/SKILL.md` for the full prompt and `briefs/config.ai-tech.json` to customize sources and sections.
 
 ### Check Market Movers
 
