@@ -20,56 +20,65 @@ See `briefs/SKILL.md` for the full prompt and the config files to customize sour
 
 **Location:** `check-market-movers/`
 
-Monitors and reports significant market movements, including top gainers, losers, and most active stocks.
+Hourly portfolio monitoring that checks for significant price moves in specific holdings (GOOG, NVDA, TSMC, BABA, SPY, FXI, KWEB) using Yahoo Finance data. Silent by default — only interrupts when portfolio-relevant thresholds are crossed. Main script: `scripts/check-market-movers.py`.
 
 ### OpenBB Sync
 
 **Location:** `openbb-sync/`
 
-Synchronizes financial data using the OpenBB platform for market analysis and portfolio tracking.
+Shell script (`sync.sh`) that pulls the OpenBB repo from GitHub, reruns the data pipeline when changes are detected, and restarts the dashboard. Silent by default — reporting is the caller's responsibility. macOS-specific (uses `launchctl`).
 
 ### Paper Digest
 
 **Location:** `paper-digest/`
 
-Processes and summarizes academic papers from arXiv and other sources into digestible summaries.
+Digests academic papers (local PDF, URL, or arXiv ID) into structured Markdown summaries using PyMuPDF for PDF extraction and Gemini CLI for summarization. Supports five output sections: main contributions, key conclusions, relation to prior work, personalized highlights, and further reading. Prompt template in `prompts/digest-prompt.md`.
 
 ### Paper Queue
 
 **Location:** `paper-queue/`
 
-Manages a queue of papers to read, tracking progress and prioritizing reading list.
+Prioritized reading queue for academic papers backed by SQLite. Papers enter from arXiv IDs, URLs, or Twitter/X links and are auto-scored on three dimensions: citations (30%, via Semantic Scholar), recency (30%), and queue affinity (40%, topic overlap with already-queued papers). Integrates with paper-digest for summarization and includes a suggester for new paper recommendations.
 
 ### Paper Summarizer
 
 **Location:** `paper-summarizer/`
 
-Generates structured summaries of research papers with key findings, methodology, and takeaways.
+LLM-native skill that fetches and summarizes papers, articles, or blog posts, then saves structured notes directly to an Obsidian vault (`gen-notes/digests/`). Includes wikilinks, tags, and a "Connections" section for vault cross-linking. Also supports a reading-backlog mode that processes unchecked items from `AI.md`. Note template in `references/note-template.md`.
 
 ### Shared
 
 **Location:** `shared/`
 
-Shared utilities and common code used across multiple skills.
+Shared utilities used across skills. Currently contains `logging_utils.py` for consistent log formatting.
 
 ## Skill Structure
 
-Each skill follows a consistent structure:
+Skills vary in structure depending on whether they are script-based or LLM-native:
 
+**Script-based skills** (check-market-movers, paper-digest, paper-queue, openbb-sync):
 ```
 skill-name/
 ├── SKILL.md                    # Skill definition and instructions
 ├── config.json                 # Configuration (if applicable)
-├── scripts/                    # Executable scripts
-├── prompts/                    # Prompt templates for LLM calls
-├── templates/                  # Output format templates
-└── references/                 # Reference documentation
+└── scripts/                    # Python scripts and unit tests
 ```
+
+**LLM-native skills** (briefs, paper-summarizer):
+```
+skill-name/
+├── SKILL.md                    # Skill definition, prompt, and instructions
+├── config*.json                # Configuration(s) (if applicable)
+├── prompts/                    # Prompt templates (if applicable)
+└── references/                 # Reference documentation (if applicable)
+```
+
+A `pyproject.toml` at the repo root defines Python dependencies (`yfinance`, `pandas`, `PyMuPDF`) and `ruff` linting configuration for the script-based skills.
 
 ## Contributing
 
 To contribute a new skill:
-1. Follow the structure above
+1. Follow the appropriate structure above
 2. Include clear documentation in SKILL.md
 3. Test thoroughly before submitting
 
