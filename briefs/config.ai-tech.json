@@ -1,6 +1,5 @@
 {
-  "_comment": "AI Tech Brief Configuration - edit this file directly. Loaded automatically by generate_brief.py.",
-  "_rss_status_note": "RSS URLs verified March 5, 2026. See RSS_FEED_STATUS.md for details. RSS feeds are parsed directly via xml.etree (no blogwatcher dependency). arXiv, HN, and GitHub use their native APIs.",
+  "_comment": "AI Tech Brief Configuration. Source list for the briefs skill.",
 
   "arxiv_categories": ["cs.LG", "cs.AI", "cs.SE"],
 
@@ -10,21 +9,19 @@
     "hwchase17", "rauchg", "levelsio", "swyx"
   ],
 
-  "_comment_rss_sources": "Sources that have an RSS URL (working or blocked). Each is probed at runtime; failures are written into the brief. rss_status is for human reference only — the script probes at runtime.",
   "rss_sources": [
-    {"name": "Import AI",    "rss": "https://jack-clark.net/feed/",              "category": "newsletter",   "rss_status": "working"},
-    {"name": "TLDR AI",      "rss": "https://tldr.tech/rss",                     "category": "newsletter",   "rss_status": "redirects"},
-    {"name": "Latent Space", "rss": "https://latentspace.blog/rss",              "category": "newsletter",   "rss_status": "redirects"},
-    {"name": "Ben's Bites",  "rss": "https://bensbites.beehiiv.com/rss",         "category": "newsletter",   "rss_status": "blocked_403"},
-    {"name": "The Neuron",   "rss": "https://theneuron.beehiiv.com/rss",         "category": "newsletter",   "rss_status": "blocked_403"},
-    {"name": "Interconnects","rss": "https://interconnects.ai/rss",              "category": "newsletter",   "rss_status": "error_405"},
-    {"name": "Anthropic",    "rss": "https://www.anthropic.com/news?format=rss", "category": "ai_lab",       "rss_status": "working"},
-    {"name": "OpenAI",       "rss": "https://openai.com/news/rss",               "category": "ai_lab",       "rss_status": "blocked_403"},
-    {"name": "Hugging Face",          "rss": "https://huggingface.co/blog/feed.xml",            "category": "research_org", "rss_status": "working"},
-    {"name": "Simon Willison's Weblog","rss": "https://simonwillison.net/atom/everything/",      "category": "newsletter",   "rss_status": "untested"}
+    {"name": "Import AI",    "rss": "https://jack-clark.net/feed/",              "category": "newsletter"},
+    {"name": "TLDR AI",      "rss": "https://tldr.tech/rss",                     "category": "newsletter"},
+    {"name": "Latent Space", "rss": "https://latentspace.blog/rss",              "category": "newsletter"},
+    {"name": "Ben's Bites",  "rss": "https://bensbites.beehiiv.com/rss",         "category": "newsletter"},
+    {"name": "The Neuron",   "rss": "https://theneuron.beehiiv.com/rss",         "category": "newsletter"},
+    {"name": "Interconnects","rss": "https://interconnects.ai/rss",              "category": "newsletter"},
+    {"name": "Anthropic",    "rss": "https://www.anthropic.com/news?format=rss", "category": "ai_lab"},
+    {"name": "OpenAI",       "rss": "https://openai.com/news/rss",               "category": "ai_lab"},
+    {"name": "Hugging Face",          "rss": "https://huggingface.co/blog/feed.xml",            "category": "research_org"},
+    {"name": "Simon Willison's Weblog","rss": "https://simonwillison.net/atom/everything/",      "category": "newsletter"}
   ],
 
-  "_comment_web_only_sources": "Sources with no RSS feed (confirmed). Content fetched exclusively via Gemini CLI web search.",
   "web_only_sources": [
     {"name": "The Batch",                  "url": "https://www.deeplearning.ai/the-batch",            "category": "newsletter"},
     {"name": "The Rundown AI",             "url": "https://therundown.ai",                            "category": "newsletter"},
@@ -55,19 +52,6 @@
   ],
 
   "timezone": "Asia/Shanghai",
-  "timezone_offset": 8,
-  "gemini_timeout": 180,
-  "rss_check_timeout": 10,
-  "fetch_timeout": 15,
-  "max_articles": 30,
   "output_dir": "$AGENT_DATA_DIR/workspace/briefs/ai-tech",
-  "log_file": "/tmp/logs/skills/briefs/generate.log",
-
-  "_comment_template": "Path to the output format template (relative to skill dir). Create different templates for different briefing purposes.",
-  "template": "templates/ai-tech-brief.md",
-
-  "_comment_prompt": "Path to the editorial instructions prompt (relative to skill dir). Tells the LLM what to prioritize and how to judge content.",
-  "prompt": "prompts/ai-tech-brief.md",
-
   "brief_title": "Daily AI Tech Brief"
 }
