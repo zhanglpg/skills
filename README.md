@@ -10,10 +10,11 @@ Curated agent skills for specialized workflows.
 
 LLM-native skill that generates daily tech briefs. The LLM directly fetches and curates content from configured sources (arXiv, GitHub Trending, news sites, blogs, RSS feeds) using web tools, then assembles a structured Markdown brief.
 
-Pre-built configuration included:
+Pre-built configurations included:
 - `briefs/config.ai-tech.json` — AI technology news (arXiv, AI labs, HN, GitHub trending, newsletters)
+- `briefs/config.portfolio.json` — Portfolio and market brief (holdings, watchlist, macro sources)
 
-See `briefs/SKILL.md` for the full prompt and `briefs/config.ai-tech.json` to customize sources and sections.
+See `briefs/SKILL.md` for the full prompt and the config files to customize sources and sections.
 
 ### Check Market Movers
 
