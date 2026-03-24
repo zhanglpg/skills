@@ -40,8 +40,6 @@
     {"name": "Earnings Whispers",           "url": "https://www.earningswhispers.com/calendar",        "category": "earnings"}
   ],
 
-  "timezone": "Asia/Shanghai",
-  "output_dir": "$AGENT_DATA_DIR/workspace/briefs/investment",
   "brief_title": "Daily Portfolio Brief",
 
   "extra_data_path": "~/.openbb_platform/data/brief_data.json",

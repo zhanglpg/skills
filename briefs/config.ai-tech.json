@@ -51,7 +51,5 @@
     {"name": "GitHub Trending (AI/ML)",    "url": "https://github.com/trending",                      "category": "community"}
   ],
 
-  "timezone": "Asia/Shanghai",
-  "output_dir": "$AGENT_DATA_DIR/workspace/briefs/ai-tech",
   "brief_title": "Daily AI Tech Brief"
 }

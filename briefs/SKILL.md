@@ -27,7 +27,6 @@ Read the chosen config JSON file from this skill's directory. The config contain
 - `portfolio_holdings` — held positions grouped by sector (portfolio only)
 - `watchlist` — tickers and themes to monitor (portfolio only)
 - `extra_data_path` — path to pre-exported quantitative JSON (portfolio only)
-- `output_dir` — where to save the brief
 - `brief_title` — display title for the brief
 
 ### Step 3: Gather Content
@@ -66,14 +65,6 @@ Compose the brief following the editorial guidelines and output format below. Ch
 4. Skip sections that have no content rather than writing filler.
 5. Prefer depth over breadth — meaningful commentary beats a long list.
 6. It is better to have a shorter brief with all real content than a longer brief with fabricated entries.
-
-### Step 5: Save Output
-
-Save the brief to: `{output_dir}/{YYYY-MM-DD}-brief.md`
-
-Where `output_dir` comes from the config (expand `~` and `$AGENT_DATA_DIR` as needed).
-
-After saving, print the full brief to the console as well.
 
 ---
 
@@ -259,24 +250,3 @@ Remaining noteworthy items. One line each.
 *Sources: RSS, Twitter/X, Web | Portfolio: positions across sectors | Watchlist: tickers, themes*
 ```
 
----
-
-## Configuration
-
-**Config files** (in this skill's directory):
-- `config.ai-tech.json` — AI technology news brief
-- `config.portfolio.json` — Financial markets and portfolio tracking
-
-## Scheduling
-
-**Cron Expression:** `0 9 * * *` (9:00 AM Asia/Shanghai)
-
-**Save Location:** `~/briefs/YYYY-MM-DD-brief.md` (or as configured in `output_dir`)
-
----
-
-**Version:** 3.0
-**Changelog:**
-- v3.0: Removed Python script layer — LLM-native skill that fetches and summarizes directly
-- v2.0: Fetch-first architecture with Python orchestration
-- v1.0: Initial release
