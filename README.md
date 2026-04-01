@@ -64,13 +64,21 @@ skill-name/
 └── scripts/                    # Python scripts and unit tests
 ```
 
-**LLM-native skills** (briefs, paper-summarizer):
+**LLM-native skills** (paper-summarizer):
 ```
 skill-name/
 ├── SKILL.md                    # Skill definition, prompt, and instructions
 ├── config*.json                # Configuration(s) (if applicable)
 ├── prompts/                    # Prompt templates (if applicable)
 └── references/                 # Reference documentation (if applicable)
+```
+
+**Hybrid skills** (briefs):
+```
+skill-name/
+├── SKILL.md                    # Skill definition, prompt, and instructions
+├── config*.json                # Configuration(s)
+└── scripts/                    # Helper scripts (e.g., fetch_prices.py)
 ```
 
 A `pyproject.toml` at the repo root defines Python dependencies (`yfinance`, `pandas`, `PyMuPDF`) and `ruff` linting configuration for the script-based skills.
