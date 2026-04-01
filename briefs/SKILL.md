@@ -29,6 +29,22 @@ Read the chosen config JSON file from this skill's directory. The config contain
 - `extra_data_path` — path to pre-exported quantitative JSON (portfolio only)
 - `brief_title` — display title for the brief
 
+### Step 2.5: Fetch Real-Time Prices (Portfolio brief only)
+
+**CRITICAL: Do this BEFORE gathering any other content.** This ensures the Market Snapshot has accurate, current prices.
+
+Run the price fetcher script:
+```bash
+python3 ~/.openclaw/skills/custom/briefs/scripts/fetch_prices.py
+```
+
+Parse the JSON output and use these exact prices and change percentages in the Market Snapshot table. Do NOT estimate or use stale data from web searches. The script output is authoritative for price data.
+
+If the script fails, fall back to:
+```bash
+python3 -c "import yfinance as yf; t=yf.Ticker('SPY'); print(t.history(period='2d'))"
+```
+
 ### Step 3: Gather Content
 
 Fetch content from ALL configured sources. Use your web tools freely — you are both the fetcher and summarizer. Gather as much relevant content as possible.
