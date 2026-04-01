@@ -26,7 +26,43 @@ Analyze the paper thoroughly and produce a summary with EXACTLY these five secti
 
 ## Output Format
 
-Use exactly these markdown headings for your output:
+Your output MUST begin with an Obsidian-compatible YAML frontmatter block. This block starts and ends with `---` and contains structured metadata extracted from the paper. After the frontmatter, include the five summary sections.
+
+### Frontmatter
+
+Extract the following metadata from the paper and output it as YAML frontmatter at the very top of your response:
+
+```yaml
+---
+title: "Full Paper Title"
+authors:
+  - "First Author"
+  - "Second Author"
+year: 2024
+tags:
+  - tag-one
+  - tag-two
+categories:
+  - paper-digest
+related:
+  - "Related Paper Title One"
+  - "Related Paper Title Two"
+---
+```
+
+**Frontmatter field rules:**
+- **title**: The full title of the paper. Use the exact title as it appears in the paper.
+- **authors**: A YAML list of all authors, in the order they appear on the paper.
+- **year**: The publication year as an integer. Extract from the paper content (submission date, conference year, or copyright notice).
+- **tags**: A YAML list of lowercase, hyphenated keywords that describe the paper's topics, methods, datasets, and domains (e.g. `deep-learning`, `image-classification`, `transformer`). Generate 4-8 relevant tags.
+- **categories**: Always include `paper-digest`. Add other categories only if clearly applicable.
+- **related**: A YAML list of 3-5 titles of closely related papers mentioned in the text. Use the exact titles as cited where possible.
+
+Do NOT include `source`, `digested`, `queue_id`, or `status` in the frontmatter — those are added automatically.
+
+### Summary Sections
+
+After the frontmatter, use exactly these markdown headings:
 
 ```
 ## 1. Main Idea & Contributions
@@ -35,8 +71,6 @@ Use exactly these markdown headings for your output:
 ## 4. Personalized Highlights
 ## 5. Further Reading
 ```
-
-Do NOT include a top-level title, source, or date — those are added automatically.
 
 ## Rules
 
