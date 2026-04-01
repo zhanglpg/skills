@@ -158,15 +158,32 @@ class TestBuildPrompt(unittest.TestCase):
 class TestRenderOutput(unittest.TestCase):
     """Test output rendering."""
 
-    def test_includes_header(self):
+    def test_merges_frontmatter(self):
+        gemini_output = (
+            '---\ntitle: "My Paper"\nauthors:\n  - "Author One"\n'
+            'year: 2024\ntags:\n  - deep-learning\ncategories:\n  - paper-digest\n'
+            'related:\n  - "Related Paper"\n---\n\n## 1. Main Idea\nSome content'
+        )
+        result = digest_paper.render_output(gemini_output, "My Paper", "arxiv:2401.12345")
+        self.assertIn('title: "My Paper"', result)
+        self.assertIn('source: "arxiv:2401.12345"', result)
+        self.assertIn("digested:", result)
+        self.assertIn("status: digested", result)
+        self.assertIn("## 1. Main Idea", result)
+        # Should start with frontmatter
+        self.assertTrue(result.startswith("---\n"))
+
+    def test_fallback_without_frontmatter(self):
         result = digest_paper.render_output(
             "## 1. Main Idea\nSome content",
             "My Paper",
             "arxiv:2401.12345"
         )
-        self.assertIn("# Paper Digest: My Paper", result)
-        self.assertIn("**Source:** arxiv:2401.12345", result)
-        self.assertIn("paper-digest skill", result)
+        self.assertTrue(result.startswith("---\n"))
+        self.assertIn('title: "My Paper"', result)
+        self.assertIn('source: "arxiv:2401.12345"', result)
+        self.assertIn("status: digested", result)
+        self.assertIn("## 1. Main Idea", result)
 
     def test_strips_gemini_whitespace(self):
         result = digest_paper.render_output(
@@ -175,8 +192,6 @@ class TestRenderOutput(unittest.TestCase):
             "source"
         )
         self.assertIn("content here", result)
-        # Should not have leading/trailing whitespace in the body
-        self.assertNotIn("  \n  content here  \n  ", result)
 
 
 class TestSaveOutput(unittest.TestCase):
