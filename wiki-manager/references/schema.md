@@ -1,0 +1,89 @@
+# Wiki Schema
+
+This document codifies the conventions for the knowledge wiki in the Obsidian vault. It serves as both human documentation and injectable LLM context.
+
+## Page Types
+
+### Digest
+- **Directory:** `gen-notes/digests/`
+- **Created by:** paper-digest, paper-summarizer
+- **Required frontmatter:** `title`, `authors`, `year`, `tags`, `categories`, `related`, `source`, `digested`, `status`
+- **Sections:** TL;DR or Main Idea, Key Ideas/Conclusions, What's Novel, Method, Results, Limitations, Connections
+
+### Entity
+- **Directory:** `gen-notes/entities/`
+- **Created by:** wiki-manager ingest
+- **Required frontmatter:** `title`, `type: entity`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`
+- **Sections:** Overview, Key Papers, Evolution, Open Questions, Related Entities
+- **Naming:** Use the canonical concept name (e.g., `Transformer.md`, `RLHF.md`)
+
+### Concept
+- **Directory:** `gen-notes/concepts/`
+- **Created by:** wiki-manager or manual
+- **Required frontmatter:** `title`, `type: concept`, `date-created`, `date-updated`, `source-digests`, `tags`
+- **Sections:** Overview, Key Papers, Themes, Open Questions, Related Concepts
+- **Naming:** Use descriptive title (e.g., `Scaling Laws in Deep Learning.md`)
+
+### Synthesis
+- **Directory:** `gen-notes/syntheses/`
+- **Created by:** wiki-query or manual
+- **Required frontmatter:** `title`, `type: synthesis`, `date-created`, `sources`, `tags`
+- **Sections:** Query (original question), Answer, Sources Used
+
+## Frontmatter Conventions
+
+All pages MUST have YAML frontmatter delimited by `---`. Common fields:
+
+```yaml
+---
+title: "Page Title"
+type: digest | entity | concept | synthesis
+date-created: YYYY-MM-DD
+date-updated: YYYY-MM-DD
+tags:
+  - tag-one
+  - tag-two
+---
+```
+
+Entity pages additionally include:
+```yaml
+aliases:
+  - "Alternate Name"
+  - "Abbreviation"
+source-digests:
+  - "[[Paper Title One]]"
+  - "[[Paper Title Two]]"
+```
+
+## Wikilink Conventions
+
+- Always use `[[Page Title]]` for cross-references
+- Entity references: `[[Transformer]]`, `[[RLHF]]`
+- Digest references: `[[Attention Is All You Need]]`
+- Prefer exact page titles over approximate names
+- The Connections section of every page should link to related pages
+
+## Tag Taxonomy
+
+Match existing vault categories:
+- **AI/ML:** `AI`, `LLM`, `transformer`, `attention`, `scaling`, `training`, `inference`, `data`
+- **Systems:** `systems`, `hardware`, `distributed`, `optimization`
+- **Domain:** `NLP`, `vision`, `multimodal`, `agents`, `reasoning`
+- **Meta:** `management`, `leadership`, `engineering`, `philosophy`, `history`
+
+## Status Conventions
+
+- `📥` — just added, not yet deeply read
+- `⌨️` — in progress / working notes
+- `🌴` — evergreen / fully processed
+- `🔗` — entity page (auto-maintained)
+
+## Index Conventions
+
+`index.md` is auto-generated. Sections:
+- **Recent Digests** — last 10 digested papers
+- **Entities** — alphabetical list with one-line descriptions
+- **Concepts** — alphabetical list with one-line descriptions
+- **By Topic** — grouped by primary tag
+- **Stats** — counts by type and status

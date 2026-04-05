@@ -65,3 +65,19 @@ jobs:
       - name: Run paper-queue suggester tests
         run: python -m unittest test_suggester -v
         working-directory: paper-queue/scripts
+
+      - name: Run wiki-manager vault_index tests
+        run: python -m unittest test_vault_index -v
+        working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager log_writer tests
+        run: python -m unittest test_log_writer -v
+        working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager entity_manager tests
+        run: python -m unittest test_entity_manager -v
+        working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager lint_checker tests
+        run: python -m unittest test_lint_checker -v
+        working-directory: wiki-manager/scripts
