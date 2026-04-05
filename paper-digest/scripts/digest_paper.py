@@ -379,7 +379,7 @@ def render_output(gemini_output: str, title: str, source: str) -> str:
 
 def _digest_filename(title: str) -> str:
     """Return the sanitized markdown filename for a given title."""
-    safe_title = re.sub(r'[^\w\s-]', '', title)[:60].strip().replace(' ', '-').lower()
+    safe_title = re.sub(r'[^\w\s-]', '', title)[:60].strip()
     return f"{safe_title}.md" if safe_title else "digest.md"
 
 

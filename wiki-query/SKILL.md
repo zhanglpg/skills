@@ -54,8 +54,10 @@ status: 📥
 
 ## When to File vs Not File
 
-**File as synthesis:**
-- Cross-paper comparisons or analyses
+**File as comparison** (to `gen-notes/comparisons/`):
+- Side-by-side comparisons of papers, methods, or approaches
+
+**File as synthesis** (to `gen-notes/syntheses/`):
 - Answers that required reading 3+ wiki pages
 - Insights that connect concepts in non-obvious ways
 - Answers the user is likely to want again

@@ -5,6 +5,7 @@
   "entity_dir": "gen-notes/entities",
   "concept_dir": "gen-notes/concepts",
   "syntheses_dir": "gen-notes/syntheses",
+  "comparisons_dir": "gen-notes/comparisons",
   "index_path": "gen-notes/index.md",
   "log_path": "gen-notes/log.md",
   "gemini_timeout": 180,

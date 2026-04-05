@@ -56,6 +56,7 @@ gen-notes/
   entities/         — entity pages (Transformer.md, RLHF.md, etc.)
   concepts/         — broader concept pages (Scaling Laws in Deep Learning.md)
   syntheses/        — filed query answers and cross-paper analyses
+  comparisons/      — side-by-side comparisons of papers, methods, or approaches
 ```
 
 ## Page Types
@@ -66,6 +67,7 @@ gen-notes/
 | Entity | `entities/` | wiki-manager ingest (auto) |
 | Concept | `concepts/` | wiki-manager ingest or manual |
 | Synthesis | `syntheses/` | wiki-query skill or manual |
+| Comparison | `comparisons/` | wiki-query skill or manual |
 
 ## Commands Reference
 
