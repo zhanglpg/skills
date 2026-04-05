@@ -49,9 +49,12 @@ categories:
 related:
   - "Related Paper Title One"
   - "Related Paper Title Two"
-entities:
-  - "Key Entity One"
-  - "Key Entity Two"
+concepts:
+  - "Key Concept One"
+  - "Key Concept Two"
+names:
+  - "Notable Name One"
+  - "Notable Name Two"
 ---
 ```
 
@@ -62,11 +65,17 @@ entities:
 - **tags**: A YAML list of lowercase, hyphenated keywords that describe the paper's topics, methods, datasets, and domains (e.g. `deep-learning`, `image-classification`, `transformer`). Generate 4-8 relevant tags.
 - **categories**: Always include `paper-digest`. Add other categories only if clearly applicable.
 - **related**: A YAML list of 3-5 titles of closely related papers mentioned in the text. Use the exact titles as cited where possible.
-- **entities**: A YAML list of up to 3 key entities from the paper — recurring concepts, methods, models, architectures, datasets, or techniques that would benefit from standalone reference pages. Use the most canonical/common name for each (e.g. `"Transformer"`, `"RLHF"`, `"BERT"`). Prefer proper nouns and established abbreviations. Focus on well-known technologies, datasets, architectural patterns, and principles rather than paper-specific jargon. DO NOT add an entity that is substantially similar to an existing one — use the existing canonical name instead.
+- **concepts**: A YAML list of up to 3 key concepts from the paper — recurring concepts, methods, models, architectures, datasets, or techniques that would benefit from standalone reference pages. Use the most canonical/common name for each (e.g. `"Transformer"`, `"RLHF"`, `"BERT"`). Prefer proper nouns and established abbreviations. Focus on well-known technologies, datasets, architectural patterns, and principles rather than paper-specific jargon. DO NOT add a concept that is substantially similar to an existing one — use the existing canonical name instead.
 
-  **IMPORTANT — Right level of abstraction:** Extract entities that a practitioner in the field would independently recognize and search for — not niche terms coined by this specific paper. If a paper introduces a specialized variant or sub-concept (e.g. "attention residues", "gated linear attention", "residue connection"), extract the well-known parent concept instead (e.g. "Attention", "Linear Attention", "Residual Connection"). The test: would this entity name appear as a topic in a textbook or survey paper? If not, go one level up. Only extract paper-specific terms when they have already become widely adopted in the field (e.g. "LoRA", "FlashAttention", "Chain-of-Thought").
+  **IMPORTANT — Right level of abstraction:** Extract concepts that a practitioner in the field would independently recognize and search for — not niche terms coined by this specific paper. If a paper introduces a specialized variant or sub-concept (e.g. "attention residues", "gated linear attention", "residue connection"), extract the well-known parent concept instead (e.g. "Attention", "Linear Attention", "Residual Connection"). The test: would this concept name appear as a topic in a textbook or survey paper? If not, go one level up. Only extract paper-specific terms when they have already become widely adopted in the field (e.g. "LoRA", "FlashAttention", "Chain-of-Thought").
 
-{known_entities}
+- **names**: A YAML list of up to 5 notable proper names most related to this paper — people, datasets, models, places, or landmark papers that are worthy of their own reference page. These should be names significant enough to warrant a survey paper or a public Wikipedia page. Use the most canonical/common form of each name.
+
+  **IMPORTANT — Notability criteria:** Only extract names that are independently notable and well-known beyond this single paper. Good examples: "Geoffrey Hinton", "ImageNet", "GPT-4", "Stanford University", "Attention Is All You Need". Bad examples: a first-time PhD student author, a minor internal benchmark, a niche university lab. The test: would this name have its own Wikipedia article or appear in a survey paper?
+
+{known_concepts}
+
+{known_names}
 
 Do NOT include `source`, `digested`, `queue_id`, or `status` in the frontmatter — those are added automatically.
 

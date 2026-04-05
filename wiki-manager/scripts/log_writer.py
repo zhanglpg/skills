@@ -34,8 +34,9 @@ def append_log(
 
     Args:
         log_path: Path to log.md (absolute or with ~ expansion).
-        event_type: One of 'ingest', 'query', 'lint', 'entity-create',
-                    'entity-update', 'index-rebuild'.
+        event_type: One of 'ingest', 'query', 'lint', 'concept-create',
+                    'concept-update', 'name-create', 'name-update',
+                    'index-rebuild'.
         title: Primary description (e.g. paper title, query text).
         details: Optional list of sub-bullet details (e.g. touched pages).
         timestamp: Override timestamp (defaults to now).

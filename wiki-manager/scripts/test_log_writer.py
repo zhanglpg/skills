@@ -47,10 +47,10 @@ class TestAppendLog(unittest.TestCase):
             self.log_path,
             "ingest",
             "Paper A",
-            details=["Created entity: [[Transformer]]", "Updated index"],
+            details=["Created concept: [[Transformer]]", "Updated index"],
         )
         content = self.log_path.read_text()
-        self.assertIn("Created entity: [[Transformer]]", content)
+        self.assertIn("Created concept: [[Transformer]]", content)
         self.assertIn("Updated index", content)
 
     def test_multiple_entries_same_day(self):

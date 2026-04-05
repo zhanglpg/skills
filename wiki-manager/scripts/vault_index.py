@@ -16,7 +16,7 @@ class PageInfo:
 
     path: Path
     title: str = ""
-    page_type: str = "unknown"  # digest, entity, concept, synthesis
+    page_type: str = "unknown"  # digest, concept, synthesis
     tags: list[str] = field(default_factory=list)
     date_created: Optional[str] = None
     date_updated: Optional[str] = None
@@ -132,9 +132,9 @@ def _extract_summary(text: str, frontmatter: dict) -> str:
 
 _TYPE_DIR_MAP = {
     "digests": "digest",
-    "entities": "entity",
     "concepts": "concept",
     "syntheses": "synthesis",
+    "names": "name",
 }
 
 
@@ -171,7 +171,7 @@ def scan_vault(vault_root: str, gen_notes_dir: str = "gen-notes") -> list[PageIn
     pages: list[PageInfo] = []
     for md_file in sorted(gen_path.rglob("*.md")):
         # Skip index, log, schema, and lint reports
-        if md_file.name in ("index.md", "entity_index.md", "log.md", "schema.md", "_lint-report.md"):
+        if md_file.name in ("index.md", "concept_index.md", "name_index.md", "log.md", "schema.md", "_lint-report.md"):
             continue
 
         try:
@@ -230,10 +230,10 @@ def build_index(pages: list[PageInfo]) -> str:
 
     # Group by type
     digests = [p for p in pages if p.page_type == "digest"]
-    entities = [p for p in pages if p.page_type == "entity"]
     concepts = [p for p in pages if p.page_type == "concept"]
+    names = [p for p in pages if p.page_type == "name"]
     syntheses = [p for p in pages if p.page_type == "synthesis"]
-    other = [p for p in pages if p.page_type not in ("digest", "entity", "concept", "synthesis")]
+    other = [p for p in pages if p.page_type not in ("digest", "concept", "name", "synthesis")]
 
     # --- Recent Digests ---
     lines.append("## Recent Digests")
@@ -251,16 +251,6 @@ def build_index(pages: list[PageInfo]) -> str:
         lines.append("*No digests yet.*")
     lines.append("")
 
-    # --- Entities ---
-    lines.append("## Entities")
-    lines.append("")
-    if entities:
-        for p in sorted(entities, key=lambda p: p.title.lower()):
-            lines.append(f"- {p.wikilink}")
-    else:
-        lines.append("*No entity pages yet.*")
-    lines.append("")
-
     # --- Concepts ---
     lines.append("## Concepts")
     lines.append("")
@@ -269,6 +259,16 @@ def build_index(pages: list[PageInfo]) -> str:
             lines.append(f"- {p.wikilink}")
     else:
         lines.append("*No concept pages yet.*")
+    lines.append("")
+
+    # --- Names ---
+    lines.append("## Names")
+    lines.append("")
+    if names:
+        for p in sorted(names, key=lambda p: p.title.lower()):
+            lines.append(f"- {p.wikilink}")
+    else:
+        lines.append("*No name pages yet.*")
     lines.append("")
 
     # --- Syntheses ---
@@ -280,7 +280,7 @@ def build_index(pages: list[PageInfo]) -> str:
         lines.append("")
 
     # --- By Topic ---
-    all_pages = digests + entities + concepts + syntheses + other
+    all_pages = digests + concepts + names + syntheses + other
     tag_map: dict[str, list[PageInfo]] = {}
     for p in all_pages:
         for tag in p.tags:
@@ -303,8 +303,8 @@ def build_index(pages: list[PageInfo]) -> str:
     lines.append("| Type | Count |")
     lines.append("|------|-------|")
     lines.append(f"| Digests | {len(digests)} |")
-    lines.append(f"| Entities | {len(entities)} |")
     lines.append(f"| Concepts | {len(concepts)} |")
+    lines.append(f"| Names | {len(names)} |")
     lines.append(f"| Syntheses | {len(syntheses)} |")
     lines.append(f"| **Total** | **{len(all_pages)}** |")
     lines.append("")
@@ -315,9 +315,10 @@ def build_index(pages: list[PageInfo]) -> str:
 def update_index(
     vault_root: str,
     gen_notes_dir: str = "gen-notes",
-    entity_dir_rel: str = "gen-notes/entities",
+    concept_dir_rel: str = "gen-notes/concepts",
+    names_dir_rel: str = "gen-notes/names",
 ) -> Path:
-    """Scan vault and write/overwrite index.md and entity_index.md.
+    """Scan vault and write/overwrite index.md and concept_index.md.
 
     Returns the path to the written index file.
     """
@@ -329,32 +330,35 @@ def update_index(
     index_path.parent.mkdir(parents=True, exist_ok=True)
     index_path.write_text(content, encoding="utf-8")
 
-    # Also rebuild the entity index
-    update_entity_index(vault_root, gen_notes_dir, entity_dir_rel)
+    # Also rebuild the concept index
+    update_concept_index(vault_root, gen_notes_dir, concept_dir_rel)
+
+    # Also rebuild the name index
+    update_name_index(vault_root, gen_notes_dir, names_dir_rel)
 
     return index_path
 
 
 # ---------------------------------------------------------------------------
-# Entity index generation
+# Concept index generation
 # ---------------------------------------------------------------------------
 
 
-def build_entity_index(entity_dir: Path) -> str:
-    """Generate entity_index.md content from entity pages.
+def build_concept_index(concept_dir: Path) -> str:
+    """Generate concept_index.md content from concept pages.
 
     Produces a simple line-oriented format for easy consumption by other
-    skills (e.g. paper-digest).  Each entity is listed as::
+    skills (e.g. paper-digest).  Each concept is listed as::
 
         - Canonical Name | aliases: Alias One, Alias Two
 
-    If an entity has no aliases the ``| aliases:`` suffix is omitted.
+    If a concept has no aliases the ``| aliases:`` suffix is omitted.
     """
-    if not entity_dir.exists():
-        entities: list[tuple[str, list[str]]] = []
+    if not concept_dir.exists():
+        concepts: list[tuple[str, list[str]]] = []
     else:
-        entities = []
-        for md_file in sorted(entity_dir.glob("*.md")):
+        concepts = []
+        for md_file in sorted(concept_dir.glob("*.md")):
             try:
                 text = md_file.read_text(encoding="utf-8")
             except Exception:
@@ -371,22 +375,22 @@ def build_entity_index(entity_dir: Path) -> str:
             # Filter out the canonical title from aliases to avoid redundancy
             aliases = [str(a) for a in aliases if str(a).strip() and str(a) != title]
 
-            entities.append((title, aliases))
+            concepts.append((title, aliases))
 
     lines: list[str] = []
     lines.append("---")
-    lines.append("title: Entity Index")
-    lines.append("type: entity-index")
+    lines.append("title: Concept Index")
+    lines.append("type: concept-index")
     lines.append(f"date-updated: {datetime.now().strftime('%Y-%m-%d')}")
     lines.append("---")
     lines.append("")
-    lines.append("# Entity Index")
+    lines.append("# Concept Index")
     lines.append("")
     lines.append("> Auto-generated. Do not edit manually "
                  "— run `wiki_manager.py index` to rebuild.")
     lines.append("")
 
-    for title, aliases in entities:
+    for title, aliases in concepts:
         if aliases:
             lines.append(f"- {title} | aliases: {', '.join(aliases)}")
         else:
@@ -396,20 +400,99 @@ def build_entity_index(entity_dir: Path) -> str:
     return "\n".join(lines)
 
 
-def update_entity_index(
+def update_concept_index(
     vault_root: str,
     gen_notes_dir: str = "gen-notes",
-    entity_dir_rel: str = "gen-notes/entities",
+    concept_dir_rel: str = "gen-notes/concepts",
 ) -> Path:
-    """Build and write entity_index.md.
+    """Build and write concept_index.md.
 
     Returns the path to the written file.
     """
     root = Path(os.path.expanduser(vault_root))
-    entity_dir = root / entity_dir_rel
-    content = build_entity_index(entity_dir)
+    concept_dir = root / concept_dir_rel
+    content = build_concept_index(concept_dir)
 
-    entity_index_path = root / gen_notes_dir / "entity_index.md"
-    entity_index_path.parent.mkdir(parents=True, exist_ok=True)
-    entity_index_path.write_text(content, encoding="utf-8")
-    return entity_index_path
+    concept_index_path = root / gen_notes_dir / "concept_index.md"
+    concept_index_path.parent.mkdir(parents=True, exist_ok=True)
+    concept_index_path.write_text(content, encoding="utf-8")
+    return concept_index_path
+
+
+# ---------------------------------------------------------------------------
+# Name index generation
+# ---------------------------------------------------------------------------
+
+
+def build_name_index(names_dir: Path) -> str:
+    """Generate name_index.md content from name pages.
+
+    Produces a simple line-oriented format for easy consumption by other
+    skills (e.g. paper-digest).  Each name is listed as::
+
+        - Canonical Name | aliases: Alias One, Alias Two
+
+    If a name has no aliases the ``| aliases:`` suffix is omitted.
+    """
+    if not names_dir.exists():
+        names: list[tuple[str, list[str]]] = []
+    else:
+        names = []
+        for md_file in sorted(names_dir.glob("*.md")):
+            try:
+                text = md_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            fm = parse_frontmatter(text)
+            title = fm.get("title", md_file.stem)
+            if isinstance(title, list):
+                title = title[0]
+            title = str(title)
+
+            aliases = fm.get("aliases", [])
+            if isinstance(aliases, str):
+                aliases = [aliases]
+            aliases = [str(a) for a in aliases if str(a).strip() and str(a) != title]
+
+            names.append((title, aliases))
+
+    lines: list[str] = []
+    lines.append("---")
+    lines.append("title: Name Index")
+    lines.append("type: name-index")
+    lines.append(f"date-updated: {datetime.now().strftime('%Y-%m-%d')}")
+    lines.append("---")
+    lines.append("")
+    lines.append("# Name Index")
+    lines.append("")
+    lines.append("> Auto-generated. Do not edit manually "
+                 "— run `wiki_manager.py index` to rebuild.")
+    lines.append("")
+
+    for title, aliases in names:
+        if aliases:
+            lines.append(f"- {title} | aliases: {', '.join(aliases)}")
+        else:
+            lines.append(f"- {title}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def update_name_index(
+    vault_root: str,
+    gen_notes_dir: str = "gen-notes",
+    names_dir_rel: str = "gen-notes/names",
+) -> Path:
+    """Build and write name_index.md.
+
+    Returns the path to the written file.
+    """
+    root = Path(os.path.expanduser(vault_root))
+    names_dir = root / names_dir_rel
+    content = build_name_index(names_dir)
+
+    name_index_path = root / gen_notes_dir / "name_index.md"
+    name_index_path.parent.mkdir(parents=True, exist_ok=True)
+    name_index_path.write_text(content, encoding="utf-8")
+    return name_index_path
