@@ -245,12 +245,8 @@ def build_index(pages: list[PageInfo]) -> str:
             key=lambda p: p.date_created or "",
             reverse=True,
         )
-        for p in sorted_digests[:10]:
-            date_str = f" ({p.date_created})" if p.date_created else ""
-            summary_str = f" — {p.summary}" if p.summary else ""
-            lines.append(f"- {p.wikilink}{date_str}{summary_str}")
-        if len(digests) > 10:
-            lines.append(f"- *... and {len(digests) - 10} more digests*")
+        for p in sorted_digests:
+            lines.append(f"- {p.wikilink}")
     else:
         lines.append("*No digests yet.*")
     lines.append("")
@@ -260,8 +256,7 @@ def build_index(pages: list[PageInfo]) -> str:
     lines.append("")
     if entities:
         for p in sorted(entities, key=lambda p: p.title.lower()):
-            summary_str = f" — {p.summary}" if p.summary else ""
-            lines.append(f"- {p.wikilink}{summary_str}")
+            lines.append(f"- {p.wikilink}")
     else:
         lines.append("*No entity pages yet.*")
     lines.append("")
@@ -271,8 +266,7 @@ def build_index(pages: list[PageInfo]) -> str:
     lines.append("")
     if concepts:
         for p in sorted(concepts, key=lambda p: p.title.lower()):
-            summary_str = f" — {p.summary}" if p.summary else ""
-            lines.append(f"- {p.wikilink}{summary_str}")
+            lines.append(f"- {p.wikilink}")
     else:
         lines.append("*No concept pages yet.*")
     lines.append("")
@@ -282,8 +276,7 @@ def build_index(pages: list[PageInfo]) -> str:
         lines.append("## Syntheses")
         lines.append("")
         for p in sorted(syntheses, key=lambda p: p.date_created or "", reverse=True):
-            summary_str = f" — {p.summary}" if p.summary else ""
-            lines.append(f"- {p.wikilink}{summary_str}")
+            lines.append(f"- {p.wikilink}")
         lines.append("")
 
     # --- By Topic ---
