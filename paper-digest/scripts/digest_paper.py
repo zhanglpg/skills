@@ -247,8 +247,7 @@ def save_output(content: str, title: str, output_dir: str) -> Path:
     output_path.mkdir(parents=True, exist_ok=True)
     # Sanitize title for filename
     safe_title = re.sub(r'[^\w\s-]', '', title)[:60].strip().replace(' ', '-').lower()
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{date_str}-{safe_title}.md" if safe_title else f"{date_str}-digest.md"
+    filename = f"{safe_title}.md" if safe_title else "digest.md"
     filepath = output_path / filename
     filepath.write_text(content)
     return filepath
