@@ -39,7 +39,7 @@ When the user asks to digest or summarize a paper, the natural workflow is:
 
 The ingest step:
 1. Parses the digest — extracts frontmatter, TL;DR, wikilinks, tags
-2. Extracts 3-8 key entities via LLM (methods, models, concepts, datasets)
+2. Reads entities from the digest frontmatter (added by paper-digest). Falls back to LLM extraction for older digests without an `entities` field
 3. For each entity: creates a new entity page or updates an existing one
 4. Updates `gen-notes/index.md` with the new digest and any new entity pages
 5. Appends to `gen-notes/log.md` with a record of all touched pages
@@ -85,7 +85,7 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | Tool | Purpose |
 |------|---------|
 | **Python 3.10+** | Runtime |
-| **Gemini CLI** | LLM calls for entity extraction and page generation |
+| **Gemini CLI** | LLM calls for entity page generation (and entity extraction fallback for older digests) |
 
 ## Files
 

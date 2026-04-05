@@ -47,6 +47,9 @@ categories:
 related:
   - "Related Paper Title One"
   - "Related Paper Title Two"
+entities:
+  - "Key Entity One"
+  - "Key Entity Two"
 ---
 ```
 
@@ -57,6 +60,7 @@ related:
 - **tags**: A YAML list of lowercase, hyphenated keywords that describe the paper's topics, methods, datasets, and domains (e.g. `deep-learning`, `image-classification`, `transformer`). Generate 4-8 relevant tags.
 - **categories**: Always include `paper-digest`. Add other categories only if clearly applicable.
 - **related**: A YAML list of 3-5 titles of closely related papers mentioned in the text. Use the exact titles as cited where possible.
+- **entities**: A YAML list of up to 3 key entities from the paper — recurring concepts, methods, models, architectures, datasets, or techniques that would benefit from standalone reference pages. Use the most canonical/common name for each (e.g. `"Transformer"`, `"RLHF"`, `"BERT"`). Prefer proper nouns and established abbreviations.
 
 Do NOT include `source`, `digested`, `queue_id`, or `status` in the frontmatter — those are added automatically.
 
