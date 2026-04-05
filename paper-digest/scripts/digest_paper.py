@@ -360,9 +360,9 @@ def main(argv=None):
     if entity_list_text:
         known_entities_block = (
             "**IMPORTANT — Known entities in the wiki:**\n"
-            "The following entities already exist in the knowledge wiki. If an entity "
-            "you extract is substantially similar to one below (same concept, different "
-            "name), use the EXISTING canonical name exactly as shown. This ensures "
+            "The following entities already exist in the knowledge wiki. "
+            "DO NOT add an entity that is substantially similar to one below — "
+            "use the EXISTING canonical name exactly as shown instead. This ensures "
             "entities focus on well-known technologies, datasets, trends, and principles "
             "rather than paper-specific jargon.\n\n"
             f"{entity_list_text}\n\n"
