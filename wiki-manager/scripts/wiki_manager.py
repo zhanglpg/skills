@@ -111,13 +111,22 @@ def cmd_ingest(args, config: dict, logger) -> None:
     # 2. Set up LLM
     llm_fn = _make_llm_fn(config, logger)
 
-    # 3. Extract entities
-    existing = list_entities(entity_dir)
-    existing_names = [e["title"] for e in existing]
-    entities = extract_entities_from_digest(
-        digest_content, existing_names, llm_fn, max_entities
-    )
-    logger.info(f"Extracted entities: {entities}")
+    # 3. Get entities — prefer frontmatter, fall back to LLM extraction
+    fm_entities = fm.get("entities", [])
+    if isinstance(fm_entities, str):
+        fm_entities = [fm_entities]
+
+    if fm_entities:
+        entities = [str(e).strip() for e in fm_entities if e][:max_entities]
+        logger.info(f"Entities from frontmatter: {entities}")
+    else:
+        logger.info("No entities in frontmatter — falling back to LLM extraction")
+        existing = list_entities(entity_dir)
+        existing_names = [e["title"] for e in existing]
+        entities = extract_entities_from_digest(
+            digest_content, existing_names, llm_fn, max_entities
+        )
+        logger.info(f"Extracted entities via LLM: {entities}")
 
     # 4. Create or update entity pages
     touched_pages: list[str] = []

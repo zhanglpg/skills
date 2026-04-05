@@ -162,7 +162,9 @@ class TestRenderOutput(unittest.TestCase):
         gemini_output = (
             '---\ntitle: "My Paper"\nauthors:\n  - "Author One"\n'
             'year: 2024\ntags:\n  - deep-learning\ncategories:\n  - paper-digest\n'
-            'related:\n  - "Related Paper"\n---\n\n## 1. Main Idea\nSome content'
+            'related:\n  - "Related Paper"\n'
+            'entities:\n  - "Transformer"\n  - "Attention Mechanism"\n'
+            '---\n\n## 1. Main Idea\nSome content'
         )
         result = digest_paper.render_output(gemini_output, "My Paper", "arxiv:2401.12345")
         self.assertIn('title: "My Paper"', result)
@@ -170,6 +172,10 @@ class TestRenderOutput(unittest.TestCase):
         self.assertIn("digested:", result)
         self.assertIn("status: digested", result)
         self.assertIn("## 1. Main Idea", result)
+        # Entities should be preserved in the merged frontmatter
+        self.assertIn("entities:", result)
+        self.assertIn("Transformer", result)
+        self.assertIn("Attention Mechanism", result)
         # Should start with frontmatter
         self.assertTrue(result.startswith("---\n"))
 
