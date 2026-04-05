@@ -213,7 +213,7 @@ class TestSaveOutput(unittest.TestCase):
             self.assertTrue(filepath.exists())
             content = filepath.read_text()
             self.assertEqual(content, "# Test digest content")
-            self.assertIn("my-test-paper", filepath.name)
+            self.assertIn("My Test Paper", filepath.name)
 
     def test_creates_output_dir(self):
         with tempfile.TemporaryDirectory() as tmpdir:
