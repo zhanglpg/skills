@@ -177,7 +177,7 @@ def parse_llm_findings(llm_response: str) -> list[CompileFinding]:
 
     # Try direct JSON parse
     text = llm_response.strip()
-    findings: list[ScanFinding] = []
+    findings: list[CompileFinding] = []
 
     parsed = _try_parse_json_array(text)
     if parsed is None:
