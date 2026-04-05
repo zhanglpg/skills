@@ -245,12 +245,10 @@ def build_index(pages: list[PageInfo]) -> str:
             key=lambda p: p.date_created or "",
             reverse=True,
         )
-        for p in sorted_digests[:10]:
+        for p in sorted_digests:
             date_str = f" ({p.date_created})" if p.date_created else ""
             summary_str = f" — {p.summary}" if p.summary else ""
             lines.append(f"- {p.wikilink}{date_str}{summary_str}")
-        if len(digests) > 10:
-            lines.append(f"- *... and {len(digests) - 10} more digests*")
     else:
         lines.append("*No digests yet.*")
     lines.append("")
