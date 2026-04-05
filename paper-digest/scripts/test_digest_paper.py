@@ -413,5 +413,87 @@ class TestOutputDirAgentDataDirDefault(unittest.TestCase):
             self.assertEqual(actual_output_dir, '/tmp/paper-digests')
 
 
+class TestLoadEntityIndex(unittest.TestCase):
+    """Tests for loading entity_index.md."""
+
+    def test_loads_entity_lines(self):
+        content = (
+            "---\ntitle: Entity Index\ntype: entity-index\n"
+            "date-updated: 2026-04-05\n---\n\n"
+            "# Entity Index\n\n"
+            "> Auto-generated. Do not edit manually.\n\n"
+            "- Transformer | aliases: Transformer Architecture, Transformer Model\n"
+            "- RLHF | aliases: Reinforcement Learning from Human Feedback\n"
+            "- BERT\n"
+        )
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            f.write(content)
+            f.flush()
+            result = digest_paper.load_entity_index(f.name)
+            os.unlink(f.name)
+
+        lines = result.strip().splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertIn("Transformer | aliases:", lines[0])
+        self.assertIn("RLHF", lines[1])
+        self.assertIn("BERT", lines[2])
+
+    def test_returns_empty_for_missing_file(self):
+        result = digest_paper.load_entity_index('/nonexistent/entity_index.md')
+        self.assertEqual(result, "")
+
+    def test_strips_frontmatter_and_headings(self):
+        content = (
+            "---\ntitle: Entity Index\n---\n\n"
+            "# Entity Index\n\n"
+            "> Some note\n\n"
+            "- OnlyEntity\n"
+        )
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            f.write(content)
+            f.flush()
+            result = digest_paper.load_entity_index(f.name)
+            os.unlink(f.name)
+
+        self.assertEqual(result, "- OnlyEntity")
+        self.assertNotIn("Entity Index", result)
+        self.assertNotIn("---", result)
+
+
+class TestKnownEntitiesInPrompt(unittest.TestCase):
+    """Test that known_entities placeholder works in prompt."""
+
+    def test_known_entities_injected(self):
+        template = "Entities: {known_entities}\nPaper: {paper_text}"
+        result = digest_paper.build_prompt(template, {
+            'paper_text': 'content',
+            'known_entities': '- Transformer\n- BERT',
+        })
+        self.assertIn("- Transformer", result)
+        self.assertIn("- BERT", result)
+
+    def test_known_entities_absent_gracefully(self):
+        template = "Entities: {known_entities}\nPaper: {paper_text}"
+        result = digest_paper.build_prompt(template, {
+            'paper_text': 'content',
+        })
+        self.assertIn("Entities: ", result)
+        self.assertIn("content", result)
+
+
+class TestParseArgsEntityIndex(unittest.TestCase):
+    """Test --entity_index argument."""
+
+    def test_entity_index_arg(self):
+        args = digest_paper.parse_args([
+            'paper.pdf', '--entity_index', '/path/to/entity_index.md'
+        ])
+        self.assertEqual(args.entity_index, '/path/to/entity_index.md')
+
+    def test_entity_index_default_none(self):
+        args = digest_paper.parse_args(['paper.pdf'])
+        self.assertIsNone(args.entity_index)
+
+
 if __name__ == '__main__':
     unittest.main()

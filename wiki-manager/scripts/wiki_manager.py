@@ -31,7 +31,7 @@ sys.path.insert(0, str(_SCRIPT_DIR))
 sys.path.insert(0, str(_SKILLS_ROOT / "shared"))
 
 from logging_utils import get_agent_data_dir, setup_logger
-from vault_index import parse_frontmatter, scan_vault, build_index, update_index
+from vault_index import parse_frontmatter, scan_vault, build_index, update_index, update_entity_index
 from log_writer import append_log
 from entity_manager import (
     extract_entities_from_digest,
@@ -142,7 +142,7 @@ def cmd_ingest(args, config: dict, logger) -> None:
             touched_pages.append(f"Created entity: [[{entity_name}]]")
 
     # 5. Update index
-    index_path = update_index(vault_root, gen_notes_dir)
+    index_path = update_index(vault_root, gen_notes_dir, entity_dir_rel)
     touched_pages.append(f"Updated index: {index_path.name}")
     logger.info(f"Index updated: {index_path}")
 
@@ -163,13 +163,14 @@ def cmd_ingest(args, config: dict, logger) -> None:
 
 
 def cmd_index(args, config: dict, logger) -> None:
-    """Rebuild index.md from all vault pages."""
+    """Rebuild index.md and entity_index.md from all vault pages."""
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
+    entity_dir_rel = config.get("entity_dir", "gen-notes/entities")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
 
     pages = scan_vault(vault_root, gen_notes_dir)
-    index_path = update_index(vault_root, gen_notes_dir)
+    index_path = update_index(vault_root, gen_notes_dir, entity_dir_rel)
 
     append_log(
         log_path,
@@ -178,6 +179,7 @@ def cmd_index(args, config: dict, logger) -> None:
     )
 
     print(f"✓ Index rebuilt: {index_path}")
+    print(f"  Entity index updated")
     print(f"  {len(pages)} pages indexed")
 
 
