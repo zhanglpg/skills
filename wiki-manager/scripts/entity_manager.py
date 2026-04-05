@@ -105,6 +105,29 @@ def list_entities(entity_dir: str | Path) -> list[dict[str, str]]:
 LLMFunction = Callable[[str], str]
 
 
+def _sanitize_llm_output(text: str) -> str:
+    """Strip code-fence wrapping and duplicated frontmatter from LLM output."""
+    result = text.strip()
+
+    # Strip outer code-fence wrapping (```markdown ... ``` or ```yaml ... ```)
+    fence_pattern = re.compile(
+        r"^```(?:markdown|yaml|text)?\s*\n(.*?)```\s*$",
+        re.DOTALL,
+    )
+    m = fence_pattern.match(result)
+    if m:
+        result = m.group(1).strip()
+
+    # Detect and remove duplicated frontmatter — keep only the last occurrence
+    fm_blocks = list(
+        re.finditer(r"^---\s*\n.*?\n---\s*\n", result, re.DOTALL | re.MULTILINE)
+    )
+    if len(fm_blocks) >= 2:
+        result = result[fm_blocks[-1].start():]
+
+    return result.strip()
+
+
 def _sanitize_filename(name: str) -> str:
     """Convert entity name to a safe filename."""
     # Replace slashes, colons, and other problematic chars
@@ -149,7 +172,7 @@ def create_entity_page(
     prompt = prompt.replace("{digest_content}", digest_content)
     prompt = prompt.replace("{today}", today)
 
-    llm_output = llm_fn(prompt)
+    llm_output = _sanitize_llm_output(llm_fn(prompt))
 
     # If the LLM output doesn't start with frontmatter, wrap it
     if not llm_output.strip().startswith("---"):
@@ -216,7 +239,7 @@ def update_entity_page(
         "what the new paper warrants."
     )
 
-    updated = llm_fn(prompt)
+    updated = _sanitize_llm_output(llm_fn(prompt))
 
     # Sanity check: only write if it looks like valid markdown with frontmatter
     if updated.strip().startswith("---"):

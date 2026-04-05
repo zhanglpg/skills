@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from entity_manager import (
     _normalize_name,
     _sanitize_filename,
+    _sanitize_llm_output,
     find_entity_page,
     list_entities,
     create_entity_page,
@@ -233,6 +234,88 @@ class TestExtractEntities(unittest.TestCase):
 
         result = extract_entities_from_digest("digest content", [], mock_llm, max_entities=3)
         self.assertEqual(len(result), 3)
+
+
+class TestSanitizeLlmOutput(unittest.TestCase):
+    CLEAN_OUTPUT = (
+        '---\ntitle: "Transformer"\ntype: entity\n---\n\n'
+        "# Transformer\n\n## Overview\nA neural architecture.\n"
+    )
+
+    def test_passthrough_clean_output(self):
+        result = _sanitize_llm_output(self.CLEAN_OUTPUT)
+        self.assertEqual(result, self.CLEAN_OUTPUT.strip())
+
+    def test_strips_markdown_code_fence(self):
+        wrapped = "```markdown\n" + self.CLEAN_OUTPUT + "```\n"
+        result = _sanitize_llm_output(wrapped)
+        self.assertEqual(result, self.CLEAN_OUTPUT.strip())
+
+    def test_strips_yaml_code_fence(self):
+        wrapped = "```yaml\n" + self.CLEAN_OUTPUT + "```\n"
+        result = _sanitize_llm_output(wrapped)
+        self.assertEqual(result, self.CLEAN_OUTPUT.strip())
+
+    def test_removes_duplicated_frontmatter(self):
+        duplicate_fm = (
+            '---\ntitle: "Transformer"\ntype: entity\n---\n\n'
+        )
+        doubled = duplicate_fm + self.CLEAN_OUTPUT
+        result = _sanitize_llm_output(doubled)
+        self.assertEqual(result, self.CLEAN_OUTPUT.strip())
+
+    def test_handles_both_issues(self):
+        duplicate_fm = '---\ntitle: "Transformer"\ntype: entity\n---\n\n'
+        inner = duplicate_fm + self.CLEAN_OUTPUT
+        wrapped = "```markdown\n" + inner + "```\n"
+        result = _sanitize_llm_output(wrapped)
+        self.assertEqual(result, self.CLEAN_OUTPUT.strip())
+
+    def test_preserves_internal_code_blocks(self):
+        with_code = (
+            '---\ntitle: "Test"\ntype: entity\n---\n\n'
+            "# Test\n\n## Overview\nExample:\n\n"
+            "```python\nprint('hello')\n```\n"
+        )
+        result = _sanitize_llm_output(with_code)
+        self.assertIn("```python", result)
+        self.assertIn("print('hello')", result)
+
+
+class TestCreateEntityPageSanitization(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.entity_dir = Path(self.tmpdir) / "entities"
+        self.entity_dir.mkdir()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_strips_fences_from_created_file(self):
+        def mock_llm(prompt):
+            return (
+                "```markdown\n"
+                "---\n"
+                'title: "Transformer"\n'
+                "type: entity\n"
+                "aliases:\n"
+                '  - "Transformer"\n'
+                "date-created: 2024-01-01\n"
+                "date-updated: 2024-01-01\n"
+                "source-digests: []\n"
+                "tags: [ml]\n"
+                "status: 🔗\n"
+                "---\n\n"
+                "# Transformer\n\n"
+                "## Overview\nA neural architecture.\n"
+                "```\n"
+            )
+
+        path = create_entity_page("Transformer", "digest", self.entity_dir, mock_llm)
+        content = path.read_text()
+        self.assertTrue(content.startswith("---"))
+        self.assertNotIn("```markdown", content)
 
 
 if __name__ == "__main__":

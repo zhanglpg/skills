@@ -14,7 +14,6 @@ Generate a complete entity page in Obsidian-compatible markdown. The page MUST b
 
 ### Frontmatter
 
-```yaml
 ---
 title: "{entity_name}"
 type: entity
@@ -29,7 +28,6 @@ tags:
   - relevant-tag
 status: 🔗
 ---
-```
 
 **Frontmatter rules:**
 - **aliases**: Include common alternate names, abbreviations, and full expansions (e.g., for "RLHF" include "Reinforcement Learning from Human Feedback")
@@ -40,7 +38,6 @@ status: 🔗
 
 After the frontmatter, use exactly these sections:
 
-```markdown
 # {entity_name}
 
 ## Overview
@@ -58,7 +55,10 @@ After the frontmatter, use exactly these sections:
 ## Related Entities
 - [[Related Entity One]] — <brief relation>
 - [[Related Entity Two]] — <brief relation>
-```
+
+### Output format
+
+Do NOT wrap your response in code fences (no ```markdown or ```yaml markers). Output the raw markdown directly, starting with the `---` frontmatter delimiter.
 
 ### Rules
 
