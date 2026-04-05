@@ -171,6 +171,30 @@ def extract_title(text: str) -> str:
 # Prompt assembly
 # ---------------------------------------------------------------------------
 
+def load_entity_index(entity_index_path: str) -> str:
+    """Load entity_index.md and return just the entity list lines.
+
+    Returns empty string if the file does not exist.
+    """
+    path = Path(os.path.expanduser(entity_index_path))
+    if not path.exists():
+        return ""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+    # Strip frontmatter
+    m = re.match(r"^---\s*\n.*?\n---\s*\n", text, re.DOTALL)
+    if m:
+        text = text[m.end():]
+    # Keep only list lines (- Entity ...)
+    lines = []
+    for line in text.strip().splitlines():
+        if line.strip().startswith("- "):
+            lines.append(line.strip())
+    return "\n".join(lines)
+
+
 def load_template(path: str) -> str:
     """Load a file as a string."""
     return Path(path).read_text()
@@ -257,6 +281,8 @@ def parse_args(argv=None):
     parser.add_argument('--gemini_timeout', type=int, default=None, help="Gemini CLI timeout in seconds")
     parser.add_argument('--user_context', default=None, help="Description of your interests and background")
     parser.add_argument('--log_file', default=None, help="Log file path")
+    parser.add_argument('--entity_index', default=None,
+                        help="Path to entity_index.md from wiki-manager")
     return parser.parse_args(argv)
 
 
@@ -280,6 +306,7 @@ def main(argv=None):
     output_dir = os.path.expanduser(os.path.expandvars(output_dir))
     gemini_timeout = args.gemini_timeout or config.get('gemini_timeout', 180)
     user_context = args.user_context or config.get('user_context', '')
+    entity_index_path = args.entity_index or config.get('entity_index_path', '')
     log_file = args.log_file or config.get('log_file', '/tmp/logs/skills/paper-digest/digest.log')
 
     logger = setup_logger(log_file)
@@ -328,9 +355,27 @@ def main(argv=None):
         "Highlight the most broadly impactful and interesting aspects."
     )
 
+    # Load known entities for merging/matching
+    entity_list_text = load_entity_index(entity_index_path) if entity_index_path else ""
+    if entity_list_text:
+        known_entities_block = (
+            "**IMPORTANT — Known entities in the wiki:**\n"
+            "The following entities already exist in the knowledge wiki. "
+            "DO NOT add an entity that is substantially similar to one below — "
+            "use the EXISTING canonical name exactly as shown instead. This ensures "
+            "entities focus on well-known technologies, datasets, trends, and principles "
+            "rather than paper-specific jargon.\n\n"
+            f"{entity_list_text}\n\n"
+            "Only introduce a new entity name if it is clearly distinct from all of "
+            "the above."
+        )
+    else:
+        known_entities_block = ""
+
     prompt = build_prompt(prompt_template, {
         'paper_text': paper_text,
         'user_context': user_context_text,
+        'known_entities': known_entities_block,
     })
 
     # Step 4: Summarize with Gemini

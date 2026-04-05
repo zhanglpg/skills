@@ -171,7 +171,7 @@ def scan_vault(vault_root: str, gen_notes_dir: str = "gen-notes") -> list[PageIn
     pages: list[PageInfo] = []
     for md_file in sorted(gen_path.rglob("*.md")):
         # Skip index, log, schema, and lint reports
-        if md_file.name in ("index.md", "log.md", "schema.md", "_lint-report.md"):
+        if md_file.name in ("index.md", "entity_index.md", "log.md", "schema.md", "_lint-report.md"):
             continue
 
         try:
@@ -319,8 +319,12 @@ def build_index(pages: list[PageInfo]) -> str:
     return "\n".join(lines)
 
 
-def update_index(vault_root: str, gen_notes_dir: str = "gen-notes") -> Path:
-    """Scan vault and write/overwrite index.md.
+def update_index(
+    vault_root: str,
+    gen_notes_dir: str = "gen-notes",
+    entity_dir_rel: str = "gen-notes/entities",
+) -> Path:
+    """Scan vault and write/overwrite index.md and entity_index.md.
 
     Returns the path to the written index file.
     """
@@ -331,4 +335,88 @@ def update_index(vault_root: str, gen_notes_dir: str = "gen-notes") -> Path:
     index_path = root / gen_notes_dir / "index.md"
     index_path.parent.mkdir(parents=True, exist_ok=True)
     index_path.write_text(content, encoding="utf-8")
+
+    # Also rebuild the entity index
+    update_entity_index(vault_root, gen_notes_dir, entity_dir_rel)
+
     return index_path
+
+
+# ---------------------------------------------------------------------------
+# Entity index generation
+# ---------------------------------------------------------------------------
+
+
+def build_entity_index(entity_dir: Path) -> str:
+    """Generate entity_index.md content from entity pages.
+
+    Produces a simple line-oriented format for easy consumption by other
+    skills (e.g. paper-digest).  Each entity is listed as::
+
+        - Canonical Name | aliases: Alias One, Alias Two
+
+    If an entity has no aliases the ``| aliases:`` suffix is omitted.
+    """
+    if not entity_dir.exists():
+        entities: list[tuple[str, list[str]]] = []
+    else:
+        entities = []
+        for md_file in sorted(entity_dir.glob("*.md")):
+            try:
+                text = md_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            fm = parse_frontmatter(text)
+            title = fm.get("title", md_file.stem)
+            if isinstance(title, list):
+                title = title[0]
+            title = str(title)
+
+            aliases = fm.get("aliases", [])
+            if isinstance(aliases, str):
+                aliases = [aliases]
+            # Filter out the canonical title from aliases to avoid redundancy
+            aliases = [str(a) for a in aliases if str(a).strip() and str(a) != title]
+
+            entities.append((title, aliases))
+
+    lines: list[str] = []
+    lines.append("---")
+    lines.append("title: Entity Index")
+    lines.append("type: entity-index")
+    lines.append(f"date-updated: {datetime.now().strftime('%Y-%m-%d')}")
+    lines.append("---")
+    lines.append("")
+    lines.append("# Entity Index")
+    lines.append("")
+    lines.append("> Auto-generated. Do not edit manually "
+                 "— run `wiki_manager.py index` to rebuild.")
+    lines.append("")
+
+    for title, aliases in entities:
+        if aliases:
+            lines.append(f"- {title} | aliases: {', '.join(aliases)}")
+        else:
+            lines.append(f"- {title}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def update_entity_index(
+    vault_root: str,
+    gen_notes_dir: str = "gen-notes",
+    entity_dir_rel: str = "gen-notes/entities",
+) -> Path:
+    """Build and write entity_index.md.
+
+    Returns the path to the written file.
+    """
+    root = Path(os.path.expanduser(vault_root))
+    entity_dir = root / entity_dir_rel
+    content = build_entity_index(entity_dir)
+
+    entity_index_path = root / gen_notes_dir / "entity_index.md"
+    entity_index_path.parent.mkdir(parents=True, exist_ok=True)
+    entity_index_path.write_text(content, encoding="utf-8")
+    return entity_index_path
