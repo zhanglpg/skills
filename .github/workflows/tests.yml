@@ -74,8 +74,8 @@ jobs:
         run: python -m unittest test_log_writer -v
         working-directory: wiki-manager/scripts
 
-      - name: Run wiki-manager entity_manager tests
-        run: python -m unittest test_entity_manager -v
+      - name: Run wiki-manager concept_manager tests
+        run: python -m unittest test_concept_manager -v
         working-directory: wiki-manager/scripts
 
       - name: Run wiki-manager lint_checker tests
