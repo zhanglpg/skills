@@ -46,25 +46,39 @@ Prioritized reading queue for academic papers backed by SQLite. Papers enter fro
 
 LLM-native skill that fetches and summarizes papers, articles, or blog posts, then saves structured notes directly to a configured notes directory. Includes wikilinks, tags, and a "Connections" section for cross-linking. Also supports a reading-backlog mode that processes unchecked items from a configurable backlog file. Note template in `references/note-template.md`.
 
+### Wiki Manager
+
+**Location:** `wiki-manager/`
+
+Maintains a living knowledge wiki by transforming isolated paper digests into an interconnected knowledge graph. After digesting a paper, the `ingest` command extracts entities, creates/updates entity and concept pages, rebuilds the index, and appends to a chronological log. Also supports `index`, `lint`, and `entities` commands for vault maintenance. Main script: `scripts/wiki_manager.py`.
+
+### Wiki Query
+
+**Location:** `wiki-query/`
+
+LLM-native skill that answers research questions by searching the knowledge wiki index, reading relevant digest and entity pages, and synthesizing cross-paper analyses. Substantive answers are optionally filed back as synthesis pages for future reference.
+
 ### Shared
 
 **Location:** `shared/`
 
-Shared utilities used across skills. Currently contains `logging_utils.py` for consistent log formatting.
+Shared utilities used across skills. Contains `logging_utils.py` for consistent log formatting and `llm_utils.py` for common LLM interaction helpers.
 
 ## Skill Structure
 
 Skills vary in structure depending on whether they are script-based or LLM-native:
 
-**Script-based skills** (check-market-movers, paper-digest, paper-queue, openbb-sync):
+**Script-based skills** (check-market-movers, paper-digest, paper-queue, openbb-sync, wiki-manager):
 ```
 skill-name/
 ├── SKILL.md                    # Skill definition and instructions
 ├── config.json                 # Configuration (if applicable)
+├── prompts/                    # Prompt templates (if applicable)
+├── references/                 # Reference documentation (if applicable)
 └── scripts/                    # Python scripts and unit tests
 ```
 
-**LLM-native skills** (paper-summarizer):
+**LLM-native skills** (paper-summarizer, wiki-query):
 ```
 skill-name/
 ├── SKILL.md                    # Skill definition, prompt, and instructions
