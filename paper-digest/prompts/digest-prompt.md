@@ -24,6 +24,8 @@ Analyze the paper thoroughly and produce a summary with EXACTLY these five secti
 
 5. **Further Reading** — Recommend 3-5 papers or resources for follow-up. Prioritize papers that are: (a) directly cited and foundational, (b) concurrent/competing approaches, or (c) natural next steps. For each recommendation, include the title, authors (if mentioned), and a one-line reason why it's relevant.
 
+6. **Community Insights (Hacker News)** — If Hacker News comments are provided below, synthesize the most insightful points from the community discussion. Focus on: (a) substantive technical critiques or clarifications, (b) practical experience reports from practitioners who have tried similar approaches, (c) connections to other work or broader trends noted by commenters, (d) thoughtful skepticism or limitations raised. Ignore low-effort comments, jokes, and meta-discussion. If no HN comments are provided, omit this section entirely.
+
 ## Output Format
 
 Your output MUST begin with an Obsidian-compatible YAML frontmatter block. This block starts and ends with `---` and contains structured metadata extracted from the paper. After the frontmatter, include the five summary sections.
@@ -68,6 +70,10 @@ entities:
 
 Do NOT include `source`, `digested`, `queue_id`, or `status` in the frontmatter — those are added automatically.
 
+## Hacker News Community Discussion
+
+{hn_comments}
+
 ### Summary Sections
 
 After the frontmatter, use exactly these markdown headings:
@@ -78,7 +84,10 @@ After the frontmatter, use exactly these markdown headings:
 ## 3. Relation to Prior Work
 ## 4. Personalized Highlights
 ## 5. Further Reading
+## 6. Community Insights (Hacker News)
 ```
+
+Note: Section 6 should ONLY be included if Hacker News comments were provided above. If the "Hacker News Community Discussion" section above is empty, do NOT include section 6 in the output.
 
 ## Rules
 

@@ -31,7 +31,7 @@ import tempfile
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict
 
 # Allow importing shared utilities from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -160,6 +160,142 @@ def extract_title(text: str) -> str:
             continue
         candidates.append(stripped)
     return candidates[0] if candidates else "Untitled Paper"
+
+
+# ---------------------------------------------------------------------------
+# Hacker News integration — search for paper threads and fetch comments
+# ---------------------------------------------------------------------------
+
+HN_SEARCH_URL = "https://hn.algolia.com/api/v1/search"
+HN_ITEM_URL = "https://hn.algolia.com/api/v1/items"
+
+
+def _hn_get_json(url: str, timeout: int = 15) -> Optional[dict]:
+    """Fetch JSON from a URL. Returns None on failure."""
+    try:
+        import httpx
+        with httpx.Client(follow_redirects=True, timeout=timeout) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except ImportError:
+        import urllib.request
+        import urllib.error
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "paper-digest/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode())
+        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError):
+            return None
+    except Exception:
+        return None
+
+
+def search_hn_for_paper(title: str, logger: logging.Logger) -> Optional[int]:
+    """Search Hacker News for a story matching the paper title.
+
+    Returns the HN story ID if a good match is found, else None.
+    """
+    import urllib.parse
+    # Use the first ~100 chars of title to avoid overly long queries
+    query = title[:100].strip()
+    params = urllib.parse.urlencode({"query": query, "tags": "story"})
+    url = f"{HN_SEARCH_URL}?{params}"
+
+    logger.info(f"Searching HN for paper: {query}")
+    data = _hn_get_json(url)
+    if not data or not data.get("hits"):
+        logger.info("No HN threads found for this paper")
+        return None
+
+    # Check if the top hit title is a reasonable match
+    top_hit = data["hits"][0]
+    hit_title = top_hit.get("title", "").lower()
+    query_words = set(re.findall(r'\w+', query.lower()))
+    hit_words = set(re.findall(r'\w+', hit_title))
+
+    # Require at least 40% word overlap for a match
+    if not query_words:
+        return None
+    overlap = len(query_words & hit_words) / len(query_words)
+    if overlap < 0.4:
+        logger.info(f"Best HN hit has low overlap ({overlap:.0%}): {hit_title}")
+        return None
+
+    story_id = top_hit.get("objectID")
+    logger.info(f"Found HN thread: {hit_title} (id={story_id}, overlap={overlap:.0%})")
+    return int(story_id)
+
+
+def _collect_comments(item: dict, max_depth: int = 2, depth: int = 0) -> List[Dict]:
+    """Recursively collect comments from an HN item tree."""
+    comments = []
+    for child in item.get("children", []):
+        text = child.get("text") or ""
+        author = child.get("author") or "unknown"
+        if text and child.get("type") == "comment":
+            comments.append({
+                "author": author,
+                "text": text,
+                "points": child.get("points"),
+                "depth": depth,
+            })
+        if depth < max_depth:
+            comments.extend(_collect_comments(child, max_depth, depth + 1))
+    return comments
+
+
+def fetch_hn_comments(
+    story_id: int,
+    logger: logging.Logger,
+    max_comments: int = 20,
+    max_chars: int = 8000,
+) -> str:
+    """Fetch top-level and nested comments from an HN story.
+
+    Returns a formatted text block of comments suitable for inclusion in the
+    digest prompt. Returns empty string on failure or if no comments found.
+    """
+    url = f"{HN_ITEM_URL}/{story_id}"
+    logger.info(f"Fetching HN comments for story {story_id}")
+    data = _hn_get_json(url)
+    if not data:
+        return ""
+
+    story_title = data.get("title", "")
+    story_url = f"https://news.ycombinator.com/item?id={story_id}"
+
+    comments = _collect_comments(data, max_depth=2)
+    if not comments:
+        return ""
+
+    # Sort by depth (prefer top-level), then truncate
+    comments.sort(key=lambda c: c["depth"])
+    comments = comments[:max_comments]
+
+    # Format comments as text
+    parts = [
+        f"### Hacker News Discussion",
+        f"Thread: {story_title}",
+        f"URL: {story_url}",
+        f"Total comments collected: {len(comments)}",
+        "",
+    ]
+
+    total_chars = 0
+    for i, c in enumerate(comments, 1):
+        # Strip HTML tags from HN comment text
+        clean_text = re.sub(r'<[^>]+>', ' ', c["text"]).strip()
+        clean_text = re.sub(r'\s+', ' ', clean_text)
+        indent = "  " * c["depth"]
+        entry = f"{indent}[{c['author']}]: {clean_text}"
+        total_chars += len(entry)
+        if total_chars > max_chars:
+            parts.append(f"[Truncated at {i-1} comments due to length]")
+            break
+        parts.append(entry)
+
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +495,19 @@ def main(argv=None):
         print("Use --force to re-digest.")
         return 0
 
+    # Step 2b: Search Hacker News for the paper
+    hn_comments_block = ""
+    try:
+        story_id = search_hn_for_paper(title, logger)
+        if story_id:
+            hn_comments_block = fetch_hn_comments(story_id, logger)
+            if hn_comments_block:
+                logger.info(f"Included HN comments from story {story_id}")
+            else:
+                logger.info("HN thread found but no comments to include")
+    except Exception as e:
+        logger.warning(f"HN search failed (non-fatal): {e}")
+
     # Step 3: Build prompt
     prompt_template = load_template(str(prompt_path))
 
@@ -388,6 +537,7 @@ def main(argv=None):
         'paper_text': paper_text,
         'user_context': user_context_text,
         'known_entities': known_entities_block,
+        'hn_comments': hn_comments_block,
     })
 
     # Step 4: Summarize with Gemini

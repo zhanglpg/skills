@@ -557,5 +557,217 @@ class TestForceRedigest(unittest.TestCase):
             os.unlink(f.name)
 
 
+class TestSearchHnForPaper(unittest.TestCase):
+    """Test Hacker News search for paper threads."""
+
+    @patch('digest_paper._hn_get_json')
+    def test_finds_matching_story(self, mock_get):
+        mock_get.return_value = {
+            "hits": [{
+                "objectID": "12345",
+                "title": "Attention Is All You Need",
+            }]
+        }
+        logger = MagicMock()
+        story_id = digest_paper.search_hn_for_paper("Attention Is All You Need", logger)
+        self.assertEqual(story_id, 12345)
+
+    @patch('digest_paper._hn_get_json')
+    def test_returns_none_for_no_hits(self, mock_get):
+        mock_get.return_value = {"hits": []}
+        logger = MagicMock()
+        story_id = digest_paper.search_hn_for_paper("Obscure Paper Title", logger)
+        self.assertIsNone(story_id)
+
+    @patch('digest_paper._hn_get_json')
+    def test_returns_none_for_low_overlap(self, mock_get):
+        mock_get.return_value = {
+            "hits": [{
+                "objectID": "99999",
+                "title": "Completely Unrelated Discussion",
+            }]
+        }
+        logger = MagicMock()
+        story_id = digest_paper.search_hn_for_paper("Attention Is All You Need", logger)
+        self.assertIsNone(story_id)
+
+    @patch('digest_paper._hn_get_json')
+    def test_returns_none_on_api_failure(self, mock_get):
+        mock_get.return_value = None
+        logger = MagicMock()
+        story_id = digest_paper.search_hn_for_paper("Any Title", logger)
+        self.assertIsNone(story_id)
+
+
+class TestCollectComments(unittest.TestCase):
+    """Test HN comment tree collection."""
+
+    def test_collects_top_level_comments(self):
+        item = {
+            "children": [
+                {"type": "comment", "text": "Great paper!", "author": "user1", "children": []},
+                {"type": "comment", "text": "Interesting work", "author": "user2", "children": []},
+            ]
+        }
+        comments = digest_paper._collect_comments(item)
+        self.assertEqual(len(comments), 2)
+        self.assertEqual(comments[0]["author"], "user1")
+        self.assertEqual(comments[1]["text"], "Interesting work")
+
+    def test_collects_nested_comments(self):
+        item = {
+            "children": [
+                {
+                    "type": "comment", "text": "Top level", "author": "user1",
+                    "children": [
+                        {"type": "comment", "text": "Reply", "author": "user2", "children": []},
+                    ]
+                },
+            ]
+        }
+        comments = digest_paper._collect_comments(item, max_depth=2)
+        self.assertEqual(len(comments), 2)
+        self.assertEqual(comments[0]["depth"], 0)
+        self.assertEqual(comments[1]["depth"], 1)
+
+    def test_respects_max_depth(self):
+        item = {
+            "children": [
+                {
+                    "type": "comment", "text": "Level 0", "author": "a",
+                    "children": [
+                        {
+                            "type": "comment", "text": "Level 1", "author": "b",
+                            "children": [
+                                {"type": "comment", "text": "Level 2", "author": "c", "children": []},
+                            ]
+                        },
+                    ]
+                },
+            ]
+        }
+        comments = digest_paper._collect_comments(item, max_depth=0)
+        self.assertEqual(len(comments), 1)
+
+    def test_skips_empty_text(self):
+        item = {
+            "children": [
+                {"type": "comment", "text": "", "author": "user1", "children": []},
+                {"type": "comment", "text": "Real comment", "author": "user2", "children": []},
+            ]
+        }
+        comments = digest_paper._collect_comments(item)
+        self.assertEqual(len(comments), 1)
+
+
+class TestFetchHnComments(unittest.TestCase):
+    """Test fetching and formatting HN comments."""
+
+    @patch('digest_paper._hn_get_json')
+    def test_formats_comments(self, mock_get):
+        mock_get.return_value = {
+            "title": "Paper Discussion",
+            "children": [
+                {"type": "comment", "text": "Insightful comment", "author": "expert", "children": []},
+            ]
+        }
+        logger = MagicMock()
+        result = digest_paper.fetch_hn_comments(12345, logger)
+        self.assertIn("Hacker News Discussion", result)
+        self.assertIn("Paper Discussion", result)
+        self.assertIn("[expert]: Insightful comment", result)
+        self.assertIn("news.ycombinator.com/item?id=12345", result)
+
+    @patch('digest_paper._hn_get_json')
+    def test_returns_empty_on_failure(self, mock_get):
+        mock_get.return_value = None
+        logger = MagicMock()
+        result = digest_paper.fetch_hn_comments(12345, logger)
+        self.assertEqual(result, "")
+
+    @patch('digest_paper._hn_get_json')
+    def test_returns_empty_for_no_comments(self, mock_get):
+        mock_get.return_value = {"title": "Story", "children": []}
+        logger = MagicMock()
+        result = digest_paper.fetch_hn_comments(12345, logger)
+        self.assertEqual(result, "")
+
+    @patch('digest_paper._hn_get_json')
+    def test_strips_html_tags(self, mock_get):
+        mock_get.return_value = {
+            "title": "Story",
+            "children": [
+                {"type": "comment", "text": "<p>Hello <a href='x'>world</a></p>", "author": "u", "children": []},
+            ]
+        }
+        logger = MagicMock()
+        result = digest_paper.fetch_hn_comments(12345, logger)
+        self.assertNotIn("<p>", result)
+        self.assertNotIn("<a", result)
+        self.assertIn("Hello", result)
+        self.assertIn("world", result)
+
+
+class TestHnIntegrationInMain(unittest.TestCase):
+    """Test that HN search is called during main flow."""
+
+    @patch('digest_paper.search_hn_for_paper')
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_main_searches_hn(self, mock_extract, mock_gemini, mock_hn_search):
+        mock_extract.return_value = "Paper Title\nContent of the paper."
+        mock_gemini.return_value = "## 1. Main Idea\nSummary"
+        mock_hn_search.return_value = None
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            f.write(b'fake pdf')
+            f.flush()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                digest_paper.main([f.name, '--output_dir', tmpdir])
+            os.unlink(f.name)
+
+        mock_hn_search.assert_called_once()
+
+    @patch('digest_paper.fetch_hn_comments')
+    @patch('digest_paper.search_hn_for_paper')
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_main_includes_hn_comments_in_prompt(self, mock_extract, mock_gemini, mock_hn_search, mock_hn_comments):
+        mock_extract.return_value = "Paper Title\nContent of the paper."
+        mock_gemini.return_value = "## 1. Main Idea\nSummary"
+        mock_hn_search.return_value = 12345
+        mock_hn_comments.return_value = "### Hacker News Discussion\n[user]: Great paper!"
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            f.write(b'fake pdf')
+            f.flush()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                digest_paper.main([f.name, '--output_dir', tmpdir])
+            os.unlink(f.name)
+
+        # Check that HN comments were passed to Gemini
+        prompt_sent = mock_gemini.call_args[0][0]
+        self.assertIn("Hacker News Discussion", prompt_sent)
+        self.assertIn("Great paper!", prompt_sent)
+
+    @patch('digest_paper.search_hn_for_paper')
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_main_handles_hn_failure_gracefully(self, mock_extract, mock_gemini, mock_hn_search):
+        mock_extract.return_value = "Paper Title\nContent of the paper."
+        mock_gemini.return_value = "## 1. Main Idea\nSummary"
+        mock_hn_search.side_effect = Exception("Network error")
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            f.write(b'fake pdf')
+            f.flush()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                result = digest_paper.main([f.name, '--output_dir', tmpdir])
+            os.unlink(f.name)
+
+        # Should still succeed — HN is non-fatal
+        self.assertEqual(result, 0)
+
+
 if __name__ == '__main__':
     unittest.main()
