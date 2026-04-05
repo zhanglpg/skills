@@ -30,10 +30,11 @@ python3 scripts/digest_paper.py paper.pdf --force
 
 1. **Resolve Input** — Accepts a local PDF path, a URL (including arXiv abstract pages), or a bare arXiv ID
 2. **Extract Text** — Extracts text from PDFs using `PyMuPDF` (fitz); fetches arXiv PDFs automatically
-3. **Build Prompt** — Assembles the extracted text with a structured prompt template
-4. **Summarize** — Passes content to Gemini CLI for structured analysis
-5. **Check Existing** — Skips if a digest already exists (use `--force` to re-digest)
-6. **Render Output** — Writes the digest as a Markdown file
+3. **Search Hacker News** — Searches HN Algolia API for discussion threads about the paper; fetches and formats insightful comments if found
+4. **Build Prompt** — Assembles the extracted text, HN comments (if any), and a structured prompt template
+5. **Summarize** — Passes content to Gemini CLI for structured analysis
+6. **Check Existing** — Skips if a digest already exists (use `--force` to re-digest)
+7. **Render Output** — Writes the digest as a Markdown file
 
 ## Output Format — IMPORTANT
 
@@ -58,6 +59,7 @@ Each digest includes five sections (defined in `prompts/digest-prompt.md`):
 3. **Relation to Prior Work**
 4. **Personalized Highlights**
 5. **Further Reading**
+6. **Community Insights (Hacker News)** — included only when HN discussion is found
 
 See the prompt file for detailed section guidelines.
 
