@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from paper_queue import (
     build_parser, cmd_add, cmd_list, cmd_status, cmd_score, cmd_stats,
-    cmd_digest, cmd_suggest, load_config, resolve_db_path, setup_logger, main,
+    cmd_suggest, load_config, resolve_db_path, setup_logger, main,
 )
 from storage import QueueDB
 
@@ -235,67 +235,6 @@ class TestCmdAddFallbackManualUrl(CLITestBase):
         ret = cmd_add(args, self.config, self.db, self.logger)
         self.assertEqual(ret, 1)
 
-
-class TestCmdDigest(CLITestBase):
-    def test_digest_nonexistent_paper(self):
-        args = self.parser.parse_args(["digest", "999"])
-        ret = cmd_digest(args, self.config, self.db, self.logger)
-        self.assertEqual(ret, 1)
-
-    def test_digest_no_url_or_arxiv_id(self):
-        self.db.add_paper(title="Manual Paper Only")
-        args = self.parser.parse_args(["digest", "1"])
-        ret = cmd_digest(args, self.config, self.db, self.logger)
-        self.assertEqual(ret, 1)
-
-    @patch("paper_queue.subprocess.run")
-    @patch("paper_queue.os.path.isfile")
-    def test_digest_script_not_found(self, mock_isfile, mock_run):
-        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
-        # The digest script doesn't exist
-        mock_isfile.side_effect = lambda p: p == self.db_path
-        args = self.parser.parse_args(["digest", "1"])
-        ret = cmd_digest(args, self.config, self.db, self.logger)
-        self.assertEqual(ret, 1)
-        mock_run.assert_not_called()
-
-    @patch("paper_queue.subprocess.run")
-    @patch("paper_queue.os.path.isfile", return_value=True)
-    def test_digest_subprocess_failure(self, mock_isfile, mock_run):
-        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
-        mock_run.return_value = MagicMock(returncode=1, stderr="Some error")
-        args = self.parser.parse_args(["digest", "1"])
-        ret = cmd_digest(args, self.config, self.db, self.logger)
-        self.assertEqual(ret, 1)
-
-    @patch("paper_queue.subprocess.run")
-    @patch("paper_queue.os.path.isfile", return_value=True)
-    def test_digest_success_no_output_dir(self, mock_isfile, mock_run):
-        self.db.add_paper(title="Paper", arxiv_id="2401.12345")
-        mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="Done")
-        args = self.parser.parse_args(["digest", "1"])
-        ret = cmd_digest(args, self.config, self.db, self.logger)
-        self.assertEqual(ret, 0)
-        paper = self.db.get_paper(1)
-        self.assertEqual(paper["status"], "digested")
-
-    @patch("paper_queue.subprocess.run")
-    @patch("paper_queue.os.path.isfile", return_value=True)
-    def test_digest_success_with_output_dir(self, mock_isfile, mock_run):
-        with tempfile.TemporaryDirectory() as out_dir:
-            # Write a fake digest file
-            digest_file = os.path.join(out_dir, "digest_2401.12345.md")
-            with open(digest_file, "w") as f:
-                f.write("# Digest\n")
-            self.db.add_paper(title="Paper", arxiv_id="2401.12345")
-            mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
-            config = {**self.config, "digest_output_dir": out_dir}
-            args = self.parser.parse_args(["digest", "1"])
-            ret = cmd_digest(args, config, self.db, self.logger)
-            self.assertEqual(ret, 0)
-            paper = self.db.get_paper(1)
-            self.assertEqual(paper["status"], "digested")
-            self.assertIsNotNone(paper["digest_path"])
 
 
 class TestCmdSuggest(CLITestBase):
