@@ -21,6 +21,9 @@ python3 scripts/digest_paper.py 2401.12345
 
 # Save output to a specific directory
 python3 scripts/digest_paper.py paper.pdf --output_dir ~/digests
+
+# Re-digest a paper even if a digest already exists
+python3 scripts/digest_paper.py paper.pdf --force
 ```
 
 ## How It Works
@@ -29,7 +32,8 @@ python3 scripts/digest_paper.py paper.pdf --output_dir ~/digests
 2. **Extract Text** — Extracts text from PDFs using `PyMuPDF` (fitz); fetches arXiv PDFs automatically
 3. **Build Prompt** — Assembles the extracted text with a structured prompt template
 4. **Summarize** — Passes content to Gemini CLI for structured analysis
-5. **Render Output** — Writes the digest as a Markdown file
+5. **Check Existing** — Skips if a digest already exists (use `--force` to re-digest)
+6. **Render Output** — Writes the digest as a Markdown file
 
 ## Output Format — IMPORTANT
 
@@ -87,6 +91,10 @@ python3 scripts/digest_paper.py paper.pdf --config config.json
 
 **user_context** — A description of your background and interests. Used to generate the "Personalized Highlights" section. If omitted, this section gives general highlights instead.
 
+### `--force`
+
+By default, the script skips papers that already have a digest file in the output directory. Pass `--force` to re-digest and overwrite the existing file.
+
 ## Output
 
 Digests are saved as Markdown files in the output directory. Each file has a metadata header (title, source, date) followed by the five sections above.
@@ -137,4 +145,4 @@ pip3 install PyMuPDF
 
 **Version:** 1.0
 **Author:** Liping (via OpenClaw)
-**Last Updated:** March 11, 2026
+**Last Updated:** April 5, 2026
