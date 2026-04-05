@@ -241,14 +241,17 @@ def render_output(gemini_output: str, title: str, source: str) -> str:
     return fallback_frontmatter + output
 
 
+def _digest_filename(title: str) -> str:
+    """Return the sanitized markdown filename for a given title."""
+    safe_title = re.sub(r'[^\w\s-]', '', title)[:60].strip().replace(' ', '-').lower()
+    return f"{safe_title}.md" if safe_title else "digest.md"
+
+
 def save_output(content: str, title: str, output_dir: str) -> Path:
     """Save digest to a file."""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    # Sanitize title for filename
-    safe_title = re.sub(r'[^\w\s-]', '', title)[:60].strip().replace(' ', '-').lower()
-    filename = f"{safe_title}.md" if safe_title else "digest.md"
-    filepath = output_path / filename
+    filepath = output_path / _digest_filename(title)
     filepath.write_text(content)
     return filepath
 
@@ -282,6 +285,8 @@ def parse_args(argv=None):
     parser.add_argument('--log_file', default=None, help="Log file path")
     parser.add_argument('--entity_index', default=None,
                         help="Path to entity_index.md from wiki-manager")
+    parser.add_argument('--force', action='store_true',
+                        help="Re-digest even if a digest file already exists")
     return parser.parse_args(argv)
 
 
@@ -345,6 +350,14 @@ def main(argv=None):
     title = extract_title(paper_text)
     logger.info(f"Extracted title: {title}")
     logger.info(f"Extracted {len(paper_text)} characters of text")
+
+    # Check for existing digest (skip unless --force)
+    expected_path = Path(output_dir) / _digest_filename(title)
+    if expected_path.exists() and not args.force:
+        logger.info(f"Digest already exists: {expected_path} (use --force to re-digest)")
+        print(f"Digest already exists: {expected_path}")
+        print("Use --force to re-digest.")
+        return 0
 
     # Step 3: Build prompt
     prompt_template = load_template(str(prompt_path))

@@ -495,5 +495,67 @@ class TestParseArgsEntityIndex(unittest.TestCase):
         self.assertIsNone(args.entity_index)
 
 
+class TestParseArgsForce(unittest.TestCase):
+    """Test --force argument."""
+
+    def test_force_flag(self):
+        args = digest_paper.parse_args(['paper.pdf', '--force'])
+        self.assertTrue(args.force)
+
+    def test_force_default_false(self):
+        args = digest_paper.parse_args(['paper.pdf'])
+        self.assertFalse(args.force)
+
+
+class TestForceRedigest(unittest.TestCase):
+    """Test --force flag skips/re-digests existing digests."""
+
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_skips_existing_digest(self, mock_extract, mock_gemini):
+        """Without --force, existing digest should be skipped."""
+        mock_extract.return_value = "Paper Title\nContent of the paper."
+        mock_gemini.return_value = "## 1. Main Idea\nSummary"
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            f.write(b'fake pdf')
+            f.flush()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # First run creates the digest
+                result = digest_paper.main([f.name, '--output_dir', tmpdir])
+                self.assertEqual(result, 0)
+                self.assertEqual(mock_gemini.call_count, 1)
+
+                # Second run without --force should skip
+                result = digest_paper.main([f.name, '--output_dir', tmpdir])
+                self.assertEqual(result, 0)
+                # Gemini should NOT have been called again
+                self.assertEqual(mock_gemini.call_count, 1)
+            os.unlink(f.name)
+
+    @patch('digest_paper.run_gemini')
+    @patch('digest_paper.extract_text_from_pdf')
+    def test_force_redigests_existing(self, mock_extract, mock_gemini):
+        """With --force, existing digest should be overwritten."""
+        mock_extract.return_value = "Paper Title\nContent of the paper."
+        mock_gemini.return_value = "## 1. Main Idea\nSummary"
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            f.write(b'fake pdf')
+            f.flush()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # First run creates the digest
+                result = digest_paper.main([f.name, '--output_dir', tmpdir])
+                self.assertEqual(result, 0)
+                self.assertEqual(mock_gemini.call_count, 1)
+
+                # Second run with --force should re-digest
+                result = digest_paper.main([f.name, '--output_dir', tmpdir, '--force'])
+                self.assertEqual(result, 0)
+                # Gemini should have been called again
+                self.assertEqual(mock_gemini.call_count, 2)
+            os.unlink(f.name)
+
+
 if __name__ == '__main__':
     unittest.main()
