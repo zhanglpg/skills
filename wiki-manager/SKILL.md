@@ -1,6 +1,6 @@
 ---
 name: wiki-manager
-description: "Maintain a living knowledge wiki in the Obsidian vault. After any paper is digested (via paper-digest or paper-summarizer), run the wiki-manager ingest step to extract concepts and names, update concept/name pages, rebuild the index, and append to the log. Also use for periodic lint checks, health scans, rebuilding the index, and querying the wiki. Triggers: wiki update, wiki ingest, update concepts, rebuild index, lint wiki, wiki lint, wiki scan, health check, knowledge graph."
+description: "Maintain a living knowledge wiki in the Obsidian vault. After any paper is digested (via paper-digest or paper-summarizer), run the wiki-manager ingest step to extract concepts and names, update concept/name pages, rebuild the index, and append to the log. Also use for periodic lint checks, AI compile, rebuilding the index, and querying the wiki. Triggers: wiki update, wiki ingest, update concepts, rebuild index, lint wiki, wiki lint, wiki compile, health check, knowledge graph."
 ---
 
 # Wiki Manager
@@ -12,7 +12,7 @@ Maintain a living knowledge wiki in the Obsidian vault. This skill transforms is
 - **After digesting a paper** — run `ingest` to extract concepts and names, create/update their pages, update the index, and log the event
 - **To rebuild the index** — run `index` to regenerate `index.md` from all vault pages
 - **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale concepts, missing concepts
-- **To run a deep health scan** — run `scan` for LLM-powered analysis: contradictions between pages, stale claims, missing cross-references, concept gaps, data gaps, and research questions
+- **To run AI compile** — run `compile` for LLM-powered analysis: contradictions between pages, stale claims, missing cross-references, concept gaps, data gaps, and research questions
 - **To view the log** — read `gen-notes/log.md` for a chronological record of all wiki activity
 
 ## Quick Start
@@ -27,8 +27,8 @@ python3 scripts/wiki_manager.py index
 # Run a lint check on the wiki
 python3 scripts/wiki_manager.py lint
 
-# Run a deep LLM-powered health scan
-python3 scripts/wiki_manager.py scan
+# Run LLM-powered AI compile
+python3 scripts/wiki_manager.py compile
 
 # List all concept pages
 python3 scripts/wiki_manager.py concepts
@@ -85,7 +85,7 @@ gen-notes/
 | `ingest <path>` | Ingest a digest into the wiki (extract concepts and names, update index/log) |
 | `index` | Rebuild `index.md` from all vault pages |
 | `lint` | Run vault health checks |
-| `scan` | Run LLM-powered wiki health scan (contradictions, stale claims, gaps, cross-refs) |
+| `compile` | Run LLM-powered AI compile (contradictions, stale claims, gaps, cross-refs) |
 | `concepts` | List all concept pages |
 | `names` | List all name pages |
 
@@ -110,10 +110,10 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | `scripts/concept_manager.py` | Concept page CRUD |
 | `scripts/name_manager.py` | Name page CRUD |
 | `scripts/lint_checker.py` | Vault health checks |
-| `scripts/scan_checker.py` | LLM-powered semantic scan |
+| `scripts/compile_checker.py` | LLM-powered AI compile |
 | `prompts/concept-page-prompt.md` | Concept page LLM template |
-| `prompts/scan-cross-page-prompt.md` | Cross-page analysis LLM template |
-| `prompts/scan-gap-analysis-prompt.md` | Wiki-wide gap analysis LLM template |
+| `prompts/compile-cross-page-prompt.md` | Cross-page analysis LLM template |
+| `prompts/compile-gap-analysis-prompt.md` | Wiki-wide gap analysis LLM template |
 | `prompts/name-page-prompt.md` | Name page LLM template |
 | `prompts/index-update-prompt.md` | Index summary LLM template |
 | `references/schema.md` | Vault conventions reference |

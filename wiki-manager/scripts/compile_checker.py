@@ -1,4 +1,4 @@
-"""LLM-powered wiki health scan — semantic analysis across pages."""
+"""LLM-powered AI compile — semantic analysis across pages."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from lint_checker import _read_all_pages
 
 
 @dataclass
-class ScanFinding:
-    """A single finding from the LLM-powered scan."""
+class CompileFinding:
+    """A single finding from the LLM-powered compile."""
 
     category: str  # contradiction, stale-claim, missing-xref,
     #                concept-needs-page, data-gap, research-question
@@ -166,8 +166,8 @@ def build_gap_prompt(
 # ---------------------------------------------------------------------------
 
 
-def parse_llm_findings(llm_response: str) -> list[ScanFinding]:
-    """Parse LLM response into ScanFinding objects.
+def parse_llm_findings(llm_response: str) -> list[CompileFinding]:
+    """Parse LLM response into CompileFinding objects.
 
     Expects a JSON array of objects with ``category``, ``pages``, and
     ``description`` keys.  Falls back gracefully on malformed output.
@@ -201,7 +201,7 @@ def parse_llm_findings(llm_response: str) -> list[ScanFinding]:
         pages = [str(p) for p in pages]
         description = str(item.get("description", ""))
         severity = _CATEGORY_SEVERITY.get(category, "info")
-        findings.append(ScanFinding(
+        findings.append(CompileFinding(
             category=category,
             severity=severity,
             pages=pages,
@@ -227,19 +227,19 @@ def _try_parse_json_array(text: str) -> list | None:
 # ---------------------------------------------------------------------------
 
 
-def format_scan_report(
-    findings: list[ScanFinding],
+def format_compile_report(
+    findings: list[CompileFinding],
     lint_issues: list | None = None,
 ) -> str:
-    """Format scan findings and lint issues into a unified markdown report."""
+    """Format compile findings and lint issues into a unified markdown report."""
     lines: list[str] = [
         "---",
-        "title: Wiki Health Scan",
-        "type: scan-report",
+        "title: Wiki AI Compile",
+        "type: compile-report",
         f"date: {datetime.now().strftime('%Y-%m-%d')}",
         "---",
         "",
-        "# Wiki Health Scan",
+        "# Wiki AI Compile",
         "",
         f"> Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "",
@@ -282,7 +282,7 @@ def format_scan_report(
         lines.append("")
     else:
         # Group by category
-        by_category: dict[str, list[ScanFinding]] = {}
+        by_category: dict[str, list[CompileFinding]] = {}
         for f in findings:
             by_category.setdefault(f.category, []).append(f)
 
@@ -329,17 +329,17 @@ def format_scan_report(
 # ---------------------------------------------------------------------------
 
 
-def run_scan(
+def run_compile(
     vault_root: str,
     gen_notes_dir: str = "gen-notes",
     llm_fn: Callable[[str], str] | None = None,
     max_batch_size: int = 15,
     max_chars_per_page: int = 4000,
     logger=None,
-) -> list[ScanFinding]:
-    """Run the full LLM-powered scan and return findings.
+) -> list[CompileFinding]:
+    """Run the full LLM-powered compile and return findings.
 
-    1. Scan vault and read all page content
+    1. Load vault and read all page content
     2. Build page batches clustered by tag
     3. Run cross-page analysis on each batch
     4. Run gap analysis across the whole wiki
@@ -347,7 +347,7 @@ def run_scan(
     """
     if llm_fn is None:
         if logger:
-            logger.warning("No LLM function provided — skipping semantic scan")
+            logger.warning("No LLM function provided — skipping semantic compile")
         return []
 
     root = Path(os.path.expanduser(vault_root))
@@ -356,18 +356,18 @@ def run_scan(
 
     if not pages:
         if logger:
-            logger.info("No pages found in vault — nothing to scan")
+            logger.info("No pages found in vault — nothing to compile")
         return []
 
     # Load prompt templates
     prompt_dir = Path(__file__).resolve().parent.parent / "prompts"
-    cross_page_template = _load_prompt(prompt_dir / "scan-cross-page-prompt.md")
-    gap_template = _load_prompt(prompt_dir / "scan-gap-analysis-prompt.md")
+    cross_page_template = _load_prompt(prompt_dir / "compile-cross-page-prompt.md")
+    gap_template = _load_prompt(prompt_dir / "compile-gap-analysis-prompt.md")
     schema_text = _load_prompt(
         Path(__file__).resolve().parent.parent / "references" / "schema.md"
     )
 
-    all_findings: list[ScanFinding] = []
+    all_findings: list[CompileFinding] = []
 
     # --- Cross-page analysis (per batch) ---
     batches = build_page_batches(pages, all_content, max_batch_size, max_chars_per_page)
@@ -375,7 +375,7 @@ def run_scan(
     for i, batch in enumerate(batches, 1):
         if logger:
             logger.info(
-                f"Scanning batch {i}/{len(batches)}: {batch['label']} "
+                f"Compiling batch {i}/{len(batches)}: {batch['label']} "
                 f"({len(batch['pages'])} pages)"
             )
         prompt = build_batch_prompt(batch, cross_page_template)
@@ -400,7 +400,7 @@ def run_scan(
             logger.error(f"LLM call failed for gap analysis: {e}")
 
     if logger:
-        logger.info(f"Scan complete: {len(all_findings)} findings")
+        logger.info(f"Compile complete: {len(all_findings)} findings")
 
     return all_findings
 

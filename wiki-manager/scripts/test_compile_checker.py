@@ -1,4 +1,4 @@
-"""Tests for scan_checker.py — deterministic logic only."""
+"""Tests for compile_checker.py — deterministic logic only."""
 
 import json
 import os
@@ -9,13 +9,13 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
 
 from vault_index import PageInfo
-from scan_checker import (
-    ScanFinding,
+from compile_checker import (
+    CompileFinding,
     build_page_batches,
     build_batch_prompt,
     build_gap_prompt,
     parse_llm_findings,
-    format_scan_report,
+    format_compile_report,
 )
 
 
@@ -218,9 +218,9 @@ class TestParseLlmFindings(unittest.TestCase):
         self.assertEqual(findings[0].pages, ["SinglePage"])
 
 
-class TestFormatScanReport(unittest.TestCase):
+class TestFormatCompileReport(unittest.TestCase):
     def test_empty_report(self):
-        report = format_scan_report([], [])
+        report = format_compile_report([], [])
         self.assertIn("0 structural issues, 0 semantic findings", report)
         self.assertIn("All structural checks passed", report)
         self.assertIn("No semantic issues found", report)
@@ -230,16 +230,16 @@ class TestFormatScanReport(unittest.TestCase):
         lint_issues = [
             LintIssue("warning", "orphan-pages", "test.md", "No links"),
         ]
-        report = format_scan_report([], lint_issues)
+        report = format_compile_report([], lint_issues)
         self.assertIn("1 structural issues", report)
         self.assertIn("No semantic issues found", report)
         self.assertIn("test.md", report)
 
     def test_findings_only(self):
         findings = [
-            ScanFinding("contradiction", "warning", ["A", "B"], "A contradicts B"),
+            CompileFinding("contradiction", "warning", ["A", "B"], "A contradicts B"),
         ]
-        report = format_scan_report(findings, [])
+        report = format_compile_report(findings, [])
         self.assertIn("1 semantic findings", report)
         self.assertIn("Contradictions Between Pages", report)
         self.assertIn("[[A]]", report)
@@ -251,25 +251,25 @@ class TestFormatScanReport(unittest.TestCase):
             LintIssue("error", "broken-links", "x.md", "[[Missing]]"),
         ]
         findings = [
-            ScanFinding("data-gap", "info", [], "Need more benchmarks"),
+            CompileFinding("data-gap", "info", [], "Need more benchmarks"),
         ]
-        report = format_scan_report(findings, lint_issues)
+        report = format_compile_report(findings, lint_issues)
         self.assertIn("1 structural issues, 1 semantic findings", report)
         self.assertIn("Structural Issues", report)
         self.assertIn("Semantic Findings", report)
 
     def test_frontmatter_present(self):
-        report = format_scan_report([], [])
+        report = format_compile_report([], [])
         self.assertTrue(report.startswith("---"))
-        self.assertIn("type: scan-report", report)
+        self.assertIn("type: compile-report", report)
 
     def test_findings_grouped_by_category(self):
         findings = [
-            ScanFinding("contradiction", "warning", ["A"], "issue 1"),
-            ScanFinding("data-gap", "info", [], "issue 2"),
-            ScanFinding("contradiction", "warning", ["B"], "issue 3"),
+            CompileFinding("contradiction", "warning", ["A"], "issue 1"),
+            CompileFinding("data-gap", "info", [], "issue 2"),
+            CompileFinding("contradiction", "warning", ["B"], "issue 3"),
         ]
-        report = format_scan_report(findings)
+        report = format_compile_report(findings)
         # Both contradictions should be under the same heading
         contradiction_pos = report.index("Contradictions Between Pages")
         data_gap_pos = report.index("Data Gaps")
