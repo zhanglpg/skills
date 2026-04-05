@@ -250,7 +250,7 @@ class TestBuildEntityIndex(unittest.TestCase):
         )
         content = build_entity_index(self.entity_dir)
         # Should not duplicate "RLHF" in aliases
-        line = [l for l in content.splitlines() if l.startswith("- RLHF")][0]
+        line = [x for x in content.splitlines() if x.startswith("- RLHF")][0]
         self.assertIn("Reinforcement Learning from Human Feedback", line)
         # The canonical name "RLHF" appears once at the start, not in aliases
         aliases_part = line.split("| aliases: ")[1]
@@ -269,7 +269,7 @@ class TestBuildEntityIndex(unittest.TestCase):
             '---\ntitle: "BERT"\ntype: entity\n---\n\n# BERT\n'
         )
         content = build_entity_index(self.entity_dir)
-        lines = [l for l in content.splitlines() if l.startswith("- ")]
+        lines = [x for x in content.splitlines() if x.startswith("- ")]
         self.assertEqual(len(lines), 2)
         # Sorted by filename: BERT.md before Transformer.md
         self.assertTrue(lines[0].startswith("- BERT"))

@@ -179,7 +179,7 @@ def cmd_index(args, config: dict, logger) -> None:
     )
 
     print(f"✓ Index rebuilt: {index_path}")
-    print(f"  Entity index updated")
+    print("  Entity index updated")
     print(f"  {len(pages)} pages indexed")
 
 
