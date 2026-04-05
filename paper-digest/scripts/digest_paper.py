@@ -275,7 +275,7 @@ def fetch_hn_comments(
 
     # Format comments as text
     parts = [
-        f"### Hacker News Discussion",
+        "### Hacker News Discussion",
         f"Thread: {story_title}",
         f"URL: {story_url}",
         f"Total comments collected: {len(comments)}",
