@@ -69,7 +69,7 @@ def extract_text_from_pdf(pdf_path: str, max_chars: int = 120000) -> str:
             break
 
     doc.close()
-    return "".join(text_parts)
+    return "".join(text_parts).replace("\x00", "")
 
 
 # ---------------------------------------------------------------------------
