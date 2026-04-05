@@ -1,0 +1,13 @@
+{
+  "vault_root": "~/Library/Mobile Documents/iCloud~md~obsidian/Documents/notes",
+  "gen_notes_dir": "gen-notes",
+  "digests_dir": "gen-notes/digests",
+  "entity_dir": "gen-notes/entities",
+  "concept_dir": "gen-notes/concepts",
+  "syntheses_dir": "gen-notes/syntheses",
+  "index_path": "gen-notes/index.md",
+  "log_path": "gen-notes/log.md",
+  "gemini_timeout": 180,
+  "max_entities_per_ingest": 8,
+  "log_file": "$AGENT_DATA_DIR/logs/skills/wiki-manager/wiki.log"
+}

@@ -37,6 +37,7 @@ from typing import Optional, Tuple
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from shared.logging_utils import get_agent_data_dir, setup_logger as _shared_setup_logger
+from shared.llm_utils import run_gemini
 
 # ---------------------------------------------------------------------------
 # PDF text extraction
@@ -162,51 +163,8 @@ def extract_title(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Gemini CLI
+# Gemini CLI — imported from shared.llm_utils.run_gemini
 # ---------------------------------------------------------------------------
-
-def run_gemini(prompt: str, timeout: int = 180, retry: int = 2,
-               logger: Optional[logging.Logger] = None) -> str:
-    """Run Gemini CLI with retry logic."""
-    env = os.environ.copy()
-    env['PATH'] = f"/usr/sbin:/usr/bin:/bin:/sbin:{env.get('PATH', '')}"
-
-    for attempt in range(retry + 1):
-        try:
-            if logger:
-                logger.debug(f"Gemini CLI attempt {attempt + 1}/{retry + 1}")
-            result = subprocess.run(
-                ['gemini', '-p', prompt],
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=env,
-            )
-            if result.returncode == 0:
-                return result.stdout
-            else:
-                msg = f"Gemini CLI failed (attempt {attempt + 1}): {result.stderr[:200]}"
-                if logger:
-                    logger.warning(msg)
-                if attempt < retry:
-                    import time
-                    time.sleep(2 ** attempt)
-        except subprocess.TimeoutExpired:
-            if logger:
-                logger.error(f"Gemini CLI timed out (attempt {attempt + 1})")
-            if attempt < retry:
-                import time
-                time.sleep(2 ** attempt)
-        except FileNotFoundError:
-            return "Error: gemini CLI not found. Install with: brew install gemini-cli"
-        except Exception as e:
-            if logger:
-                logger.error(f"Gemini CLI error (attempt {attempt + 1}): {e}")
-            if attempt < retry:
-                import time
-                time.sleep(2 ** attempt)
-
-    return "Error: Gemini CLI failed after all retry attempts"
 
 
 # ---------------------------------------------------------------------------
