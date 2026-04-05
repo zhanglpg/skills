@@ -293,10 +293,22 @@ def extract_entities_from_digest(
         "If an entity matches an existing page (same concept, different name), "
         "use the EXISTING name. For new entities, use the most canonical/common "
         "name.\n\n"
+        "**CRITICAL — Right level of abstraction:** Extract entities that a "
+        "practitioner in the field would independently recognize and search "
+        "for — NOT niche terms coined by this specific paper. If the paper "
+        "introduces a specialized variant or sub-concept (e.g. 'attention "
+        "residues', 'gated linear attention', 'time-depth duality'), extract "
+        "the well-known parent concept instead (e.g. 'Attention', 'Linear "
+        "Attention', 'Duality'). Ask: would this entity name appear as a "
+        "topic in a textbook or survey paper? If not, go one level up. Only "
+        "use paper-specific terms when they have already become widely adopted "
+        "(e.g. 'LoRA', 'FlashAttention', 'Chain-of-Thought').\n\n"
         "Examples of good entities: 'Transformer', 'RLHF', 'Chain-of-Thought', "
-        "'Scaling Laws', 'FlashAttention', 'BERT'\n\n"
+        "'Scaling Laws', 'FlashAttention', 'BERT'\n"
+        "Examples of BAD entities (too specific): 'attention residues', "
+        "'residue connection', 'time-depth duality', 'grokfast'\n\n"
         "Return ONLY the JSON array, no other text.\n"
-        'Example: ["Transformer", "Attention Mechanism", "BERT"]'
+        'Example: ["Transformer", "Attention", "BERT"]'
     )
 
     result = llm_fn(prompt)
