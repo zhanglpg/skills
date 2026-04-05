@@ -30,6 +30,12 @@ This document codifies the conventions for the knowledge wiki in the Obsidian va
 - **Required frontmatter:** `title`, `type: synthesis`, `date-created`, `sources`, `tags`
 - **Sections:** Query (original question), Answer, Sources Used
 
+### Comparison
+- **Directory:** `gen-notes/comparisons/`
+- **Created by:** wiki-query or manual
+- **Required frontmatter:** `title`, `type: comparison`, `date-created`, `sources`, `tags`
+- **Sections:** Overview, Side-by-Side Comparison (table), Key Differences, Key Similarities, Verdict/Takeaway
+
 ## Frontmatter Conventions
 
 All pages MUST have YAML frontmatter delimited by `---`. Common fields:
