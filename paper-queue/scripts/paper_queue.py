@@ -9,7 +9,6 @@ Usage:
     python3 scripts/paper_queue.py add --manual --title "..."
     python3 scripts/paper_queue.py list [--status S] [--top N] [--topic T]
     python3 scripts/paper_queue.py status <id> <status>
-    python3 scripts/paper_queue.py digest <id>
     python3 scripts/paper_queue.py score [<id>]
     python3 scripts/paper_queue.py suggest [<id>]
     python3 scripts/paper_queue.py stats
@@ -18,9 +17,7 @@ Usage:
 import argparse
 import json
 import os
-import subprocess
 import sys
-from pathlib import Path
 from typing import Optional
 
 # Allow importing sibling modules and shared utilities
@@ -180,63 +177,6 @@ def cmd_status(args, config, db, logger):
     return 0
 
 
-def cmd_digest(args, config, db, logger):
-    """Run paper-digest on a queued paper."""
-    paper = db.get_paper(args.id)
-    if not paper:
-        print(f"Paper id={args.id} not found.")
-        return 1
-
-    # Determine what to pass to paper-digest
-    digest_input = paper.get("arxiv_id") or paper.get("url")
-    if not digest_input:
-        print(f"Paper id={args.id} has no arXiv ID or URL to digest.")
-        return 1
-
-    # Build paper-digest command
-    digest_script = os.path.join(_SKILL_DIR, '..', 'paper-digest', 'scripts', 'digest_paper.py')
-    if not os.path.isfile(digest_script):
-        print(f"paper-digest script not found at: {digest_script}")
-        return 1
-
-    cmd = [sys.executable, digest_script, digest_input]
-
-    output_dir = config.get("digest_output_dir")
-    if output_dir:
-        output_dir = os.path.expandvars(os.path.expanduser(output_dir))
-        cmd.extend(["--output_dir", output_dir])
-
-    digest_config = config.get("paper_digest_config")
-    if digest_config:
-        digest_config_path = os.path.join(_SKILL_DIR, digest_config)
-        if os.path.isfile(digest_config_path):
-            cmd.extend(["--config", digest_config_path])
-
-    print(f"Running paper-digest on: {paper['title']}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        print(f"paper-digest failed: {result.stderr[:500]}")
-        return 1
-
-    # Try to find the output file
-    if output_dir:
-        # Look for most recent file in output dir
-        try:
-            files = sorted(Path(output_dir).glob("*.md"), key=os.path.getmtime, reverse=True)
-            if files:
-                digest_path = str(files[0])
-                db.update_digest_path(args.id, digest_path)
-                print(f"Digest saved: {digest_path}")
-                return 0
-        except OSError:
-            pass
-
-    # Mark digested even if we can't find the file
-    db.update_status(args.id, "digested")
-    print(f"Paper marked as digested (id={args.id})")
-    return 0
-
 
 def cmd_score(args, config, db, logger):
     """Re-score papers."""
@@ -344,10 +284,6 @@ def build_parser() -> argparse.ArgumentParser:
     status_p.add_argument("id", type=int, help="Paper ID")
     status_p.add_argument("new_status", choices=["to-read", "reading", "digested"])
 
-    # digest
-    digest_p = subs.add_parser("digest", help="Run paper-digest on a paper")
-    digest_p.add_argument("id", type=int, help="Paper ID")
-
     # score
     score_p = subs.add_parser("score", help="Re-score papers")
     score_p.add_argument("id", type=int, nargs="?", help="Paper ID (or all to-read)")
@@ -399,7 +335,6 @@ def main(argv=None) -> int:
         "add": cmd_add,
         "list": cmd_list,
         "status": cmd_status,
-        "digest": cmd_digest,
         "score": cmd_score,
         "suggest": cmd_suggest,
         "stats": cmd_stats,

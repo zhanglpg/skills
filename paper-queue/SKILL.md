@@ -1,6 +1,6 @@
 ---
 name: paper-queue
-description: "Manage a reading queue of academic papers with priority scoring, progress tracking, and suggestions. Add papers from arXiv IDs, URLs, or Twitter/X links. Track reading status (to-read, reading, digested). Auto-score by citations, recency, and topic affinity. Integrates with paper-digest for summarization. Triggers: paper queue, reading list, add paper, paper backlog, track paper."
+description: "Manage a reading queue of academic papers with priority scoring, progress tracking, and suggestions. Add papers from arXiv IDs, URLs, or Twitter/X links. Track reading status (to-read, reading, digested). Auto-score by citations, recency, and topic affinity. To digest a paper, use the paper-digest skill directly (python3 paper-digest/scripts/digest_paper.py <arXiv ID or URL>), then mark it digested with: python3 paper-queue/scripts/paper_queue.py status <id> digested. Triggers: paper queue, reading list, add paper, paper backlog, track paper."
 ---
 
 # Paper Queue Manager
@@ -28,8 +28,10 @@ python3 scripts/paper_queue.py list --top 10
 # Mark as reading
 python3 scripts/paper_queue.py status 1 reading
 
-# Digest a paper (calls paper-digest)
-python3 scripts/paper_queue.py digest 1
+# Digest a paper (use paper-digest skill directly)
+python3 paper-digest/scripts/digest_paper.py 2401.12345
+# Then mark it digested in the queue
+python3 scripts/paper_queue.py status 1 digested
 
 # Get suggestions for new papers
 python3 scripts/paper_queue.py suggest
@@ -46,7 +48,7 @@ python3 scripts/paper_queue.py stats
    - **Recency** (30%) — How recently published (decay over time)
    - **Queue affinity** (40%) — Topic overlap with papers already in your queue. Your reading history defines your interests — no manual configuration needed.
 3. **Track** — Papers move through statuses: `to-read` → `reading` → `digested`
-4. **Digest** — Send any queued paper to the paper-digest skill for structured summarization
+4. **Digest** — Use the paper-digest skill directly (`python3 paper-digest/scripts/digest_paper.py <arXiv ID or URL>`), then mark the paper as digested with `status <id> digested`
 5. **Suggest** — Get recommendations for new papers based on your queue's topic profile
 
 ## Priority Scoring
@@ -91,7 +93,6 @@ Configuration via `config.json`:
   },
   "db_path": "$AGENT_DATA_DIR/paper-queue/queue.db",
   "digest_output_dir": "$AGENT_DATA_DIR/paper-digests",
-  "paper_digest_config": "../paper-digest/config.json",
   "max_suggestions": 10,
   "log_file": "$AGENT_DATA_DIR/logs/skills/paper-queue/queue.log"
 }
@@ -105,7 +106,6 @@ Configuration via `config.json`:
 | `add --manual --title "..."` | Add paper manually |
 | `list [--status S] [--top N] [--topic T]` | List queue |
 | `status <id> <status>` | Update status (to-read, reading, digested) |
-| `digest <id>` | Run paper-digest on a paper |
 | `score [<id>]` | Re-score papers |
 | `suggest [<id>]` | Get related paper suggestions |
 | `stats` | Queue statistics |
