@@ -8,6 +8,6 @@
   "index_path": "gen-notes/index.md",
   "log_path": "gen-notes/log.md",
   "gemini_timeout": 180,
-  "max_entities_per_ingest": 8,
+  "max_entities_per_ingest": 3,
   "log_file": "$AGENT_DATA_DIR/logs/skills/wiki-manager/wiki.log"
 }
