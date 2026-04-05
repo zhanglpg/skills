@@ -1,17 +1,17 @@
 ---
 name: wiki-manager
-description: "Maintain a living knowledge wiki in the Obsidian vault. After any paper is digested (via paper-digest or paper-summarizer), run the wiki-manager ingest step to extract entities, update entity/concept pages, rebuild the index, and append to the log. Also use for periodic lint checks, rebuilding the index, and querying the wiki. Triggers: wiki update, wiki ingest, update entities, rebuild index, lint wiki, wiki lint, knowledge graph."
+description: "Maintain a living knowledge wiki in the Obsidian vault. After any paper is digested (via paper-digest or paper-summarizer), run the wiki-manager ingest step to extract concepts and names, update concept/name pages, rebuild the index, and append to the log. Also use for periodic lint checks, rebuilding the index, and querying the wiki. Triggers: wiki update, wiki ingest, update concepts, rebuild index, lint wiki, wiki lint, knowledge graph."
 ---
 
 # Wiki Manager
 
-Maintain a living knowledge wiki in the Obsidian vault. This skill transforms isolated paper digests into an interconnected knowledge graph by managing entity pages, a content index, and a chronological log.
+Maintain a living knowledge wiki in the Obsidian vault. This skill transforms isolated paper digests into an interconnected knowledge graph by managing concept pages, name pages, a content index, and a chronological log.
 
 ## When to Use
 
-- **After digesting a paper** — run `ingest` to extract entities, create/update entity pages, update the index, and log the event
+- **After digesting a paper** — run `ingest` to extract concepts and names, create/update their pages, update the index, and log the event
 - **To rebuild the index** — run `index` to regenerate `index.md` from all vault pages
-- **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale entities, missing concepts
+- **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale concepts, missing concepts
 - **To view the log** — read `gen-notes/log.md` for a chronological record of all wiki activity
 
 ## Quick Start
@@ -26,8 +26,11 @@ python3 scripts/wiki_manager.py index
 # Run a lint check on the wiki
 python3 scripts/wiki_manager.py lint
 
-# List all entity pages
-python3 scripts/wiki_manager.py entities
+# List all concept pages
+python3 scripts/wiki_manager.py concepts
+
+# List all name pages
+python3 scripts/wiki_manager.py names
 ```
 
 ## Agent Workflow
@@ -39,10 +42,12 @@ When the user asks to digest or summarize a paper, the natural workflow is:
 
 The ingest step:
 1. Parses the digest — extracts frontmatter, TL;DR, wikilinks, tags
-2. Reads entities from the digest frontmatter (added by paper-digest). Falls back to LLM extraction for older digests without an `entities` field
-3. For each entity: creates a new entity page or updates an existing one
-4. Updates `gen-notes/index.md` with the new digest and any new entity pages
-5. Appends to `gen-notes/log.md` with a record of all touched pages
+2. Reads concepts from the digest frontmatter (added by paper-digest). Falls back to LLM extraction for older digests without a `concepts` field
+3. For each concept: creates a new concept page or updates an existing one
+4. Reads names from the digest frontmatter (added by paper-digest). Falls back to LLM extraction for older digests without a `names` field
+5. For each name: creates a new name page or updates an existing one
+6. Updates `gen-notes/index.md` with the new digest and any new concept/name pages
+7. Appends to `gen-notes/log.md` with a record of all touched pages
 
 ## Vault Structure
 
@@ -53,8 +58,8 @@ gen-notes/
   index.md          — auto-generated catalog of all pages
   log.md            — append-only chronological record
   digests/          — paper digest notes (managed by paper-digest/paper-summarizer)
-  entities/         — entity pages (Transformer.md, RLHF.md, etc.)
-  concepts/         — broader concept pages (Scaling Laws in Deep Learning.md)
+  concepts/         — concept pages (Transformer.md, RLHF.md, etc.)
+  names/            — name pages (Geoffrey Hinton.md, ImageNet.md, etc.)
   syntheses/        — filed query answers and cross-paper analyses
   comparisons/      — side-by-side comparisons of papers, methods, or approaches
 ```
@@ -64,8 +69,8 @@ gen-notes/
 | Type | Directory | Created by |
 |------|-----------|------------|
 | Digest | `digests/` | paper-digest, paper-summarizer |
-| Entity | `entities/` | wiki-manager ingest (auto) |
-| Concept | `concepts/` | wiki-manager ingest or manual |
+| Concept | `concepts/` | wiki-manager ingest (auto) |
+| Name | `names/` | wiki-manager ingest (auto) |
 | Synthesis | `syntheses/` | wiki-query skill or manual |
 | Comparison | `comparisons/` | wiki-query skill or manual |
 
@@ -73,10 +78,11 @@ gen-notes/
 
 | Command | Description |
 |---------|-------------|
-| `ingest <path>` | Ingest a digest into the wiki (extract entities, update index/log) |
+| `ingest <path>` | Ingest a digest into the wiki (extract concepts and names, update index/log) |
 | `index` | Rebuild `index.md` from all vault pages |
 | `lint` | Run vault health checks |
-| `entities` | List all entity pages |
+| `concepts` | List all concept pages |
+| `names` | List all name pages |
 
 ## Configuration
 
@@ -87,7 +93,7 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | Tool | Purpose |
 |------|---------|
 | **Python 3.10+** | Runtime |
-| **Gemini CLI** | LLM calls for entity page generation (and entity extraction fallback for older digests) |
+| **Gemini CLI** | LLM calls for concept/name page generation (and extraction fallback for older digests) |
 
 ## Files
 
@@ -96,9 +102,11 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | `scripts/wiki_manager.py` | CLI entry point |
 | `scripts/vault_index.py` | Index generation |
 | `scripts/log_writer.py` | Log operations |
-| `scripts/entity_manager.py` | Entity page CRUD |
+| `scripts/concept_manager.py` | Concept page CRUD |
+| `scripts/name_manager.py` | Name page CRUD |
 | `scripts/lint_checker.py` | Vault health checks |
-| `prompts/entity-page-prompt.md` | Entity page LLM template |
+| `prompts/concept-page-prompt.md` | Concept page LLM template |
+| `prompts/name-page-prompt.md` | Name page LLM template |
 | `prompts/index-update-prompt.md` | Index summary LLM template |
 | `references/schema.md` | Vault conventions reference |
 | `config.json` | Default configuration |

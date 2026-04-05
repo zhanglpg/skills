@@ -12,10 +12,12 @@ from vault_index import PageInfo
 from lint_checker import (
     check_orphans,
     check_broken_links,
-    check_stale_entities,
-    check_missing_entities,
+    check_stale_concepts,
+    check_missing_concepts,
     check_frontmatter,
-    check_duplicate_entities,
+    check_duplicate_concepts,
+    check_stale_names,
+    check_duplicate_names,
     run_full_lint,
     format_lint_report,
 )
@@ -25,11 +27,11 @@ class TestCheckOrphans(unittest.TestCase):
     def test_no_orphans(self):
         pages = [
             PageInfo(path=Path("gen-notes/digests/A.md"), title="A", page_type="digest"),
-            PageInfo(path=Path("gen-notes/entities/B.md"), title="B", page_type="entity"),
+            PageInfo(path=Path("gen-notes/concepts/B.md"), title="B", page_type="concept"),
         ]
         content = {
             Path("gen-notes/digests/A.md"): "Links to [[B]].",
-            Path("gen-notes/entities/B.md"): "Links to [[A]].",
+            Path("gen-notes/concepts/B.md"): "Links to [[A]].",
         }
         issues = check_orphans(pages, content)
         self.assertEqual(len(issues), 0)
@@ -37,11 +39,11 @@ class TestCheckOrphans(unittest.TestCase):
     def test_orphan_detected(self):
         pages = [
             PageInfo(path=Path("gen-notes/digests/A.md"), title="A", page_type="digest"),
-            PageInfo(path=Path("gen-notes/entities/B.md"), title="B", page_type="entity"),
+            PageInfo(path=Path("gen-notes/concepts/B.md"), title="B", page_type="concept"),
         ]
         content = {
             Path("gen-notes/digests/A.md"): "No links here.",
-            Path("gen-notes/entities/B.md"): "No links here either.",
+            Path("gen-notes/concepts/B.md"): "No links here either.",
         }
         issues = check_orphans(pages, content)
         self.assertEqual(len(issues), 2)
@@ -64,33 +66,33 @@ class TestCheckBrokenLinks(unittest.TestCase):
         self.assertIn("Nonexistent", issues[0].message)
 
 
-class TestCheckStaleEntities(unittest.TestCase):
-    def test_fresh_entity(self):
+class TestCheckStaleConcepts(unittest.TestCase):
+    def test_fresh_concept(self):
         pages = [
             PageInfo(
-                path=Path("gen-notes/entities/T.md"),
+                path=Path("gen-notes/concepts/T.md"),
                 title="T",
-                page_type="entity",
+                page_type="concept",
                 date_updated="2026-04-01",
             ),
         ]
-        issues = check_stale_entities(pages, max_age_days=90)
+        issues = check_stale_concepts(pages, max_age_days=90)
         self.assertEqual(len(issues), 0)
 
-    def test_stale_entity(self):
+    def test_stale_concept(self):
         pages = [
             PageInfo(
-                path=Path("gen-notes/entities/T.md"),
+                path=Path("gen-notes/concepts/T.md"),
                 title="T",
-                page_type="entity",
+                page_type="concept",
                 date_updated="2020-01-01",
             ),
         ]
-        issues = check_stale_entities(pages, max_age_days=90)
+        issues = check_stale_concepts(pages, max_age_days=90)
         self.assertEqual(len(issues), 1)
 
 
-class TestCheckMissingEntities(unittest.TestCase):
+class TestCheckMissingConcepts(unittest.TestCase):
     def test_no_missing(self):
         pages = [
             PageInfo(path=Path("gen-notes/digests/A.md"), title="A", page_type="digest"),
@@ -98,7 +100,7 @@ class TestCheckMissingEntities(unittest.TestCase):
         content = {
             Path("gen-notes/digests/A.md"): "Links to [[Transformer]].",
         }
-        issues = check_missing_entities(pages, content, {"Transformer"}, min_mentions=2)
+        issues = check_missing_concepts(pages, content, {"Transformer"}, min_mentions=2)
         self.assertEqual(len(issues), 0)
 
     def test_missing_detected(self):
@@ -112,7 +114,7 @@ class TestCheckMissingEntities(unittest.TestCase):
             Path("gen-notes/digests/B.md"): "Also uses [[RLHF]].",
             Path("gen-notes/digests/C.md"): "RLHF again [[RLHF]].",
         }
-        issues = check_missing_entities(pages, content, set(), min_mentions=3)
+        issues = check_missing_concepts(pages, content, set(), min_mentions=3)
         self.assertEqual(len(issues), 1)
         self.assertIn("RLHF", issues[0].message)
 
@@ -144,21 +146,65 @@ class TestCheckFrontmatter(unittest.TestCase):
         self.assertIn("tags", issues[0].message)
 
 
-class TestCheckDuplicateEntities(unittest.TestCase):
+class TestCheckDuplicateConcepts(unittest.TestCase):
     def test_no_duplicates(self):
         pages = [
-            PageInfo(path=Path("e/A.md"), title="A", page_type="entity"),
-            PageInfo(path=Path("e/B.md"), title="B", page_type="entity"),
+            PageInfo(path=Path("c/A.md"), title="A", page_type="concept"),
+            PageInfo(path=Path("c/B.md"), title="B", page_type="concept"),
         ]
-        issues = check_duplicate_entities(pages)
+        issues = check_duplicate_concepts(pages)
         self.assertEqual(len(issues), 0)
 
     def test_duplicate_detected(self):
         pages = [
-            PageInfo(path=Path("e/RLHF.md"), title="RLHF", page_type="entity"),
-            PageInfo(path=Path("e/rlhf.md"), title="rlhf", page_type="entity"),
+            PageInfo(path=Path("c/RLHF.md"), title="RLHF", page_type="concept"),
+            PageInfo(path=Path("c/rlhf.md"), title="rlhf", page_type="concept"),
         ]
-        issues = check_duplicate_entities(pages)
+        issues = check_duplicate_concepts(pages)
+        self.assertEqual(len(issues), 1)
+
+
+class TestCheckStaleNames(unittest.TestCase):
+    def test_fresh_name(self):
+        pages = [
+            PageInfo(
+                path=Path("gen-notes/names/Hinton.md"),
+                title="Geoffrey Hinton",
+                page_type="name",
+                date_updated="2026-04-01",
+            ),
+        ]
+        issues = check_stale_names(pages, max_age_days=90)
+        self.assertEqual(len(issues), 0)
+
+    def test_stale_name(self):
+        pages = [
+            PageInfo(
+                path=Path("gen-notes/names/Hinton.md"),
+                title="Geoffrey Hinton",
+                page_type="name",
+                date_updated="2020-01-01",
+            ),
+        ]
+        issues = check_stale_names(pages, max_age_days=90)
+        self.assertEqual(len(issues), 1)
+
+
+class TestCheckDuplicateNames(unittest.TestCase):
+    def test_no_duplicates(self):
+        pages = [
+            PageInfo(path=Path("n/A.md"), title="A", page_type="name"),
+            PageInfo(path=Path("n/B.md"), title="B", page_type="name"),
+        ]
+        issues = check_duplicate_names(pages)
+        self.assertEqual(len(issues), 0)
+
+    def test_duplicate_detected(self):
+        pages = [
+            PageInfo(path=Path("n/GPT4.md"), title="GPT-4", page_type="name"),
+            PageInfo(path=Path("n/gpt4.md"), title="gpt-4", page_type="name"),
+        ]
+        issues = check_duplicate_names(pages)
         self.assertEqual(len(issues), 1)
 
 

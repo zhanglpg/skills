@@ -10,19 +10,20 @@ This document codifies the conventions for the knowledge wiki in the Obsidian va
 - **Required frontmatter:** `title`, `authors`, `year`, `tags`, `categories`, `related`, `source`, `digested`, `status`
 - **Sections:** TL;DR or Main Idea, Key Ideas/Conclusions, What's Novel, Method, Results, Limitations, Connections
 
-### Entity
-- **Directory:** `gen-notes/entities/`
-- **Created by:** wiki-manager ingest
-- **Required frontmatter:** `title`, `type: entity`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`
-- **Sections:** Overview, Key Papers, Evolution, Open Questions, Related Entities
-- **Naming:** Use the canonical concept name (e.g., `Transformer.md`, `RLHF.md`)
-
 ### Concept
 - **Directory:** `gen-notes/concepts/`
-- **Created by:** wiki-manager or manual
-- **Required frontmatter:** `title`, `type: concept`, `date-created`, `date-updated`, `source-digests`, `tags`
-- **Sections:** Overview, Key Papers, Themes, Open Questions, Related Concepts
-- **Naming:** Use descriptive title (e.g., `Scaling Laws in Deep Learning.md`)
+- **Created by:** wiki-manager ingest
+- **Required frontmatter:** `title`, `type: concept`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`
+- **Sections:** Overview, Key Papers, Evolution, Open Questions, Related Concepts
+- **Naming:** Use the canonical concept name (e.g., `Transformer.md`, `RLHF.md`)
+
+### Name
+- **Directory:** `gen-notes/names/`
+- **Created by:** wiki-manager ingest
+- **Required frontmatter:** `title`, `type: name`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`, `name-type`
+- **Sections:** Overview, Key Contributions, Timeline, Related Names, Related Concepts
+- **Naming:** Use the canonical name (e.g., `Geoffrey Hinton.md`, `ImageNet.md`, `GPT-4.md`)
+- **name-type values:** `person`, `dataset`, `model`, `place`, `paper`
 
 ### Synthesis
 - **Directory:** `gen-notes/syntheses/`
@@ -43,7 +44,7 @@ All pages MUST have YAML frontmatter delimited by `---`. Common fields:
 ```yaml
 ---
 title: "Page Title"
-type: digest | entity | concept | synthesis
+type: digest | concept | name | synthesis
 date-created: YYYY-MM-DD
 date-updated: YYYY-MM-DD
 tags:
@@ -52,7 +53,7 @@ tags:
 ---
 ```
 
-Entity pages additionally include:
+Concept pages additionally include:
 ```yaml
 aliases:
   - "Alternate Name"
@@ -62,10 +63,20 @@ source-digests:
   - "[[Paper Title Two]]"
 ```
 
+Name pages additionally include:
+```yaml
+name-type: person | dataset | model | place | paper
+aliases:
+  - "Alternate Name"
+source-digests:
+  - "[[Paper Title One]]"
+```
+
 ## Wikilink Conventions
 
 - Always use `[[Page Title]]` for cross-references
-- Entity references: `[[Transformer]]`, `[[RLHF]]`
+- Concept references: `[[Transformer]]`, `[[RLHF]]`
+- Name references: `[[Geoffrey Hinton]]`, `[[ImageNet]]`
 - Digest references: `[[Attention Is All You Need]]`
 - Prefer exact page titles over approximate names
 - The Connections section of every page should link to related pages
@@ -83,13 +94,13 @@ Match existing vault categories:
 - `📥` — just added, not yet deeply read
 - `⌨️` — in progress / working notes
 - `🌴` — evergreen / fully processed
-- `🔗` — entity page (auto-maintained)
+- `🔗` — concept/name page (auto-maintained)
 
 ## Index Conventions
 
 `index.md` is auto-generated. Sections:
 - **Recent Digests** — last 10 digested papers
-- **Entities** — alphabetical list with one-line descriptions
 - **Concepts** — alphabetical list with one-line descriptions
+- **Names** — alphabetical list with one-line descriptions
 - **By Topic** — grouped by primary tag
 - **Stats** — counts by type and status

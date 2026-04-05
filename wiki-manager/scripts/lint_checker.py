@@ -95,32 +95,32 @@ def check_broken_links(all_content: dict[Path, str], page_stems: set[str],
     return issues
 
 
-def check_stale_entities(pages: list[PageInfo], max_age_days: int = 90) -> list[LintIssue]:
-    """Find entity pages not updated in a long time."""
+def check_stale_concepts(pages: list[PageInfo], max_age_days: int = 90) -> list[LintIssue]:
+    """Find concept pages not updated in a long time."""
     issues = []
     cutoff = (datetime.now() - timedelta(days=max_age_days)).strftime("%Y-%m-%d")
 
     for p in pages:
-        if p.page_type != "entity":
+        if p.page_type != "concept":
             continue
         date = p.date_updated or p.date_created or ""
         if date and date < cutoff:
             issues.append(LintIssue(
                 severity="info",
-                check="stale-entities",
+                check="stale-concepts",
                 page=str(p.path),
-                message=f"Entity '{p.title}' last updated {date} (>{max_age_days} days ago)",
+                message=f"Concept '{p.title}' last updated {date} (>{max_age_days} days ago)",
             ))
     return issues
 
 
-def check_missing_entities(
+def check_missing_concepts(
     pages: list[PageInfo],
     all_content: dict[Path, str],
-    entity_stems: set[str],
+    concept_stems: set[str],
     min_mentions: int = 3,
 ) -> list[LintIssue]:
-    """Find concepts mentioned in multiple digests that lack an entity page."""
+    """Find concepts mentioned in multiple digests that lack a concept page."""
     # Count how many digests mention each wikilink target
     mention_count: dict[str, int] = {}
     for p in pages:
@@ -136,12 +136,12 @@ def check_missing_entities(
 
     issues = []
     for name, count in sorted(mention_count.items(), key=lambda x: -x[1]):
-        if count >= min_mentions and name not in entity_stems:
+        if count >= min_mentions and name not in concept_stems:
             issues.append(LintIssue(
                 severity="info",
-                check="missing-entities",
+                check="missing-concepts",
                 page="(none)",
-                message=f"'{name}' mentioned in {count} digests but has no entity page",
+                message=f"'{name}' mentioned in {count} digests but has no concept page",
             ))
     return issues
 
@@ -153,7 +153,7 @@ def check_frontmatter(pages: list[PageInfo]) -> list[LintIssue]:
         missing = []
         if not p.title:
             missing.append("title")
-        if p.page_type in ("entity", "concept", "synthesis") and not p.date_created:
+        if p.page_type in ("concept", "name", "synthesis") and not p.date_created:
             missing.append("date-created")
         if p.page_type == "digest" and not p.tags:
             missing.append("tags")
@@ -167,14 +167,14 @@ def check_frontmatter(pages: list[PageInfo]) -> list[LintIssue]:
     return issues
 
 
-def check_duplicate_entities(pages: list[PageInfo]) -> list[LintIssue]:
-    """Find entity pages that may cover the same concept."""
-    from entity_manager import _normalize_name
+def check_duplicate_concepts(pages: list[PageInfo]) -> list[LintIssue]:
+    """Find concept pages that may cover the same concept."""
+    from concept_manager import _normalize_name
 
-    entities = [p for p in pages if p.page_type == "entity"]
+    concepts = [p for p in pages if p.page_type == "concept"]
     seen: dict[str, list[PageInfo]] = {}
 
-    for p in entities:
+    for p in concepts:
         key = _normalize_name(p.title)
         seen.setdefault(key, []).append(p)
 
@@ -184,9 +184,52 @@ def check_duplicate_entities(pages: list[PageInfo]) -> list[LintIssue]:
             paths = ", ".join(str(p.path) for p in group)
             issues.append(LintIssue(
                 severity="error",
-                check="duplicate-entities",
+                check="duplicate-concepts",
                 page=paths,
-                message=f"Possible duplicate entity pages: {paths}",
+                message=f"Possible duplicate concept pages: {paths}",
+            ))
+    return issues
+
+
+def check_stale_names(pages: list[PageInfo], max_age_days: int = 90) -> list[LintIssue]:
+    """Find name pages not updated in a long time."""
+    issues = []
+    cutoff = (datetime.now() - timedelta(days=max_age_days)).strftime("%Y-%m-%d")
+
+    for p in pages:
+        if p.page_type != "name":
+            continue
+        date = p.date_updated or p.date_created or ""
+        if date and date < cutoff:
+            issues.append(LintIssue(
+                severity="info",
+                check="stale-names",
+                page=str(p.path),
+                message=f"Name '{p.title}' last updated {date} (>{max_age_days} days ago)",
+            ))
+    return issues
+
+
+def check_duplicate_names(pages: list[PageInfo]) -> list[LintIssue]:
+    """Find name pages that may cover the same subject."""
+    from concept_manager import _normalize_name
+
+    names = [p for p in pages if p.page_type == "name"]
+    seen: dict[str, list[PageInfo]] = {}
+
+    for p in names:
+        key = _normalize_name(p.title)
+        seen.setdefault(key, []).append(p)
+
+    issues = []
+    for _key, group in seen.items():
+        if len(group) > 1:
+            paths = ", ".join(str(p.path) for p in group)
+            issues.append(LintIssue(
+                severity="error",
+                check="duplicate-names",
+                page=paths,
+                message=f"Possible duplicate name pages: {paths}",
             ))
     return issues
 
@@ -200,7 +243,7 @@ def run_full_lint(
     vault_root: str,
     gen_notes_dir: str = "gen-notes",
     max_stale_days: int = 90,
-    min_entity_mentions: int = 3,
+    min_concept_mentions: int = 3,
 ) -> list[LintIssue]:
     """Run all lint checks and return a list of issues."""
     root = Path(os.path.expanduser(vault_root))
@@ -209,15 +252,17 @@ def run_full_lint(
 
     page_stems = {p.path.stem for p in pages}
     page_titles = {p.title for p in pages}
-    entity_stems = {p.path.stem for p in pages if p.page_type == "entity"}
+    concept_stems = {p.path.stem for p in pages if p.page_type == "concept"}
 
     issues: list[LintIssue] = []
     issues.extend(check_orphans(pages, all_content))
     issues.extend(check_broken_links(all_content, page_stems, page_titles))
-    issues.extend(check_stale_entities(pages, max_stale_days))
-    issues.extend(check_missing_entities(pages, all_content, entity_stems, min_entity_mentions))
+    issues.extend(check_stale_concepts(pages, max_stale_days))
+    issues.extend(check_missing_concepts(pages, all_content, concept_stems, min_concept_mentions))
     issues.extend(check_frontmatter(pages))
-    issues.extend(check_duplicate_entities(pages))
+    issues.extend(check_duplicate_concepts(pages))
+    issues.extend(check_stale_names(pages, max_stale_days))
+    issues.extend(check_duplicate_names(pages))
 
     return issues
 

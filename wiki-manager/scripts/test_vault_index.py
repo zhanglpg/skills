@@ -10,7 +10,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from vault_index import (
     parse_frontmatter, scan_vault, build_index, update_index,
-    build_entity_index, update_entity_index, PageInfo,
+    build_concept_index, update_concept_index,
+    build_name_index, update_name_index, PageInfo,
 )
 
 
@@ -86,14 +87,23 @@ class TestScanVault(unittest.TestCase):
         self.assertEqual(pages[0].page_type, "digest")
         self.assertEqual(pages[0].tags, ["ml"])
 
-    def test_scan_entities(self):
-        self._write_page("entities", "Transformer.md", (
-            '---\ntitle: "Transformer"\ntype: entity\ndate-created: 2024-01-01\n---\n\n'
+    def test_scan_concepts(self):
+        self._write_page("concepts", "Transformer.md", (
+            '---\ntitle: "Transformer"\ntype: concept\ndate-created: 2024-01-01\n---\n\n'
             '## Overview\nA neural architecture.\n'
         ))
         pages = scan_vault(self.tmpdir)
         self.assertEqual(len(pages), 1)
-        self.assertEqual(pages[0].page_type, "entity")
+        self.assertEqual(pages[0].page_type, "concept")
+
+    def test_scan_names(self):
+        self._write_page("names", "Hinton.md", (
+            '---\ntitle: "Geoffrey Hinton"\ntype: name\ndate-created: 2024-01-01\n---\n\n'
+            '## Overview\nPioneer of deep learning.\n'
+        ))
+        pages = scan_vault(self.tmpdir)
+        self.assertEqual(len(pages), 1)
+        self.assertEqual(pages[0].page_type, "name")
 
     def test_skips_index_and_log(self):
         (self.gen / "index.md").write_text("# Index")
@@ -138,9 +148,9 @@ class TestBuildIndex(unittest.TestCase):
                 summary="A cool paper",
             ),
             PageInfo(
-                path=Path("gen-notes/entities/Transformer.md"),
+                path=Path("gen-notes/concepts/Transformer.md"),
                 title="Transformer",
-                page_type="entity",
+                page_type="concept",
                 tags=["ml"],
                 summary="A neural architecture",
             ),
@@ -149,7 +159,7 @@ class TestBuildIndex(unittest.TestCase):
         self.assertIn("[[Paper-A]]", content)
         self.assertIn("[[Transformer]]", content)
         self.assertIn("Digests | 1", content)
-        self.assertIn("Entities | 1", content)
+        self.assertIn("Concepts | 1", content)
 
     def test_index_sections_present(self):
         pages = [
@@ -157,8 +167,8 @@ class TestBuildIndex(unittest.TestCase):
         ]
         content = build_index(pages)
         self.assertIn("## Recent Digests", content)
-        self.assertIn("## Entities", content)
         self.assertIn("## Concepts", content)
+        self.assertIn("## Names", content)
         self.assertIn("## Stats", content)
 
 
@@ -182,8 +192,8 @@ class TestUpdateIndex(unittest.TestCase):
         self.assertIn("Knowledge Wiki Index", content)
 
 
-class TestScanVaultSkipsEntityIndex(unittest.TestCase):
-    """Verify that entity_index.md is excluded from scan results."""
+class TestScanVaultSkipsConceptIndex(unittest.TestCase):
+    """Verify that concept_index.md is excluded from scan results."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -194,9 +204,20 @@ class TestScanVaultSkipsEntityIndex(unittest.TestCase):
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_skips_entity_index(self):
-        (self.gen / "entity_index.md").write_text(
-            "---\ntitle: Entity Index\ntype: entity-index\n---\n\n# Entity Index\n"
+    def test_skips_concept_index(self):
+        (self.gen / "concept_index.md").write_text(
+            "---\ntitle: Concept Index\ntype: concept-index\n---\n\n# Concept Index\n"
+        )
+        d = self.gen / "digests"
+        d.mkdir()
+        (d / "Paper.md").write_text('---\ntitle: "P"\n---\n\nBody.')
+        pages = scan_vault(self.tmpdir)
+        self.assertEqual(len(pages), 1)
+        self.assertEqual(pages[0].title, "P")
+
+    def test_skips_name_index(self):
+        (self.gen / "name_index.md").write_text(
+            "---\ntitle: Name Index\ntype: name-index\n---\n\n# Name Index\n"
         )
         d = self.gen / "digests"
         d.mkdir()
@@ -206,49 +227,49 @@ class TestScanVaultSkipsEntityIndex(unittest.TestCase):
         self.assertEqual(pages[0].title, "P")
 
 
-class TestBuildEntityIndex(unittest.TestCase):
-    """Tests for entity index generation."""
+class TestBuildConceptIndex(unittest.TestCase):
+    """Tests for concept index generation."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        self.entity_dir = Path(self.tmpdir) / "entities"
-        self.entity_dir.mkdir()
+        self.concept_dir = Path(self.tmpdir) / "concepts"
+        self.concept_dir.mkdir()
 
     def tearDown(self):
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_empty_dir(self):
-        content = build_entity_index(self.entity_dir)
-        self.assertIn("Entity Index", content)
-        # No entity lines
+        content = build_concept_index(self.concept_dir)
+        self.assertIn("Concept Index", content)
+        # No concept lines
         for line in content.splitlines():
             self.assertFalse(line.startswith("- "))
 
-    def test_entity_with_aliases(self):
-        (self.entity_dir / "Transformer.md").write_text(
-            '---\ntitle: "Transformer"\ntype: entity\n'
+    def test_concept_with_aliases(self):
+        (self.concept_dir / "Transformer.md").write_text(
+            '---\ntitle: "Transformer"\ntype: concept\n'
             'aliases:\n  - "Transformer Architecture"\n  - "Transformer Model"\n'
             '---\n\n# Transformer\n'
         )
-        content = build_entity_index(self.entity_dir)
+        content = build_concept_index(self.concept_dir)
         self.assertIn("- Transformer | aliases: Transformer Architecture, Transformer Model", content)
 
-    def test_entity_without_aliases(self):
-        (self.entity_dir / "BERT.md").write_text(
-            '---\ntitle: "BERT"\ntype: entity\n---\n\n# BERT\n'
+    def test_concept_without_aliases(self):
+        (self.concept_dir / "BERT.md").write_text(
+            '---\ntitle: "BERT"\ntype: concept\n---\n\n# BERT\n'
         )
-        content = build_entity_index(self.entity_dir)
+        content = build_concept_index(self.concept_dir)
         self.assertIn("- BERT", content)
         self.assertNotIn("aliases", content.split("- BERT")[1].split("\n")[0])
 
     def test_filters_title_from_aliases(self):
-        (self.entity_dir / "RLHF.md").write_text(
-            '---\ntitle: "RLHF"\ntype: entity\n'
+        (self.concept_dir / "RLHF.md").write_text(
+            '---\ntitle: "RLHF"\ntype: concept\n'
             'aliases:\n  - "RLHF"\n  - "Reinforcement Learning from Human Feedback"\n'
             '---\n\n# RLHF\n'
         )
-        content = build_entity_index(self.entity_dir)
+        content = build_concept_index(self.concept_dir)
         # Should not duplicate "RLHF" in aliases
         line = [x for x in content.splitlines() if x.startswith("- RLHF")][0]
         self.assertIn("Reinforcement Learning from Human Feedback", line)
@@ -258,17 +279,17 @@ class TestBuildEntityIndex(unittest.TestCase):
 
     def test_nonexistent_dir(self):
         missing = Path(self.tmpdir) / "nonexistent"
-        content = build_entity_index(missing)
-        self.assertIn("Entity Index", content)
+        content = build_concept_index(missing)
+        self.assertIn("Concept Index", content)
 
-    def test_multiple_entities_sorted(self):
-        (self.entity_dir / "Transformer.md").write_text(
-            '---\ntitle: "Transformer"\ntype: entity\n---\n\n# Transformer\n'
+    def test_multiple_concepts_sorted(self):
+        (self.concept_dir / "Transformer.md").write_text(
+            '---\ntitle: "Transformer"\ntype: concept\n---\n\n# Transformer\n'
         )
-        (self.entity_dir / "BERT.md").write_text(
-            '---\ntitle: "BERT"\ntype: entity\n---\n\n# BERT\n'
+        (self.concept_dir / "BERT.md").write_text(
+            '---\ntitle: "BERT"\ntype: concept\n---\n\n# BERT\n'
         )
-        content = build_entity_index(self.entity_dir)
+        content = build_concept_index(self.concept_dir)
         lines = [x for x in content.splitlines() if x.startswith("- ")]
         self.assertEqual(len(lines), 2)
         # Sorted by filename: BERT.md before Transformer.md
@@ -276,27 +297,90 @@ class TestBuildEntityIndex(unittest.TestCase):
         self.assertTrue(lines[1].startswith("- Transformer"))
 
 
-class TestUpdateEntityIndex(unittest.TestCase):
-    """Tests for entity index file writing."""
+class TestUpdateConceptIndex(unittest.TestCase):
+    """Tests for concept index file writing."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        gen = Path(self.tmpdir) / "gen-notes" / "entities"
+        gen = Path(self.tmpdir) / "gen-notes" / "concepts"
         gen.mkdir(parents=True)
         (gen / "Transformer.md").write_text(
-            '---\ntitle: "Transformer"\ntype: entity\n---\n\n# Transformer\n'
+            '---\ntitle: "Transformer"\ntype: concept\n---\n\n# Transformer\n'
         )
 
     def tearDown(self):
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_writes_entity_index_file(self):
-        path = update_entity_index(self.tmpdir)
+    def test_writes_concept_index_file(self):
+        path = update_concept_index(self.tmpdir)
         self.assertTrue(path.exists())
-        self.assertEqual(path.name, "entity_index.md")
+        self.assertEqual(path.name, "concept_index.md")
         content = path.read_text()
         self.assertIn("Transformer", content)
+
+
+class TestBuildNameIndex(unittest.TestCase):
+    """Tests for name index generation."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.names_dir = Path(self.tmpdir) / "names"
+        self.names_dir.mkdir()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_empty_dir(self):
+        content = build_name_index(self.names_dir)
+        self.assertIn("Name Index", content)
+        for line in content.splitlines():
+            self.assertFalse(line.startswith("- "))
+
+    def test_name_with_aliases(self):
+        (self.names_dir / "Geoffrey Hinton.md").write_text(
+            '---\ntitle: "Geoffrey Hinton"\ntype: name\n'
+            'aliases:\n  - "Geoff Hinton"\n  - "G. Hinton"\n'
+            '---\n\n# Geoffrey Hinton\n'
+        )
+        content = build_name_index(self.names_dir)
+        self.assertIn("- Geoffrey Hinton | aliases: Geoff Hinton, G. Hinton", content)
+
+    def test_name_without_aliases(self):
+        (self.names_dir / "ImageNet.md").write_text(
+            '---\ntitle: "ImageNet"\ntype: name\n---\n\n# ImageNet\n'
+        )
+        content = build_name_index(self.names_dir)
+        self.assertIn("- ImageNet", content)
+
+    def test_nonexistent_dir(self):
+        missing = Path(self.tmpdir) / "nonexistent"
+        content = build_name_index(missing)
+        self.assertIn("Name Index", content)
+
+
+class TestUpdateNameIndex(unittest.TestCase):
+    """Tests for name index file writing."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        gen = Path(self.tmpdir) / "gen-notes" / "names"
+        gen.mkdir(parents=True)
+        (gen / "ImageNet.md").write_text(
+            '---\ntitle: "ImageNet"\ntype: name\n---\n\n# ImageNet\n'
+        )
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_writes_name_index_file(self):
+        path = update_name_index(self.tmpdir)
+        self.assertTrue(path.exists())
+        self.assertEqual(path.name, "name_index.md")
+        content = path.read_text()
+        self.assertIn("ImageNet", content)
 
 
 if __name__ == "__main__":

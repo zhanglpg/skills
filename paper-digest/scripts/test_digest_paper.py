@@ -163,7 +163,7 @@ class TestRenderOutput(unittest.TestCase):
             '---\ntitle: "My Paper"\nauthors:\n  - "Author One"\n'
             'year: 2024\ntags:\n  - deep-learning\ncategories:\n  - paper-digest\n'
             'related:\n  - "Related Paper"\n'
-            'entities:\n  - "Transformer"\n  - "Attention Mechanism"\n'
+            'concepts:\n  - "Transformer"\n  - "Attention Mechanism"\n'
             '---\n\n## 1. Main Idea\nSome content'
         )
         result = digest_paper.render_output(gemini_output, "My Paper", "arxiv:2401.12345")
@@ -173,7 +173,7 @@ class TestRenderOutput(unittest.TestCase):
         self.assertIn("status: digested", result)
         self.assertIn("## 1. Main Idea", result)
         # Entities should be preserved in the merged frontmatter
-        self.assertIn("entities:", result)
+        self.assertIn("concepts:", result)
         self.assertIn("Transformer", result)
         self.assertIn("Attention Mechanism", result)
         # Should start with frontmatter
@@ -413,14 +413,14 @@ class TestOutputDirAgentDataDirDefault(unittest.TestCase):
             self.assertEqual(actual_output_dir, '/tmp/paper-digests')
 
 
-class TestLoadEntityIndex(unittest.TestCase):
-    """Tests for loading entity_index.md."""
+class TestLoadConceptIndex(unittest.TestCase):
+    """Tests for loading concept_index.md."""
 
-    def test_loads_entity_lines(self):
+    def test_loads_concept_lines(self):
         content = (
-            "---\ntitle: Entity Index\ntype: entity-index\n"
+            "---\ntitle: Concept Index\ntype: concept-index\n"
             "date-updated: 2026-04-05\n---\n\n"
-            "# Entity Index\n\n"
+            "# Concept Index\n\n"
             "> Auto-generated. Do not edit manually.\n\n"
             "- Transformer | aliases: Transformer Architecture, Transformer Model\n"
             "- RLHF | aliases: Reinforcement Learning from Human Feedback\n"
@@ -429,7 +429,7 @@ class TestLoadEntityIndex(unittest.TestCase):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
             f.write(content)
             f.flush()
-            result = digest_paper.load_entity_index(f.name)
+            result = digest_paper.load_concept_index(f.name)
             os.unlink(f.name)
 
         lines = result.strip().splitlines()
@@ -439,60 +439,98 @@ class TestLoadEntityIndex(unittest.TestCase):
         self.assertIn("BERT", lines[2])
 
     def test_returns_empty_for_missing_file(self):
-        result = digest_paper.load_entity_index('/nonexistent/entity_index.md')
+        result = digest_paper.load_concept_index('/nonexistent/concept_index.md')
         self.assertEqual(result, "")
 
     def test_strips_frontmatter_and_headings(self):
         content = (
-            "---\ntitle: Entity Index\n---\n\n"
-            "# Entity Index\n\n"
+            "---\ntitle: Concept Index\n---\n\n"
+            "# Concept Index\n\n"
             "> Some note\n\n"
-            "- OnlyEntity\n"
+            "- OnlyConcept\n"
         )
         with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
             f.write(content)
             f.flush()
-            result = digest_paper.load_entity_index(f.name)
+            result = digest_paper.load_concept_index(f.name)
             os.unlink(f.name)
 
-        self.assertEqual(result, "- OnlyEntity")
-        self.assertNotIn("Entity Index", result)
+        self.assertEqual(result, "- OnlyConcept")
+        self.assertNotIn("Concept Index", result)
         self.assertNotIn("---", result)
 
 
-class TestKnownEntitiesInPrompt(unittest.TestCase):
-    """Test that known_entities placeholder works in prompt."""
+class TestLoadNameIndex(unittest.TestCase):
+    """Tests for loading name_index.md."""
 
-    def test_known_entities_injected(self):
-        template = "Entities: {known_entities}\nPaper: {paper_text}"
+    def test_loads_name_lines(self):
+        content = (
+            "---\ntitle: Name Index\ntype: name-index\n"
+            "date-updated: 2026-04-05\n---\n\n"
+            "# Name Index\n\n"
+            "> Auto-generated.\n\n"
+            "- Geoffrey Hinton | aliases: Geoff Hinton\n"
+            "- ImageNet\n"
+        )
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            f.write(content)
+            f.flush()
+            result = digest_paper.load_name_index(f.name)
+            os.unlink(f.name)
+
+        lines = result.strip().splitlines()
+        self.assertEqual(len(lines), 2)
+        self.assertIn("Geoffrey Hinton", lines[0])
+        self.assertIn("ImageNet", lines[1])
+
+    def test_returns_empty_for_missing_file(self):
+        result = digest_paper.load_name_index('/nonexistent/name_index.md')
+        self.assertEqual(result, "")
+
+
+class TestKnownConceptsInPrompt(unittest.TestCase):
+    """Test that known_concepts placeholder works in prompt."""
+
+    def test_known_concepts_injected(self):
+        template = "Concepts: {known_concepts}\nPaper: {paper_text}"
         result = digest_paper.build_prompt(template, {
             'paper_text': 'content',
-            'known_entities': '- Transformer\n- BERT',
+            'known_concepts': '- Transformer\n- BERT',
         })
         self.assertIn("- Transformer", result)
         self.assertIn("- BERT", result)
 
-    def test_known_entities_absent_gracefully(self):
-        template = "Entities: {known_entities}\nPaper: {paper_text}"
+    def test_known_concepts_absent_gracefully(self):
+        template = "Concepts: {known_concepts}\nPaper: {paper_text}"
         result = digest_paper.build_prompt(template, {
             'paper_text': 'content',
         })
-        self.assertIn("Entities: ", result)
+        self.assertIn("Concepts: ", result)
         self.assertIn("content", result)
 
 
-class TestParseArgsEntityIndex(unittest.TestCase):
-    """Test --entity_index argument."""
+class TestParseArgsConceptIndex(unittest.TestCase):
+    """Test --concept_index argument."""
 
-    def test_entity_index_arg(self):
+    def test_concept_index_arg(self):
         args = digest_paper.parse_args([
-            'paper.pdf', '--entity_index', '/path/to/entity_index.md'
+            'paper.pdf', '--concept_index', '/path/to/concept_index.md'
         ])
-        self.assertEqual(args.entity_index, '/path/to/entity_index.md')
+        self.assertEqual(args.concept_index, '/path/to/concept_index.md')
 
-    def test_entity_index_default_none(self):
+    def test_concept_index_default_none(self):
         args = digest_paper.parse_args(['paper.pdf'])
-        self.assertIsNone(args.entity_index)
+        self.assertIsNone(args.concept_index)
+
+    def test_name_index_arg(self):
+        args = digest_paper.parse_args([
+            'paper.pdf', '--name_index', '/path/to/name_index.md'
+        ])
+        self.assertEqual(args.name_index, '/path/to/name_index.md')
+
+    def test_name_index_default_none(self):
+        args = digest_paper.parse_args(['paper.pdf'])
+        self.assertIsNone(args.name_index)
 
 
 class TestParseArgsForce(unittest.TestCase):

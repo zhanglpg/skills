@@ -13,7 +13,7 @@ Rules:
 - Focus on the "what" not the "how"
 - Do not start with "This page..." or "A summary of..."
 - For papers: highlight the key contribution
-- For entities: describe what the entity is in one phrase
-- For concepts: capture the core idea
+- For concepts: describe what the concept is in one phrase
+- For names: describe who/what the name refers to in one phrase
 
 Return ONLY the one-line summary, nothing else.

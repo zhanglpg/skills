@@ -307,12 +307,12 @@ def fetch_hn_comments(
 # Prompt assembly
 # ---------------------------------------------------------------------------
 
-def load_entity_index(entity_index_path: str) -> str:
-    """Load entity_index.md and return just the entity list lines.
+def load_concept_index(concept_index_path: str) -> str:
+    """Load concept_index.md and return just the concept list lines.
 
     Returns empty string if the file does not exist.
     """
-    path = Path(os.path.expanduser(entity_index_path))
+    path = Path(os.path.expanduser(concept_index_path))
     if not path.exists():
         return ""
     try:
@@ -323,7 +323,31 @@ def load_entity_index(entity_index_path: str) -> str:
     m = re.match(r"^---\s*\n.*?\n---\s*\n", text, re.DOTALL)
     if m:
         text = text[m.end():]
-    # Keep only list lines (- Entity ...)
+    # Keep only list lines (- Concept ...)
+    lines = []
+    for line in text.strip().splitlines():
+        if line.strip().startswith("- "):
+            lines.append(line.strip())
+    return "\n".join(lines)
+
+
+def load_name_index(name_index_path: str) -> str:
+    """Load name_index.md and return just the name list lines.
+
+    Returns empty string if the file does not exist.
+    """
+    path = Path(os.path.expanduser(name_index_path))
+    if not path.exists():
+        return ""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+    # Strip frontmatter
+    m = re.match(r"^---\s*\n.*?\n---\s*\n", text, re.DOTALL)
+    if m:
+        text = text[m.end():]
+    # Keep only list lines (- Name ...)
     lines = []
     for line in text.strip().splitlines():
         if line.strip().startswith("- "):
@@ -419,8 +443,10 @@ def parse_args(argv=None):
     parser.add_argument('--gemini_timeout', type=int, default=None, help="Gemini CLI timeout in seconds")
     parser.add_argument('--user_context', default=None, help="Description of your interests and background")
     parser.add_argument('--log_file', default=None, help="Log file path")
-    parser.add_argument('--entity_index', default=None,
-                        help="Path to entity_index.md from wiki-manager")
+    parser.add_argument('--concept_index', default=None,
+                        help="Path to concept_index.md from wiki-manager")
+    parser.add_argument('--name_index', default=None,
+                        help="Path to name_index.md from wiki-manager")
     parser.add_argument('--force', action='store_true',
                         help="Re-digest even if a digest file already exists")
     return parser.parse_args(argv)
@@ -446,7 +472,8 @@ def main(argv=None):
     output_dir = os.path.expanduser(os.path.expandvars(output_dir))
     gemini_timeout = args.gemini_timeout or config.get('gemini_timeout', 180)
     user_context = args.user_context or config.get('user_context', '')
-    entity_index_path = args.entity_index or config.get('entity_index_path', '')
+    concept_index_path = args.concept_index or config.get('concept_index_path', '')
+    name_index_path = args.name_index or config.get('name_index_path', '')
     log_file = args.log_file or config.get('log_file', '/tmp/logs/skills/paper-digest/digest.log')
 
     logger = setup_logger(log_file)
@@ -516,27 +543,43 @@ def main(argv=None):
         "Highlight the most broadly impactful and interesting aspects."
     )
 
-    # Load known entities for merging/matching
-    entity_list_text = load_entity_index(entity_index_path) if entity_index_path else ""
-    if entity_list_text:
-        known_entities_block = (
-            "**IMPORTANT — Known entities in the wiki:**\n"
-            "The following entities already exist in the knowledge wiki. "
-            "DO NOT add an entity that is substantially similar to one below — "
+    # Load known concepts for merging/matching
+    concept_list_text = load_concept_index(concept_index_path) if concept_index_path else ""
+    if concept_list_text:
+        known_concepts_block = (
+            "**IMPORTANT — Known concepts in the wiki:**\n"
+            "The following concepts already exist in the knowledge wiki. "
+            "DO NOT add a concept that is substantially similar to one below — "
             "use the EXISTING canonical name exactly as shown instead. This ensures "
-            "entities focus on well-known technologies, datasets, trends, and principles "
+            "concepts focus on well-known technologies, datasets, trends, and principles "
             "rather than paper-specific jargon.\n\n"
-            f"{entity_list_text}\n\n"
-            "Only introduce a new entity name if it is clearly distinct from all of "
+            f"{concept_list_text}\n\n"
+            "Only introduce a new concept name if it is clearly distinct from all of "
             "the above."
         )
     else:
-        known_entities_block = ""
+        known_concepts_block = ""
+
+    # Load known names for merging/matching
+    name_list_text = load_name_index(name_index_path) if name_index_path else ""
+    if name_list_text:
+        known_names_block = (
+            "**IMPORTANT — Known names in the wiki:**\n"
+            "The following names already exist in the knowledge wiki. "
+            "DO NOT add a name that is substantially similar to one below — "
+            "use the EXISTING canonical name exactly as shown instead.\n\n"
+            f"{name_list_text}\n\n"
+            "Only introduce a new name if it is clearly distinct from all of "
+            "the above."
+        )
+    else:
+        known_names_block = ""
 
     prompt = build_prompt(prompt_template, {
         'paper_text': paper_text,
         'user_context': user_context_text,
-        'known_entities': known_entities_block,
+        'known_concepts': known_concepts_block,
+        'known_names': known_names_block,
         'hn_comments': hn_comments_block,
     })
 

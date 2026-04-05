@@ -6,13 +6,13 @@ Usage:
     python3 scripts/wiki_manager.py ingest <digest_path>
     python3 scripts/wiki_manager.py index
     python3 scripts/wiki_manager.py lint
-    python3 scripts/wiki_manager.py entities
+    python3 scripts/wiki_manager.py concepts
 
 Commands:
-    ingest <path>   Ingest a digest into the wiki (extract entities, update index/log)
+    ingest <path>   Ingest a digest into the wiki (extract concepts, update index/log)
     index           Rebuild index.md from all vault pages
     lint            Run vault health checks
-    entities        List all entity pages
+    concepts        List all concept pages
 """
 
 from __future__ import annotations
@@ -31,14 +31,21 @@ sys.path.insert(0, str(_SCRIPT_DIR))
 sys.path.insert(0, str(_SKILLS_ROOT / "shared"))
 
 from logging_utils import get_agent_data_dir, setup_logger
-from vault_index import parse_frontmatter, scan_vault, build_index, update_index, update_entity_index
+from vault_index import parse_frontmatter, scan_vault, build_index, update_index, update_concept_index
 from log_writer import append_log
-from entity_manager import (
-    extract_entities_from_digest,
-    find_entity_page,
-    create_entity_page,
-    update_entity_page,
-    list_entities,
+from concept_manager import (
+    extract_concepts_from_digest,
+    find_concept_page,
+    create_concept_page,
+    update_concept_page,
+    list_concepts,
+)
+from name_manager import (
+    extract_names_from_digest,
+    find_name_page,
+    create_name_page,
+    update_name_page,
+    list_names,
 )
 from lint_checker import run_full_lint, format_lint_report
 
@@ -92,11 +99,14 @@ def cmd_ingest(args, config: dict, logger) -> None:
         sys.exit(1)
 
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    entity_dir_rel = config.get("entity_dir", "gen-notes/entities")
-    entity_dir = Path(vault_root) / entity_dir_rel
+    concept_dir_rel = config.get("concept_dir", "gen-notes/concepts")
+    concept_dir = Path(vault_root) / concept_dir_rel
+    names_dir_rel = config.get("names_dir", "gen-notes/names")
+    names_dir = Path(vault_root) / names_dir_rel
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
-    max_entities = config.get("max_entities_per_ingest", 8)
+    max_concepts = config.get("max_concepts_per_ingest", 8)
+    max_names = config.get("max_names_per_ingest", 5)
 
     # 1. Read the digest
     digest_content = digest_path.read_text(encoding="utf-8")
@@ -111,42 +121,71 @@ def cmd_ingest(args, config: dict, logger) -> None:
     # 2. Set up LLM
     llm_fn = _make_llm_fn(config, logger)
 
-    # 3. Get entities — prefer frontmatter, fall back to LLM extraction
-    fm_entities = fm.get("entities", [])
-    if isinstance(fm_entities, str):
-        fm_entities = [fm_entities]
+    # 3. Get concepts — prefer frontmatter, fall back to LLM extraction
+    fm_concepts = fm.get("concepts", [])
+    if isinstance(fm_concepts, str):
+        fm_concepts = [fm_concepts]
 
-    if fm_entities:
-        entities = [str(e).strip() for e in fm_entities if e][:max_entities]
-        logger.info(f"Entities from frontmatter: {entities}")
+    if fm_concepts:
+        concepts = [str(e).strip() for e in fm_concepts if e][:max_concepts]
+        logger.info(f"Concepts from frontmatter: {concepts}")
     else:
-        logger.info("No entities in frontmatter — falling back to LLM extraction")
-        existing = list_entities(entity_dir)
+        logger.info("No concepts in frontmatter — falling back to LLM extraction")
+        existing = list_concepts(concept_dir)
         existing_names = [e["title"] for e in existing]
-        entities = extract_entities_from_digest(
-            digest_content, existing_names, llm_fn, max_entities
+        concepts = extract_concepts_from_digest(
+            digest_content, existing_names, llm_fn, max_concepts
         )
-        logger.info(f"Extracted entities via LLM: {entities}")
+        logger.info(f"Extracted concepts via LLM: {concepts}")
 
-    # 4. Create or update entity pages
+    # 4. Create or update concept pages
     touched_pages: list[str] = []
-    for entity_name in entities:
-        existing_path = find_entity_page(entity_name, entity_dir)
+    for concept_name in concepts:
+        existing_path = find_concept_page(concept_name, concept_dir)
         if existing_path:
-            logger.info(f"  Updating entity: {entity_name}")
-            update_entity_page(existing_path, digest_title, digest_content, llm_fn)
-            touched_pages.append(f"Updated entity: [[{entity_name}]]")
+            logger.info(f"  Updating concept: {concept_name}")
+            update_concept_page(existing_path, digest_title, digest_content, llm_fn)
+            touched_pages.append(f"Updated concept: [[{concept_name}]]")
         else:
-            logger.info(f"  Creating entity: {entity_name}")
-            create_entity_page(entity_name, digest_content, entity_dir, llm_fn)
-            touched_pages.append(f"Created entity: [[{entity_name}]]")
+            logger.info(f"  Creating concept: {concept_name}")
+            create_concept_page(concept_name, digest_content, concept_dir, llm_fn)
+            touched_pages.append(f"Created concept: [[{concept_name}]]")
 
-    # 5. Update index
-    index_path = update_index(vault_root, gen_notes_dir, entity_dir_rel)
+    # 5. Get names — prefer frontmatter, fall back to LLM extraction
+    fm_names = fm.get("names", [])
+    if isinstance(fm_names, str):
+        fm_names = [fm_names]
+
+    if fm_names:
+        name_list = [str(n).strip() for n in fm_names if n][:max_names]
+        logger.info(f"Names from frontmatter: {name_list}")
+    else:
+        logger.info("No names in frontmatter — falling back to LLM extraction")
+        existing_names_list = list_names(names_dir)
+        existing_name_strings = [n["title"] for n in existing_names_list]
+        name_list = extract_names_from_digest(
+            digest_content, existing_name_strings, llm_fn, max_names
+        )
+        logger.info(f"Extracted names via LLM: {name_list}")
+
+    # 6. Create or update name pages
+    for name in name_list:
+        existing_path = find_name_page(name, names_dir)
+        if existing_path:
+            logger.info(f"  Updating name: {name}")
+            update_name_page(existing_path, digest_title, digest_content, llm_fn)
+            touched_pages.append(f"Updated name: [[{name}]]")
+        else:
+            logger.info(f"  Creating name: {name}")
+            create_name_page(name, digest_content, names_dir, llm_fn)
+            touched_pages.append(f"Created name: [[{name}]]")
+
+    # 7. Update index
+    index_path = update_index(vault_root, gen_notes_dir, concept_dir_rel, names_dir_rel)
     touched_pages.append(f"Updated index: {index_path.name}")
     logger.info(f"Index updated: {index_path}")
 
-    # 6. Append to log
+    # 8. Append to log
     append_log(
         log_path,
         event_type="ingest",
@@ -157,20 +196,23 @@ def cmd_ingest(args, config: dict, logger) -> None:
 
     # Summary
     print(f"\n✓ Ingested: {digest_title}")
-    print(f"  Entities: {len(entities)} ({len([t for t in touched_pages if 'Created' in t])} new, "
-          f"{len([t for t in touched_pages if 'Updated entity' in t])} updated)")
+    print(f"  Concepts: {len(concepts)} ({len([t for t in touched_pages if 'Created concept' in t])} new, "
+          f"{len([t for t in touched_pages if 'Updated concept' in t])} updated)")
+    print(f"  Names: {len(name_list)} ({len([t for t in touched_pages if 'Created name' in t])} new, "
+          f"{len([t for t in touched_pages if 'Updated name' in t])} updated)")
     print("  Index and log updated")
 
 
 def cmd_index(args, config: dict, logger) -> None:
-    """Rebuild index.md and entity_index.md from all vault pages."""
+    """Rebuild index.md, concept_index.md, and name_index.md from all vault pages."""
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
-    entity_dir_rel = config.get("entity_dir", "gen-notes/entities")
+    concept_dir_rel = config.get("concept_dir", "gen-notes/concepts")
+    names_dir_rel = config.get("names_dir", "gen-notes/names")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
 
     pages = scan_vault(vault_root, gen_notes_dir)
-    index_path = update_index(vault_root, gen_notes_dir, entity_dir_rel)
+    index_path = update_index(vault_root, gen_notes_dir, concept_dir_rel, names_dir_rel)
 
     append_log(
         log_path,
@@ -179,7 +221,7 @@ def cmd_index(args, config: dict, logger) -> None:
     )
 
     print(f"✓ Index rebuilt: {index_path}")
-    print("  Entity index updated")
+    print("  Concept and name indexes updated")
     print(f"  {len(pages)} pages indexed")
 
 
@@ -212,19 +254,34 @@ def cmd_lint(args, config: dict, logger) -> None:
     print(f"\n✓ Report saved: {report_path}")
 
 
-def cmd_entities(args, config: dict, logger) -> None:
-    """List all entity pages."""
+def cmd_concepts(args, config: dict, logger) -> None:
+    """List all concept pages."""
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    entity_dir = Path(vault_root) / config.get("entity_dir", "gen-notes/entities")
+    concept_dir = Path(vault_root) / config.get("concept_dir", "gen-notes/concepts")
 
-    entities = list_entities(entity_dir)
-    if not entities:
-        print("No entity pages yet.")
+    concepts = list_concepts(concept_dir)
+    if not concepts:
+        print("No concept pages yet.")
         return
 
-    print(f"{len(entities)} entity pages:\n")
-    for e in entities:
+    print(f"{len(concepts)} concept pages:\n")
+    for e in concepts:
         print(f"  • {e['title']}")
+
+
+def cmd_names(args, config: dict, logger) -> None:
+    """List all name pages."""
+    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
+    names_dir = Path(vault_root) / config.get("names_dir", "gen-notes/names")
+
+    names = list_names(names_dir)
+    if not names:
+        print("No name pages yet.")
+        return
+
+    print(f"{len(names)} name pages:\n")
+    for n in names:
+        print(f"  • {n['title']}")
 
 
 # ---------------------------------------------------------------------------
@@ -248,8 +305,11 @@ def main() -> None:
     # lint
     sub.add_parser("lint", help="Run vault health checks")
 
-    # entities
-    sub.add_parser("entities", help="List all entity pages")
+    # concepts
+    sub.add_parser("concepts", help="List all concept pages")
+
+    # names
+    sub.add_parser("names", help="List all name pages")
 
     args = parser.parse_args()
     if not args.command:
@@ -264,7 +324,8 @@ def main() -> None:
         "ingest": cmd_ingest,
         "index": cmd_index,
         "lint": cmd_lint,
-        "entities": cmd_entities,
+        "concepts": cmd_concepts,
+        "names": cmd_names,
     }
     commands[args.command](args, config, logger)
 

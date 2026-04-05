@@ -1,6 +1,6 @@
-"""Entity page CRUD for the knowledge wiki.
+"""Concept page CRUD for the knowledge wiki.
 
-Entity pages are markdown files in gen-notes/entities/ that accumulate
+Concept pages are markdown files in gen-notes/concepts/ that accumulate
 knowledge about recurring concepts, methods, models, and datasets across
 multiple paper digests.
 """
@@ -23,20 +23,20 @@ from vault_index import parse_frontmatter
 
 
 def _normalize_name(name: str) -> str:
-    """Normalize an entity name for comparison."""
+    """Normalize a concept name for comparison."""
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
-def _load_alias_map(entity_dir: Path) -> dict[str, Path]:
-    """Build a mapping from normalized alias → entity file path.
+def _load_alias_map(concept_dir: Path) -> dict[str, Path]:
+    """Build a mapping from normalized alias → concept file path.
 
-    Reads all entity files and collects aliases from frontmatter.
+    Reads all concept files and collects aliases from frontmatter.
     """
     alias_map: dict[str, Path] = {}
-    if not entity_dir.exists():
+    if not concept_dir.exists():
         return alias_map
 
-    for md_file in entity_dir.glob("*.md"):
+    for md_file in concept_dir.glob("*.md"):
         try:
             text = md_file.read_text(encoding="utf-8")
         except Exception:
@@ -66,25 +66,25 @@ def _load_alias_map(entity_dir: Path) -> dict[str, Path]:
 # ---------------------------------------------------------------------------
 
 
-def find_entity_page(entity_name: str, entity_dir: str | Path) -> Optional[Path]:
-    """Find an existing entity page by name or alias.
+def find_concept_page(concept_name: str, concept_dir: str | Path) -> Optional[Path]:
+    """Find an existing concept page by name or alias.
 
-    Returns the Path to the entity file, or None if not found.
+    Returns the Path to the concept file, or None if not found.
     """
-    entity_dir = Path(os.path.expanduser(str(entity_dir)))
-    alias_map = _load_alias_map(entity_dir)
-    normalized = _normalize_name(entity_name)
+    concept_dir = Path(os.path.expanduser(str(concept_dir)))
+    alias_map = _load_alias_map(concept_dir)
+    normalized = _normalize_name(concept_name)
     return alias_map.get(normalized)
 
 
-def list_entities(entity_dir: str | Path) -> list[dict[str, str]]:
-    """List all entity pages with title and path."""
-    entity_dir = Path(os.path.expanduser(str(entity_dir)))
-    if not entity_dir.exists():
+def list_concepts(concept_dir: str | Path) -> list[dict[str, str]]:
+    """List all concept pages with title and path."""
+    concept_dir = Path(os.path.expanduser(str(concept_dir)))
+    if not concept_dir.exists():
         return []
 
-    entities = []
-    for md_file in sorted(entity_dir.glob("*.md")):
+    concepts = []
+    for md_file in sorted(concept_dir.glob("*.md")):
         try:
             text = md_file.read_text(encoding="utf-8")
         except Exception:
@@ -93,8 +93,8 @@ def list_entities(entity_dir: str | Path) -> list[dict[str, str]]:
         title = fm.get("title", md_file.stem)
         if isinstance(title, list):
             title = title[0]
-        entities.append({"title": str(title), "path": str(md_file)})
-    return entities
+        concepts.append({"title": str(title), "path": str(md_file)})
+    return concepts
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ def _sanitize_llm_output(text: str) -> str:
 
 
 def _sanitize_filename(name: str) -> str:
-    """Convert entity name to a safe filename."""
+    """Convert concept name to a safe filename."""
     # Replace slashes, colons, and other problematic chars
     name = re.sub(r'[<>:"/\\|?*]', "", name)
     name = name.strip(". ")
@@ -145,30 +145,30 @@ def _load_prompt_template(template_name: str) -> str:
     return ""
 
 
-def create_entity_page(
-    entity_name: str,
+def create_concept_page(
+    concept_name: str,
     digest_content: str,
-    entity_dir: str | Path,
+    concept_dir: str | Path,
     llm_fn: LLMFunction,
 ) -> Path:
-    """Create a new entity page using an LLM.
+    """Create a new concept page using an LLM.
 
     Args:
-        entity_name: Canonical name for the entity.
-        digest_content: The digest that introduced this entity.
-        entity_dir: Directory for entity pages.
+        concept_name: Canonical name for the concept.
+        digest_content: The digest that introduced this concept.
+        concept_dir: Directory for concept pages.
         llm_fn: Callable that takes a prompt and returns LLM output.
 
     Returns:
-        Path to the created entity page.
+        Path to the created concept page.
     """
-    entity_dir = Path(os.path.expanduser(str(entity_dir)))
-    entity_dir.mkdir(parents=True, exist_ok=True)
+    concept_dir = Path(os.path.expanduser(str(concept_dir)))
+    concept_dir.mkdir(parents=True, exist_ok=True)
 
-    template = _load_prompt_template("entity-page-prompt.md")
+    template = _load_prompt_template("concept-page-prompt.md")
     today = datetime.now().strftime("%Y-%m-%d")
 
-    prompt = template.replace("{entity_name}", entity_name)
+    prompt = template.replace("{concept_name}", concept_name)
     prompt = prompt.replace("{digest_content}", digest_content)
     prompt = prompt.replace("{today}", today)
 
@@ -178,63 +178,63 @@ def create_entity_page(
     if not llm_output.strip().startswith("---"):
         llm_output = (
             f"---\n"
-            f'title: "{entity_name}"\n'
-            f"type: entity\n"
+            f'title: "{concept_name}"\n'
+            f"type: concept\n"
             f"aliases:\n"
-            f'  - "{entity_name}"\n'
+            f'  - "{concept_name}"\n'
             f"date-created: {today}\n"
             f"date-updated: {today}\n"
             f"source-digests: []\n"
             f"tags: []\n"
             f"status: 🔗\n"
             f"---\n\n"
-            f"# {entity_name}\n\n"
+            f"# {concept_name}\n\n"
             f"{llm_output}"
         )
 
-    filename = _sanitize_filename(entity_name) + ".md"
-    file_path = entity_dir / filename
+    filename = _sanitize_filename(concept_name) + ".md"
+    file_path = concept_dir / filename
     file_path.write_text(llm_output, encoding="utf-8")
     return file_path
 
 
-def update_entity_page(
-    entity_path: Path,
+def update_concept_page(
+    concept_path: Path,
     digest_title: str,
     digest_content: str,
     llm_fn: LLMFunction,
 ) -> None:
-    """Update an existing entity page with information from a new digest.
+    """Update an existing concept page with information from a new digest.
 
     Args:
-        entity_path: Path to the existing entity page.
+        concept_path: Path to the existing concept page.
         digest_title: Title of the new paper digest.
         digest_content: Content of the new digest.
         llm_fn: Callable that takes a prompt and returns LLM output.
     """
-    existing = entity_path.read_text(encoding="utf-8")
+    existing = concept_path.read_text(encoding="utf-8")
     today = datetime.now().strftime("%Y-%m-%d")
 
     prompt = (
-        "You are updating an entity page in a knowledge wiki. "
-        "The entity page already exists with accumulated knowledge. "
-        "A new paper has been digested that is relevant to this entity.\n\n"
-        "## Existing Entity Page\n\n"
+        "You are updating a concept page in a knowledge wiki. "
+        "The concept page already exists with accumulated knowledge. "
+        "A new paper has been digested that is relevant to this concept.\n\n"
+        "## Existing Concept Page\n\n"
         f"{existing}\n\n"
         "## New Paper Digest\n\n"
         f"{digest_content}\n\n"
         "## Instructions\n\n"
-        "Update the entity page to incorporate insights from the new paper. "
+        "Update the concept page to incorporate insights from the new paper. "
         "Specifically:\n"
         "1. Update the Overview if the new paper changes understanding\n"
         f'2. Add `[[{digest_title}]]` to Key Papers with a one-line contribution note\n'
         "3. Update Evolution if this represents a shift or advancement, or if it is a predecessor to previous papers that forms lineage of the development\n"
         "4. Update Open Questions — add new ones, mark resolved ones\n"
-        "5. Add any new Related Entities as wikilinks\n"
+        "5. Add any new Related Concepts as wikilinks\n"
         f"6. Update date-updated to {today} in the frontmatter\n"
         f'7. Add `"[[{digest_title}]]"` to source-digests in frontmatter\n'
         "\n"
-        "Return the COMPLETE updated entity page including frontmatter. "
+        "Return the COMPLETE updated concept page including frontmatter. "
         "Preserve the existing structure and content — only add/modify "
         "what the new paper warrants."
     )
@@ -243,7 +243,7 @@ def update_entity_page(
 
     # Sanity check: only write if it looks like valid markdown with frontmatter
     if updated.strip().startswith("---"):
-        entity_path.write_text(updated, encoding="utf-8")
+        concept_path.write_text(updated, encoding="utf-8")
     else:
         # Fallback: just append a reference to the new paper
         append_text = (
@@ -251,61 +251,61 @@ def update_entity_page(
             f"New paper ingested: [[{digest_title}]]\n\n"
             f"*Auto-update via wiki-manager.*\n"
         )
-        with open(entity_path, "a", encoding="utf-8") as f:
+        with open(concept_path, "a", encoding="utf-8") as f:
             f.write(append_text)
 
 
 # ---------------------------------------------------------------------------
-# Entity extraction from digest
+# Concept extraction from digest
 # ---------------------------------------------------------------------------
 
 
-def extract_entities_from_digest(
+def extract_concepts_from_digest(
     digest_content: str,
-    existing_entities: list[str],
+    existing_concepts: list[str],
     llm_fn: LLMFunction,
-    max_entities: int = 8,
+    max_concepts: int = 8,
 ) -> list[str]:
-    """Use an LLM to extract key entities from a paper digest.
+    """Use an LLM to extract key concepts from a paper digest.
 
     Args:
         digest_content: The full markdown content of the digest.
-        existing_entities: Names of entities that already have pages.
+        existing_concepts: Names of concepts that already have pages.
         llm_fn: Callable that takes a prompt and returns LLM output.
-        max_entities: Maximum number of entities to extract.
+        max_concepts: Maximum number of concepts to extract.
 
     Returns:
-        List of entity names (preferring existing names where applicable).
+        List of concept names (preferring existing names where applicable).
     """
-    existing_list = "\n".join(f"- {e}" for e in existing_entities) if existing_entities else "*None yet*"
+    existing_list = "\n".join(f"- {e}" for e in existing_concepts) if existing_concepts else "*None yet*"
 
     prompt = (
-        "Extract the key entities from this paper digest. "
-        "Entities are recurring concepts, methods, models, architectures, "
+        "Extract the key concepts from this paper digest. "
+        "Concepts are recurring concepts, methods, models, architectures, "
         "datasets, or techniques that would benefit from having their own "
         "wiki page.\n\n"
         "## Paper Digest\n\n"
         f"{digest_content}\n\n"
-        "## Existing Entity Pages\n\n"
+        "## Existing Concept Pages\n\n"
         f"{existing_list}\n\n"
         "## Instructions\n\n"
-        f"Return a JSON array of {max_entities} or fewer entity names. "
-        "If an entity matches an existing page (same concept, different name), "
-        "use the EXISTING name. For new entities, use the most canonical/common "
+        f"Return a JSON array of {max_concepts} or fewer concept names. "
+        "If a concept matches an existing page (same concept, different name), "
+        "use the EXISTING name. For new concepts, use the most canonical/common "
         "name.\n\n"
-        "**CRITICAL — Right level of abstraction:** Extract entities that a "
+        "**CRITICAL — Right level of abstraction:** Extract concepts that a "
         "practitioner in the field would independently recognize and search "
         "for — NOT niche terms coined by this specific paper. If the paper "
         "introduces a specialized variant or sub-concept (e.g. 'attention "
         "residues', 'gated linear attention', 'time-depth duality'), extract "
         "the well-known parent concept instead (e.g. 'Attention', 'Linear "
-        "Attention', 'Duality'). Ask: would this entity name appear as a "
+        "Attention', 'Duality'). Ask: would this concept name appear as a "
         "topic in a textbook or survey paper? If not, go one level up. Only "
         "use paper-specific terms when they have already become widely adopted "
         "(e.g. 'LoRA', 'FlashAttention', 'Chain-of-Thought').\n\n"
-        "Examples of good entities: 'Transformer', 'RLHF', 'Chain-of-Thought', "
+        "Examples of good concepts: 'Transformer', 'RLHF', 'Chain-of-Thought', "
         "'Scaling Laws', 'FlashAttention', 'BERT'\n"
-        "Examples of BAD entities (too specific): 'attention residues', "
+        "Examples of BAD concepts (too specific): 'attention residues', "
         "'residue connection', 'time-depth duality', 'grokfast'\n\n"
         "Return ONLY the JSON array, no other text.\n"
         'Example: ["Transformer", "Attention", "BERT"]'
@@ -318,16 +318,16 @@ def extract_entities_from_digest(
         # Find JSON array in the response
         match = re.search(r"\[.*?\]", result, re.DOTALL)
         if match:
-            entities = json.loads(match.group())
-            return [str(e).strip() for e in entities if e][:max_entities]
+            concepts = json.loads(match.group())
+            return [str(e).strip() for e in concepts if e][:max_concepts]
     except (json.JSONDecodeError, ValueError):
         pass
 
     # Fallback: try to parse line-by-line
-    entities = []
+    concepts = []
     for line in result.strip().split("\n"):
         line = line.strip().strip("-*•").strip().strip('"').strip("'")
         if line and not line.startswith("[") and not line.startswith("{"):
-            entities.append(line)
+            concepts.append(line)
 
-    return entities[:max_entities]
+    return concepts[:max_concepts]

@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: "Answer research questions by searching the knowledge wiki (gen-notes/index.md), synthesizing answers from digest and entity pages, and optionally filing valuable answers back as synthesis pages. Use when: user asks a research question about topics covered in their reading, wants cross-paper analysis, or asks to search/query their wiki. Triggers: wiki query, search wiki, research question, cross-paper, compare papers."
+description: "Answer research questions by searching the knowledge wiki (gen-notes/index.md), synthesizing answers from digest, concept, and name pages, and optionally filing valuable answers back as synthesis pages. Use when: user asks a research question about topics covered in their reading, wants cross-paper analysis, or asks to search/query their wiki. Triggers: wiki query, search wiki, research question, cross-paper, compare papers."
 ---
 
 # Wiki Query
@@ -10,7 +10,7 @@ Answer research questions by searching the knowledge wiki, synthesizing answers 
 ## Workflow
 
 1. **Read the index** — Start by reading `gen-notes/index.md` to understand what pages exist and find relevant ones
-2. **Read relevant pages** — Open the digest, entity, and concept pages most relevant to the question
+2. **Read relevant pages** — Open the digest, concept, and name pages most relevant to the question
 3. **Synthesize an answer** — Draw from multiple sources, cite pages with `[[wikilinks]]`
 4. **File back if valuable** — If the answer is substantive (not a trivial lookup), save it as a synthesis page
 
@@ -70,6 +70,6 @@ status: 📥
 ## Notes
 
 - Always check `gen-notes/index.md` first — it has one-line summaries of every page
-- Prefer existing entity/concept pages over raw digests when available
+- Prefer existing concept/name pages over raw digests when available
 - If the wiki doesn't cover the topic, say so — don't hallucinate from outside the wiki
-- Cross-reference with entity pages to provide broader context
+- Cross-reference with concept and name pages to provide broader context
