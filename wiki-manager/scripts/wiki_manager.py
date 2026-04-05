@@ -6,12 +6,14 @@ Usage:
     python3 scripts/wiki_manager.py ingest <digest_path>
     python3 scripts/wiki_manager.py index
     python3 scripts/wiki_manager.py lint
+    python3 scripts/wiki_manager.py scan
     python3 scripts/wiki_manager.py concepts
 
 Commands:
     ingest <path>   Ingest a digest into the wiki (extract concepts, update index/log)
     index           Rebuild index.md from all vault pages
     lint            Run vault health checks
+    scan            Run LLM-powered wiki health scan
     concepts        List all concept pages
 """
 
@@ -48,6 +50,7 @@ from name_manager import (
     list_names,
 )
 from lint_checker import run_full_lint, format_lint_report
+from scan_checker import run_scan, format_scan_report
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +257,35 @@ def cmd_lint(args, config: dict, logger) -> None:
     print(f"\n✓ Report saved: {report_path}")
 
 
+def cmd_scan(args, config: dict, logger) -> None:
+    """Run LLM-powered wiki health scan."""
+    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
+    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
+    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+
+    # Run deterministic lint first
+    lint_issues = run_full_lint(vault_root, gen_notes_dir)
+
+    # Run LLM scan
+    llm_fn = _make_llm_fn(config, logger)
+    findings = run_scan(vault_root, gen_notes_dir, llm_fn, logger=logger)
+
+    # Format and write report
+    report = format_scan_report(findings, lint_issues)
+    report_path = Path(vault_root) / gen_notes_dir / "_scan-report.md"
+    report_path.write_text(report, encoding="utf-8")
+
+    # Log it
+    append_log(
+        log_path,
+        event_type="scan",
+        title=f"Health scan: {len(findings)} findings, {len(lint_issues)} lint issues",
+    )
+
+    print(report)
+    print(f"\n✓ Report saved: {report_path}")
+
+
 def cmd_concepts(args, config: dict, logger) -> None:
     """List all concept pages."""
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
@@ -305,6 +337,9 @@ def main() -> None:
     # lint
     sub.add_parser("lint", help="Run vault health checks")
 
+    # scan
+    sub.add_parser("scan", help="Run LLM-powered wiki health scan")
+
     # concepts
     sub.add_parser("concepts", help="List all concept pages")
 
@@ -324,6 +359,7 @@ def main() -> None:
         "ingest": cmd_ingest,
         "index": cmd_index,
         "lint": cmd_lint,
+        "scan": cmd_scan,
         "concepts": cmd_concepts,
         "names": cmd_names,
     }

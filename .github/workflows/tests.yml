@@ -81,3 +81,7 @@ jobs:
       - name: Run wiki-manager lint_checker tests
         run: python -m unittest test_lint_checker -v
         working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager scan_checker tests
+        run: python -m unittest test_scan_checker -v
+        working-directory: wiki-manager/scripts

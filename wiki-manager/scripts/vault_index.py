@@ -171,7 +171,7 @@ def scan_vault(vault_root: str, gen_notes_dir: str = "gen-notes") -> list[PageIn
     pages: list[PageInfo] = []
     for md_file in sorted(gen_path.rglob("*.md")):
         # Skip index, log, schema, and lint reports
-        if md_file.name in ("index.md", "concept_index.md", "name_index.md", "log.md", "schema.md", "_lint-report.md"):
+        if md_file.name in ("index.md", "concept_index.md", "name_index.md", "log.md", "schema.md", "_lint-report.md", "_scan-report.md"):
             continue
 
         try:

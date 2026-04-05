@@ -41,7 +41,7 @@ def _read_all_pages(vault_root: Path, gen_notes_dir: str) -> dict[Path, str]:
         return {}
     pages = {}
     for md_file in gen_path.rglob("*.md"):
-        if md_file.name in ("index.md", "log.md", "schema.md", "_lint-report.md"):
+        if md_file.name in ("index.md", "log.md", "schema.md", "_lint-report.md", "_scan-report.md"):
             continue
         try:
             pages[md_file.relative_to(vault_root)] = md_file.read_text(encoding="utf-8")
