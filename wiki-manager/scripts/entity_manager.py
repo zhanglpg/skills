@@ -228,7 +228,7 @@ def update_entity_page(
         "Specifically:\n"
         "1. Update the Overview if the new paper changes understanding\n"
         f'2. Add `[[{digest_title}]]` to Key Papers with a one-line contribution note\n'
-        "3. Update Evolution if this represents a shift or advancement\n"
+        "3. Update Evolution if this represents a shift or advancement, or if it is a predecessor to previous papers that forms lineage of the development\n"
         "4. Update Open Questions — add new ones, mark resolved ones\n"
         "5. Add any new Related Entities as wikilinks\n"
         f"6. Update date-updated to {today} in the frontmatter\n"
