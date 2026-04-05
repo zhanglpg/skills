@@ -90,7 +90,7 @@ class TestBuildPageBatches(unittest.TestCase):
         ]
         content = {p.path: "x" * 10000 for p in pages}
         batches = build_page_batches(pages, content, max_chars_per_page=100)
-        for stem, text in batches[0]["contents"].items():
+        for _stem, text in batches[0]["contents"].items():
             self.assertLessEqual(len(text), 130)  # 100 + truncation marker
             self.assertIn("[... truncated ...]", text)
 
