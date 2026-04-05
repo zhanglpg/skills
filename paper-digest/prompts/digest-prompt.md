@@ -62,6 +62,8 @@ entities:
 - **related**: A YAML list of 3-5 titles of closely related papers mentioned in the text. Use the exact titles as cited where possible.
 - **entities**: A YAML list of up to 3 key entities from the paper — recurring concepts, methods, models, architectures, datasets, or techniques that would benefit from standalone reference pages. Use the most canonical/common name for each (e.g. `"Transformer"`, `"RLHF"`, `"BERT"`). Prefer proper nouns and established abbreviations. Focus on well-known technologies, datasets, architectural patterns, and principles rather than paper-specific jargon. DO NOT add an entity that is substantially similar to an existing one — use the existing canonical name instead.
 
+  **IMPORTANT — Right level of abstraction:** Extract entities that a practitioner in the field would independently recognize and search for — not niche terms coined by this specific paper. If a paper introduces a specialized variant or sub-concept (e.g. "attention residues", "gated linear attention", "residue connection"), extract the well-known parent concept instead (e.g. "Attention", "Linear Attention", "Residual Connection"). The test: would this entity name appear as a topic in a textbook or survey paper? If not, go one level up. Only extract paper-specific terms when they have already become widely adopted in the field (e.g. "LoRA", "FlashAttention", "Chain-of-Thought").
+
 {known_entities}
 
 Do NOT include `source`, `digested`, `queue_id`, or `status` in the frontmatter — those are added automatically.

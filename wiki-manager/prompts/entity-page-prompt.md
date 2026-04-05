@@ -67,3 +67,4 @@ Do NOT wrap your response in code fences (no ```markdown or ```yaml markers). Ou
 - The Overview should be understandable without reading the source papers
 - Open Questions should reflect genuine unresolved issues, not filler
 - Related Entities should link to concepts that would plausibly have their own pages
+- Entity pages should cover well-known, field-level concepts (e.g. "Attention", "Transformer", "Residual Connection") — not paper-specific jargon or niche sub-variants. If this entity name would not appear as a topic in a textbook or survey paper, the page probably should not exist.
