@@ -13,7 +13,7 @@ You are analyzing a knowledge wiki to identify gaps and growth opportunities.
 Based on the wiki's current coverage, identify high-value opportunities in these categories:
 
 ### 1. Concepts Needing Pages
-Important topics that appear across multiple pages but lack their own dedicated entity or concept page. Go beyond simple mention-counting — consider whether a concept is foundational, frequently referenced, or would help readers navigate the wiki. Suggest whether each should be an **entity** page (specific method, model, technique) or a **concept** page (broader theme or research area).
+Important topics that appear across multiple pages but lack their own dedicated concept page. Go beyond simple mention-counting — consider whether a concept is foundational, frequently referenced, or would help readers navigate the wiki. Suggest whether each should be a **concept** page for a specific method, model, technique, or broader theme or research area.
 
 ### 2. Data Gaps
 Specific areas where the wiki's coverage is thin and a web search or new paper digest could meaningfully improve it. Be concrete — name the topic and what kind of information is missing (recent developments, benchmarks, comparisons, historical context, etc.).
@@ -30,7 +30,7 @@ Return a JSON array of findings:
   {
     "category": "concept-needs-page",
     "pages": ["Related-Page-One", "Related-Page-Two"],
-    "description": "The concept of X appears in pages A, B, and C but has no dedicated page. It would be valuable as an entity page because..."
+    "description": "The concept of X appears in pages A, B, and C but has no dedicated page. It would be valuable as a concept page because..."
   }
 ]
 ```

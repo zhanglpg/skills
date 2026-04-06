@@ -172,7 +172,7 @@ class TestRenderOutput(unittest.TestCase):
         self.assertIn("digested:", result)
         self.assertIn("status: digested", result)
         self.assertIn("## 1. Main Idea", result)
-        # Entities should be preserved in the merged frontmatter
+        # Concepts should be preserved in the merged frontmatter
         self.assertIn("concepts:", result)
         self.assertIn("Transformer", result)
         self.assertIn("Attention Mechanism", result)
