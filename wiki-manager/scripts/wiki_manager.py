@@ -6,13 +6,15 @@ Usage:
     python3 scripts/wiki_manager.py ingest <digest_path>
     python3 scripts/wiki_manager.py index
     python3 scripts/wiki_manager.py lint
+    python3 scripts/wiki_manager.py fix-links [--dry-run]
     python3 scripts/wiki_manager.py compile
     python3 scripts/wiki_manager.py concepts
 
 Commands:
     ingest <path>   Ingest a digest into the wiki (extract concepts, update index/log)
     index           Rebuild index.md from all vault pages
-    lint            Run vault health checks
+    lint            Run vault health checks (auto-fixes resolvable broken links)
+    fix-links       Resolve broken wikilinks via alias matching
     compile         Run LLM-powered AI compile
     concepts        List all concept pages
 """
@@ -51,6 +53,7 @@ from name_manager import (
 )
 from lint_checker import run_full_lint, format_lint_report
 from compile_checker import run_compile, format_compile_report
+from link_fixer import fix_all_links
 
 
 # ---------------------------------------------------------------------------
@@ -141,17 +144,25 @@ def cmd_ingest(args, config: dict, logger) -> None:
         )
         logger.info(f"Extracted concepts via LLM: {concepts}")
 
+    # 3.5 Build existing page names for wikilink context
+    all_pages = scan_vault(vault_root, gen_notes_dir)
+    existing_page_names = {
+        "concepts": [p.title for p in all_pages if p.page_type == "concept"],
+        "names": [p.title for p in all_pages if p.page_type == "name"],
+        "digests": [p.title for p in all_pages if p.page_type == "digest"],
+    }
+
     # 4. Create or update concept pages
     touched_pages: list[str] = []
     for concept_name in concepts:
         existing_path = find_concept_page(concept_name, concept_dir)
         if existing_path:
             logger.info(f"  Updating concept: {concept_name}")
-            update_concept_page(existing_path, digest_title, digest_content, llm_fn)
+            update_concept_page(existing_path, digest_title, digest_content, llm_fn, existing_page_names)
             touched_pages.append(f"Updated concept: [[{concept_name}]]")
         else:
             logger.info(f"  Creating concept: {concept_name}")
-            create_concept_page(concept_name, digest_content, concept_dir, llm_fn)
+            create_concept_page(concept_name, digest_content, concept_dir, llm_fn, existing_page_names)
             touched_pages.append(f"Created concept: [[{concept_name}]]")
 
     # 5. Get names — prefer frontmatter, fall back to LLM extraction
@@ -176,12 +187,19 @@ def cmd_ingest(args, config: dict, logger) -> None:
         existing_path = find_name_page(name, names_dir)
         if existing_path:
             logger.info(f"  Updating name: {name}")
-            update_name_page(existing_path, digest_title, digest_content, llm_fn)
+            update_name_page(existing_path, digest_title, digest_content, llm_fn, existing_page_names)
             touched_pages.append(f"Updated name: [[{name}]]")
         else:
             logger.info(f"  Creating name: {name}")
-            create_name_page(name, digest_content, names_dir, llm_fn)
+            create_name_page(name, digest_content, names_dir, llm_fn, existing_page_names)
             touched_pages.append(f"Created name: [[{name}]]")
+
+    # 6.5 Fix broken wikilinks across vault
+    fix_result = fix_all_links(vault_root, gen_notes_dir)
+    if fix_result["fixed"]:
+        n_fixed = len(fix_result["fixed"])
+        logger.info(f"  Fixed {n_fixed} broken wikilinks")
+        touched_pages.append(f"Fixed {n_fixed} broken wikilinks")
 
     # 7. Update index
     index_path = update_index(vault_root, gen_notes_dir, concept_dir_rel, names_dir_rel)
@@ -234,7 +252,7 @@ def cmd_lint(args, config: dict, logger) -> None:
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
 
-    issues = run_full_lint(vault_root, gen_notes_dir)
+    issues = run_full_lint(vault_root, gen_notes_dir, auto_fix=True)
     report = format_lint_report(issues)
 
     # Write report
@@ -255,6 +273,44 @@ def cmd_lint(args, config: dict, logger) -> None:
 
     print(report)
     print(f"\n✓ Report saved: {report_path}")
+
+
+def cmd_fix_links(args, config: dict, logger) -> None:
+    """Resolve broken wikilinks using vault-wide alias matching."""
+    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
+    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
+    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+    dry_run = getattr(args, "dry_run", False)
+
+    result = fix_all_links(vault_root, gen_notes_dir, dry_run=dry_run)
+
+    n_fixed = len(result["fixed"])
+    n_unresolved = len(result["unresolved"])
+
+    if result["fixed"]:
+        print(f"\n{'Would fix' if dry_run else 'Fixed'} {n_fixed} broken wikilinks:")
+        for file_path, old, new in result["fixed"]:
+            print(f"  {file_path}: [[{old}]] → [[{new}]]")
+
+    if result["unresolved"]:
+        print(f"\n{n_unresolved} unresolved broken links remain:")
+        seen = set()
+        for file_path, link in result["unresolved"]:
+            if link not in seen:
+                seen.add(link)
+                print(f"  [[{link}]]")
+
+    if not result["fixed"] and not result["unresolved"]:
+        print("\nNo broken wikilinks found.")
+
+    if not dry_run and result["fixed"]:
+        append_log(
+            log_path,
+            event_type="fix-links",
+            title=f"Fixed {n_fixed} broken wikilinks ({n_unresolved} unresolved remain)",
+        )
+
+    print(f"\n✓ Scanned {result['total_files']} files")
 
 
 def cmd_compile(args, config: dict, logger) -> None:
@@ -337,6 +393,10 @@ def main() -> None:
     # lint
     sub.add_parser("lint", help="Run vault health checks")
 
+    # fix-links
+    p_fix = sub.add_parser("fix-links", help="Resolve broken wikilinks")
+    p_fix.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
+
     # compile
     sub.add_parser("compile", help="Run LLM-powered AI compile")
 
@@ -359,6 +419,7 @@ def main() -> None:
         "ingest": cmd_ingest,
         "index": cmd_index,
         "lint": cmd_lint,
+        "fix-links": cmd_fix_links,
         "compile": cmd_compile,
         "concepts": cmd_concepts,
         "names": cmd_names,

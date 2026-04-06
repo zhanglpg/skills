@@ -74,3 +74,15 @@ Do NOT wrap your response in code fences (no ```markdown or ```yaml markers). Ou
 - For places: describe the institution/lab and its contributions to the field
 - For papers: describe the key insight and lasting impact
 - Name pages should only exist for independently notable subjects — those worthy of a Wikipedia article or mention in a survey paper
+- When linking to an existing wiki page, use the EXACT name listed below. Do not invent alternate forms.
+
+### Existing Wiki Pages (prefer these exact names for wikilinks when relevant)
+
+#### Concepts
+{existing_concepts}
+
+#### Names
+{existing_names}
+
+#### Digests
+{existing_digests}

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from vault_index import parse_frontmatter
-from concept_manager import _normalize_name, _sanitize_llm_output, _sanitize_filename
+from concept_manager import _normalize_name, _sanitize_llm_output, _sanitize_filename, _format_existing_pages
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +115,7 @@ def create_name_page(
     digest_content: str,
     names_dir: str | Path,
     llm_fn: LLMFunction,
+    existing_page_names: Optional[dict[str, list[str]]] = None,
 ) -> Path:
     """Create a new name page using an LLM.
 
@@ -123,6 +124,8 @@ def create_name_page(
         digest_content: The digest that introduced this name.
         names_dir: Directory for name pages.
         llm_fn: Callable that takes a prompt and returns LLM output.
+        existing_page_names: Dict with keys 'concepts', 'names', 'digests',
+            each a list of existing page titles for wikilink context.
 
     Returns:
         Path to the created name page.
@@ -136,6 +139,10 @@ def create_name_page(
     prompt = template.replace("{name}", name)
     prompt = prompt.replace("{digest_content}", digest_content)
     prompt = prompt.replace("{today}", today)
+
+    pages_ctx = _format_existing_pages(existing_page_names)
+    for key, value in pages_ctx.items():
+        prompt = prompt.replace("{" + key + "}", value)
 
     llm_output = _sanitize_llm_output(llm_fn(prompt))
 
@@ -169,6 +176,7 @@ def update_name_page(
     digest_title: str,
     digest_content: str,
     llm_fn: LLMFunction,
+    existing_page_names: Optional[dict[str, list[str]]] = None,
 ) -> None:
     """Update an existing name page with information from a new digest.
 
@@ -177,9 +185,19 @@ def update_name_page(
         digest_title: Title of the new paper digest.
         digest_content: Content of the new digest.
         llm_fn: Callable that takes a prompt and returns LLM output.
+        existing_page_names: Dict with keys 'concepts', 'names', 'digests',
+            each a list of existing page titles for wikilink context.
     """
     existing = name_path.read_text(encoding="utf-8")
     today = datetime.now().strftime("%Y-%m-%d")
+
+    pages_ctx = _format_existing_pages(existing_page_names)
+    existing_pages_note = (
+        "\n\n## Existing Wiki Pages (use these exact names for wikilinks)\n\n"
+        f"Concepts: {pages_ctx['existing_concepts']}\n"
+        f"Names: {pages_ctx['existing_names']}\n"
+        f"Digests: {pages_ctx['existing_digests']}\n"
+    )
 
     prompt = (
         "You are updating a name page in a knowledge wiki. "
@@ -189,6 +207,7 @@ def update_name_page(
         f"{existing}\n\n"
         "## New Paper Digest\n\n"
         f"{digest_content}\n\n"
+        f"{existing_pages_note}\n"
         "## Instructions\n\n"
         "Update the name page to incorporate insights from the new paper. "
         "Specifically:\n"
@@ -199,6 +218,8 @@ def update_name_page(
         f"5. Update date-updated to {today} in the frontmatter\n"
         f'6. Add `"[[{digest_title}]]"` to source-digests in frontmatter\n'
         "\n"
+        "When adding wikilinks, use the EXACT names from the existing wiki "
+        "pages list above when relevant. Do not invent alternate forms.\n\n"
         "Return the COMPLETE updated name page including frontmatter. "
         "Preserve the existing structure and content — only add/modify "
         "what the new paper warrants."

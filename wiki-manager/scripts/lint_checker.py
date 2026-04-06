@@ -20,6 +20,7 @@ class LintIssue:
     check: str  # name of the check that found it
     page: str  # page path or title
     message: str
+    suggested_fix: Optional[str] = None  # canonical target for broken links
 
 
 # ---------------------------------------------------------------------------
@@ -78,20 +79,82 @@ def check_orphans(pages: list[PageInfo], all_content: dict[Path, str]) -> list[L
     return issues
 
 
-def check_broken_links(all_content: dict[Path, str], page_stems: set[str],
-                        page_titles: set[str]) -> list[LintIssue]:
-    """Find wikilinks that point to non-existent pages."""
+def check_broken_links(
+    all_content: dict[Path, str],
+    page_stems: set[str],
+    page_titles: set[str],
+    alias_map: Optional[dict[str, str]] = None,
+    auto_fix: bool = False,
+    vault_root: Optional[Path] = None,
+) -> list[LintIssue]:
+    """Find wikilinks that point to non-existent pages.
+
+    When *alias_map* is provided, resolvable broken links get a
+    ``suggested_fix``.  When *auto_fix* is also True the file is
+    rewritten in place and the issue is reported as info rather than
+    warning.  *vault_root* is required for auto-fix so relative paths
+    can be resolved to absolute paths for writing.
+    """
+    from concept_manager import _normalize_name
+
     issues = []
+    # Track per-file fixes so we can batch-write once per file
+    file_fixes: dict[Path, dict[str, str]] = {}  # path -> {old: new}
+
     for path, content in all_content.items():
         for link in _extract_wikilinks(content):
             link_clean = link.strip()
-            if link_clean not in page_stems and link_clean not in page_titles:
+            if link_clean in page_stems or link_clean in page_titles:
+                continue
+
+            canonical = None
+            if alias_map:
+                canonical = alias_map.get(_normalize_name(link_clean))
+
+            if canonical and auto_fix and vault_root:
+                file_fixes.setdefault(path, {})[link_clean] = canonical
+                issues.append(LintIssue(
+                    severity="info",
+                    check="broken-links",
+                    page=str(path),
+                    message=f"Auto-fixed [[{link_clean}]] → [[{canonical}]]",
+                    suggested_fix=canonical,
+                ))
+            elif canonical:
+                issues.append(LintIssue(
+                    severity="warning",
+                    check="broken-links",
+                    page=str(path),
+                    message=f"Broken wikilink [[{link_clean}]] → did you mean [[{canonical}]]?",
+                    suggested_fix=canonical,
+                ))
+            else:
                 issues.append(LintIssue(
                     severity="warning",
                     check="broken-links",
                     page=str(path),
                     message=f"Broken wikilink [[{link_clean}]]",
                 ))
+
+    # Apply auto-fixes
+    if auto_fix and vault_root and file_fixes:
+        import re as _re
+        for path, fixes in file_fixes.items():
+            abs_path = vault_root / path
+            try:
+                text = abs_path.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            for old_target, new_target in fixes.items():
+                pattern = _re.compile(
+                    r"\[\[" + _re.escape(old_target) + r"(\|[^\]]*)?\]\]"
+                )
+                text = pattern.sub(
+                    lambda m, nt=new_target: f"[[{nt}{m.group(1) or ''}]]",
+                    text,
+                )
+            abs_path.write_text(text, encoding="utf-8")
+
     return issues
 
 
@@ -244,8 +307,15 @@ def run_full_lint(
     gen_notes_dir: str = "gen-notes",
     max_stale_days: int = 90,
     min_concept_mentions: int = 3,
+    auto_fix: bool = False,
 ) -> list[LintIssue]:
-    """Run all lint checks and return a list of issues."""
+    """Run all lint checks and return a list of issues.
+
+    When *auto_fix* is True, resolvable broken wikilinks are rewritten
+    in place and reported as info-level rather than warnings.
+    """
+    from link_fixer import build_vault_alias_map
+
     root = Path(os.path.expanduser(vault_root))
     pages = scan_vault(vault_root, gen_notes_dir)
     all_content = _read_all_pages(root, gen_notes_dir)
@@ -254,9 +324,14 @@ def run_full_lint(
     page_titles = {p.title for p in pages}
     concept_stems = {p.path.stem for p in pages if p.page_type == "concept"}
 
+    alias_map, _ambiguous = build_vault_alias_map(vault_root, gen_notes_dir)
+
     issues: list[LintIssue] = []
     issues.extend(check_orphans(pages, all_content))
-    issues.extend(check_broken_links(all_content, page_stems, page_titles))
+    issues.extend(check_broken_links(
+        all_content, page_stems, page_titles,
+        alias_map=alias_map, auto_fix=auto_fix, vault_root=root,
+    ))
     issues.extend(check_stale_concepts(pages, max_stale_days))
     issues.extend(check_missing_concepts(pages, all_content, concept_stems, min_concept_mentions))
     issues.extend(check_frontmatter(pages))

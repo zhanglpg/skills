@@ -145,11 +145,34 @@ def _load_prompt_template(template_name: str) -> str:
     return ""
 
 
+def _format_existing_pages(existing_page_names: Optional[dict[str, list[str]]]) -> dict[str, str]:
+    """Format existing page name lists for prompt substitution.
+
+    Returns a dict with keys 'existing_concepts', 'existing_names',
+    'existing_digests', each a formatted string for template injection.
+    """
+    if not existing_page_names:
+        return {
+            "existing_concepts": "(none yet)",
+            "existing_names": "(none yet)",
+            "existing_digests": "(none yet)",
+        }
+    result = {}
+    for key in ("concepts", "names", "digests"):
+        names = existing_page_names.get(key, [])
+        if names:
+            result[f"existing_{key}"] = ", ".join(names[:100])
+        else:
+            result[f"existing_{key}"] = "(none yet)"
+    return result
+
+
 def create_concept_page(
     concept_name: str,
     digest_content: str,
     concept_dir: str | Path,
     llm_fn: LLMFunction,
+    existing_page_names: Optional[dict[str, list[str]]] = None,
 ) -> Path:
     """Create a new concept page using an LLM.
 
@@ -158,6 +181,8 @@ def create_concept_page(
         digest_content: The digest that introduced this concept.
         concept_dir: Directory for concept pages.
         llm_fn: Callable that takes a prompt and returns LLM output.
+        existing_page_names: Dict with keys 'concepts', 'names', 'digests',
+            each a list of existing page titles for wikilink context.
 
     Returns:
         Path to the created concept page.
@@ -171,6 +196,10 @@ def create_concept_page(
     prompt = template.replace("{concept_name}", concept_name)
     prompt = prompt.replace("{digest_content}", digest_content)
     prompt = prompt.replace("{today}", today)
+
+    pages_ctx = _format_existing_pages(existing_page_names)
+    for key, value in pages_ctx.items():
+        prompt = prompt.replace("{" + key + "}", value)
 
     llm_output = _sanitize_llm_output(llm_fn(prompt))
 
@@ -203,6 +232,7 @@ def update_concept_page(
     digest_title: str,
     digest_content: str,
     llm_fn: LLMFunction,
+    existing_page_names: Optional[dict[str, list[str]]] = None,
 ) -> None:
     """Update an existing concept page with information from a new digest.
 
@@ -211,9 +241,19 @@ def update_concept_page(
         digest_title: Title of the new paper digest.
         digest_content: Content of the new digest.
         llm_fn: Callable that takes a prompt and returns LLM output.
+        existing_page_names: Dict with keys 'concepts', 'names', 'digests',
+            each a list of existing page titles for wikilink context.
     """
     existing = concept_path.read_text(encoding="utf-8")
     today = datetime.now().strftime("%Y-%m-%d")
+
+    pages_ctx = _format_existing_pages(existing_page_names)
+    existing_pages_note = (
+        "\n\n## Existing Wiki Pages (use these exact names for wikilinks)\n\n"
+        f"Concepts: {pages_ctx['existing_concepts']}\n"
+        f"Names: {pages_ctx['existing_names']}\n"
+        f"Digests: {pages_ctx['existing_digests']}\n"
+    )
 
     prompt = (
         "You are updating a concept page in a knowledge wiki. "
@@ -223,6 +263,7 @@ def update_concept_page(
         f"{existing}\n\n"
         "## New Paper Digest\n\n"
         f"{digest_content}\n\n"
+        f"{existing_pages_note}\n"
         "## Instructions\n\n"
         "Update the concept page to incorporate insights from the new paper. "
         "Specifically:\n"
@@ -234,6 +275,8 @@ def update_concept_page(
         f"6. Update date-updated to {today} in the frontmatter\n"
         f'7. Add `"[[{digest_title}]]"` to source-digests in frontmatter\n'
         "\n"
+        "When adding wikilinks, use the EXACT names from the existing wiki "
+        "pages list above when relevant. Do not invent alternate forms.\n\n"
         "Return the COMPLETE updated concept page including frontmatter. "
         "Preserve the existing structure and content — only add/modify "
         "what the new paper warrants."
