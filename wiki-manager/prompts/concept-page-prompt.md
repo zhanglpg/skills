@@ -68,3 +68,15 @@ Do NOT wrap your response in code fences (no ```markdown or ```yaml markers). Ou
 - Open Questions should reflect genuine unresolved issues, not filler
 - Related Concepts should link to concepts that would plausibly have their own pages
 - Concept pages should cover well-known, field-level concepts (e.g. "Attention", "Transformer", "Residual Connection") — not paper-specific jargon or niche sub-variants. If this concept name would not appear as a topic in a textbook or survey paper, the page probably should not exist.
+- When linking to an existing wiki page, use the EXACT name listed below. Do not invent alternate forms.
+
+### Existing Wiki Pages (prefer these exact names for wikilinks when relevant)
+
+#### Concepts
+{existing_concepts}
+
+#### Names
+{existing_names}
+
+#### Digests
+{existing_digests}

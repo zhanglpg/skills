@@ -65,6 +65,26 @@ class TestCheckBrokenLinks(unittest.TestCase):
         self.assertEqual(len(issues), 1)
         self.assertIn("Nonexistent", issues[0].message)
 
+    def test_broken_with_suggested_fix(self):
+        content = {
+            Path("gen-notes/digests/A.md"): "Links to [[transformer architecture]].",
+        }
+        alias_map = {"transformerarchitecture": "Transformer"}
+        issues = check_broken_links(content, {"A", "Transformer"}, {"A", "Transformer"}, alias_map=alias_map)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].suggested_fix, "Transformer")
+        self.assertIn("did you mean", issues[0].message)
+
+    def test_broken_without_alias_no_suggested_fix(self):
+        content = {
+            Path("gen-notes/digests/A.md"): "Links to [[Unknown Thing]].",
+        }
+        alias_map = {"transformer": "Transformer"}
+        issues = check_broken_links(content, {"A"}, {"A"}, alias_map=alias_map)
+        self.assertEqual(len(issues), 1)
+        self.assertIsNone(issues[0].suggested_fix)
+        self.assertNotIn("did you mean", issues[0].message)
+
 
 class TestCheckStaleConcepts(unittest.TestCase):
     def test_fresh_concept(self):

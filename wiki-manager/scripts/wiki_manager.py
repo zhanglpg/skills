@@ -6,13 +6,17 @@ Usage:
     python3 scripts/wiki_manager.py ingest <digest_path>
     python3 scripts/wiki_manager.py index
     python3 scripts/wiki_manager.py lint
+    python3 scripts/wiki_manager.py fix-links scan
+    python3 scripts/wiki_manager.py fix-links apply '{"old": "new"}'
     python3 scripts/wiki_manager.py compile
     python3 scripts/wiki_manager.py concepts
 
 Commands:
     ingest <path>   Ingest a digest into the wiki (extract concepts, update index/log)
     index           Rebuild index.md from all vault pages
-    lint            Run vault health checks
+    lint            Run vault health checks (auto-fixes resolvable broken links)
+    fix-links scan  Scan broken wikilinks (JSON output for agent)
+    fix-links apply Batch-replace wikilinks from agent-provided JSON mapping
     compile         Run LLM-powered AI compile
     concepts        List all concept pages
 """
@@ -51,6 +55,7 @@ from name_manager import (
 )
 from lint_checker import run_full_lint, format_lint_report
 from compile_checker import run_compile, format_compile_report
+from link_fixer import scan_broken_links, apply_link_fixes
 
 
 # ---------------------------------------------------------------------------
@@ -141,17 +146,25 @@ def cmd_ingest(args, config: dict, logger) -> None:
         )
         logger.info(f"Extracted concepts via LLM: {concepts}")
 
+    # 3.5 Build existing page names for wikilink context
+    all_pages = scan_vault(vault_root, gen_notes_dir)
+    existing_page_names = {
+        "concepts": [p.title for p in all_pages if p.page_type == "concept"],
+        "names": [p.title for p in all_pages if p.page_type == "name"],
+        "digests": [p.title for p in all_pages if p.page_type == "digest"],
+    }
+
     # 4. Create or update concept pages
     touched_pages: list[str] = []
     for concept_name in concepts:
         existing_path = find_concept_page(concept_name, concept_dir)
         if existing_path:
             logger.info(f"  Updating concept: {concept_name}")
-            update_concept_page(existing_path, digest_title, digest_content, llm_fn)
+            update_concept_page(existing_path, digest_title, digest_content, llm_fn, existing_page_names)
             touched_pages.append(f"Updated concept: [[{concept_name}]]")
         else:
             logger.info(f"  Creating concept: {concept_name}")
-            create_concept_page(concept_name, digest_content, concept_dir, llm_fn)
+            create_concept_page(concept_name, digest_content, concept_dir, llm_fn, existing_page_names)
             touched_pages.append(f"Created concept: [[{concept_name}]]")
 
     # 5. Get names — prefer frontmatter, fall back to LLM extraction
@@ -176,11 +189,11 @@ def cmd_ingest(args, config: dict, logger) -> None:
         existing_path = find_name_page(name, names_dir)
         if existing_path:
             logger.info(f"  Updating name: {name}")
-            update_name_page(existing_path, digest_title, digest_content, llm_fn)
+            update_name_page(existing_path, digest_title, digest_content, llm_fn, existing_page_names)
             touched_pages.append(f"Updated name: [[{name}]]")
         else:
             logger.info(f"  Creating name: {name}")
-            create_name_page(name, digest_content, names_dir, llm_fn)
+            create_name_page(name, digest_content, names_dir, llm_fn, existing_page_names)
             touched_pages.append(f"Created name: [[{name}]]")
 
     # 7. Update index
@@ -255,6 +268,54 @@ def cmd_lint(args, config: dict, logger) -> None:
 
     print(report)
     print(f"\n✓ Report saved: {report_path}")
+
+
+def cmd_fix_links(args, config: dict, logger) -> None:
+    """Scan or apply broken wikilink fixes.
+
+    Subcommands:
+      fix-links scan          — print JSON report of broken links + existing pages
+      fix-links apply <json>  — batch-replace wikilinks from a JSON mapping
+    """
+    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
+    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
+    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+
+    sub = getattr(args, "fix_sub", None)
+
+    if sub == "scan":
+        import json as _json
+        result = scan_broken_links(vault_root, gen_notes_dir)
+        print(_json.dumps(result, indent=2))
+
+    elif sub == "apply":
+        import json as _json
+        try:
+            fixes = _json.loads(args.mapping)
+        except _json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        dry_run = getattr(args, "dry_run", False)
+        result = apply_link_fixes(vault_root, gen_notes_dir, fixes, dry_run=dry_run)
+
+        if result["applied"]:
+            verb = "Would replace" if dry_run else "Replaced"
+            for file_path, old, new in result["applied"]:
+                print(f"  {verb}: {file_path}: [[{old}]] → [[{new}]]")
+            print(f"\n{'Would modify' if dry_run else 'Modified'} {result['files_modified']} files")
+
+            if not dry_run:
+                append_log(
+                    log_path,
+                    event_type="fix-links",
+                    title=f"Fixed {len(result['applied'])} broken wikilinks",
+                )
+        else:
+            print("No replacements applied.")
+    else:
+        print("Usage: wiki_manager.py fix-links {scan|apply <json>}")
+        sys.exit(1)
 
 
 def cmd_compile(args, config: dict, logger) -> None:
@@ -337,6 +398,14 @@ def main() -> None:
     # lint
     sub.add_parser("lint", help="Run vault health checks")
 
+    # fix-links (with scan/apply subcommands)
+    p_fix = sub.add_parser("fix-links", help="Scan or apply broken wikilink fixes")
+    fix_sub = p_fix.add_subparsers(dest="fix_sub")
+    fix_sub.add_parser("scan", help="Report broken links and existing pages (JSON)")
+    p_apply = fix_sub.add_parser("apply", help="Batch-replace wikilinks from JSON mapping")
+    p_apply.add_argument("mapping", help='JSON string: {"old_target": "new_target", ...}')
+    p_apply.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
+
     # compile
     sub.add_parser("compile", help="Run LLM-powered AI compile")
 
@@ -359,6 +428,7 @@ def main() -> None:
         "ingest": cmd_ingest,
         "index": cmd_index,
         "lint": cmd_lint,
+        "fix-links": cmd_fix_links,
         "compile": cmd_compile,
         "concepts": cmd_concepts,
         "names": cmd_names,

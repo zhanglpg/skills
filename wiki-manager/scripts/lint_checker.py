@@ -20,6 +20,7 @@ class LintIssue:
     check: str  # name of the check that found it
     page: str  # page path or title
     message: str
+    suggested_fix: Optional[str] = None  # canonical target for broken links
 
 
 # ---------------------------------------------------------------------------
@@ -78,20 +79,42 @@ def check_orphans(pages: list[PageInfo], all_content: dict[Path, str]) -> list[L
     return issues
 
 
-def check_broken_links(all_content: dict[Path, str], page_stems: set[str],
-                        page_titles: set[str]) -> list[LintIssue]:
-    """Find wikilinks that point to non-existent pages."""
+def check_broken_links(
+    all_content: dict[Path, str],
+    page_stems: set[str],
+    page_titles: set[str],
+    alias_map: Optional[dict[str, str]] = None,
+) -> list[LintIssue]:
+    """Find wikilinks that point to non-existent pages.
+
+    When *alias_map* is provided, resolvable broken links include an
+    alias hint in ``suggested_fix`` for informational purposes.
+    """
+    from concept_manager import _normalize_name
+
     issues = []
     for path, content in all_content.items():
         for link in _extract_wikilinks(content):
             link_clean = link.strip()
-            if link_clean not in page_stems and link_clean not in page_titles:
-                issues.append(LintIssue(
-                    severity="warning",
-                    check="broken-links",
-                    page=str(path),
-                    message=f"Broken wikilink [[{link_clean}]]",
-                ))
+            if link_clean in page_stems or link_clean in page_titles:
+                continue
+
+            hint = None
+            if alias_map:
+                hint = alias_map.get(_normalize_name(link_clean))
+
+            issues.append(LintIssue(
+                severity="warning",
+                check="broken-links",
+                page=str(path),
+                message=(
+                    f"Broken wikilink [[{link_clean}]] → did you mean [[{hint}]]?"
+                    if hint else
+                    f"Broken wikilink [[{link_clean}]]"
+                ),
+                suggested_fix=hint,
+            ))
+
     return issues
 
 
@@ -246,6 +269,8 @@ def run_full_lint(
     min_concept_mentions: int = 3,
 ) -> list[LintIssue]:
     """Run all lint checks and return a list of issues."""
+    from link_fixer import build_vault_alias_map
+
     root = Path(os.path.expanduser(vault_root))
     pages = scan_vault(vault_root, gen_notes_dir)
     all_content = _read_all_pages(root, gen_notes_dir)
@@ -254,9 +279,13 @@ def run_full_lint(
     page_titles = {p.title for p in pages}
     concept_stems = {p.path.stem for p in pages if p.page_type == "concept"}
 
+    alias_map, _ambiguous = build_vault_alias_map(vault_root, gen_notes_dir)
+
     issues: list[LintIssue] = []
     issues.extend(check_orphans(pages, all_content))
-    issues.extend(check_broken_links(all_content, page_stems, page_titles))
+    issues.extend(check_broken_links(
+        all_content, page_stems, page_titles, alias_map=alias_map,
+    ))
     issues.extend(check_stale_concepts(pages, max_stale_days))
     issues.extend(check_missing_concepts(pages, all_content, concept_stems, min_concept_mentions))
     issues.extend(check_frontmatter(pages))
