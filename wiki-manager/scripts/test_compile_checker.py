@@ -145,11 +145,11 @@ class TestBuildBatchPrompt(unittest.TestCase):
 class TestBuildGapPrompt(unittest.TestCase):
     def test_compact_summary_format(self):
         pages = [
-            _make_page("T", title="Transformer", ptype="entity",
+            _make_page("T", title="Transformer", ptype="concept",
                        tags=["ml", "attention"], summary="Core architecture"),
         ]
         result = build_gap_prompt(pages, "{wiki_summary}", "schema here")
-        self.assertIn("Transformer (entity) [ml, attention]", result)
+        self.assertIn("Transformer (concept) [ml, attention]", result)
         self.assertIn("Core architecture", result)
 
     def test_schema_injection(self):
