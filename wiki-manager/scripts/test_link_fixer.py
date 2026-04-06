@@ -10,9 +10,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from link_fixer import (
     build_vault_alias_map,
-    resolve_broken_link,
-    fix_links_in_file,
-    fix_all_links,
+    scan_broken_links,
+    apply_link_fixes,
 )
 
 
@@ -74,95 +73,7 @@ class TestBuildVaultAliasMap(unittest.TestCase):
         self.assertNotIn("bert", alias_map)
 
 
-class TestResolveBrokenLink(unittest.TestCase):
-    def test_exact_match(self):
-        alias_map = {"transformer": "Transformer"}
-        self.assertEqual(resolve_broken_link("transformer", alias_map), "Transformer")
-
-    def test_normalized_match(self):
-        alias_map = {"reinforcementlearningfromhumanfeedback": "RLHF"}
-        result = resolve_broken_link("Reinforcement Learning from Human Feedback", alias_map)
-        self.assertEqual(result, "RLHF")
-
-    def test_no_match(self):
-        alias_map = {"transformer": "Transformer"}
-        self.assertIsNone(resolve_broken_link("Nonexistent Concept", alias_map))
-
-
-class TestFixLinksInFile(unittest.TestCase):
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        import shutil
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-
-    def test_fixes_broken_link(self):
-        file_path = Path(self.tmpdir) / "test.md"
-        content = "Discusses [[transformer architecture]] in detail."
-        file_path.write_text(content, encoding="utf-8")
-
-        alias_map = {"transformerarchitecture": "Transformer"}
-        page_stems = {"Transformer"}
-        page_titles = {"Transformer"}
-
-        new_content, replacements = fix_links_in_file(
-            file_path, content, alias_map, page_stems, page_titles
-        )
-        self.assertEqual(len(replacements), 1)
-        self.assertEqual(replacements[0], ("transformer architecture", "Transformer"))
-        self.assertIn("[[Transformer]]", new_content)
-        # File should be rewritten
-        self.assertIn("[[Transformer]]", file_path.read_text(encoding="utf-8"))
-
-    def test_preserves_display_text(self):
-        file_path = Path(self.tmpdir) / "test.md"
-        content = "See [[transformer architecture|the architecture]]."
-        file_path.write_text(content, encoding="utf-8")
-
-        alias_map = {"transformerarchitecture": "Transformer"}
-        page_stems = {"Transformer"}
-        page_titles = {"Transformer"}
-
-        new_content, replacements = fix_links_in_file(
-            file_path, content, alias_map, page_stems, page_titles
-        )
-        self.assertEqual(len(replacements), 1)
-        self.assertIn("[[Transformer|the architecture]]", new_content)
-
-    def test_skips_valid_links(self):
-        file_path = Path(self.tmpdir) / "test.md"
-        content = "Links to [[Transformer]] and [[BERT]]."
-        file_path.write_text(content, encoding="utf-8")
-
-        alias_map = {"transformer": "Transformer"}
-        page_stems = {"Transformer", "BERT"}
-        page_titles = {"Transformer", "BERT"}
-
-        new_content, replacements = fix_links_in_file(
-            file_path, content, alias_map, page_stems, page_titles
-        )
-        self.assertEqual(len(replacements), 0)
-        self.assertEqual(new_content, content)
-
-    def test_dry_run(self):
-        file_path = Path(self.tmpdir) / "test.md"
-        original = "Discusses [[transformer architecture]]."
-        file_path.write_text(original, encoding="utf-8")
-
-        alias_map = {"transformerarchitecture": "Transformer"}
-        page_stems = {"Transformer"}
-        page_titles = {"Transformer"}
-
-        new_content, replacements = fix_links_in_file(
-            file_path, original, alias_map, page_stems, page_titles, dry_run=True
-        )
-        self.assertEqual(len(replacements), 1)
-        # File should NOT be rewritten
-        self.assertEqual(file_path.read_text(encoding="utf-8"), original)
-
-
-class TestFixAllLinks(unittest.TestCase):
+class TestScanBrokenLinks(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.gen = Path(self.tmpdir) / "gen-notes"
@@ -171,45 +82,175 @@ class TestFixAllLinks(unittest.TestCase):
         import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_end_to_end(self):
-        # Create a concept page with an alias
+    def test_finds_broken_links_with_hints(self):
         _create_page(self.gen / "concepts", "Transformer.md", (
             '---\ntitle: "Transformer"\ntype: concept\n'
             'aliases:\n  - "Transformer Architecture"\n---\n\nBody'
         ))
-        # Create a digest that references it by alias
         _create_page(self.gen / "digests", "Paper.md", (
             '---\ntitle: "Paper"\ntype: digest\ntags:\n  - ml\n---\n\n'
             'Discusses [[Transformer Architecture]] and [[Nonexistent]].'
         ))
 
-        result = fix_all_links(self.tmpdir)
-        self.assertEqual(len(result["fixed"]), 1)
-        self.assertEqual(result["fixed"][0][1], "Transformer Architecture")
-        self.assertEqual(result["fixed"][0][2], "Transformer")
-        self.assertEqual(len(result["unresolved"]), 1)
-        self.assertIn("Nonexistent", result["unresolved"][0][1])
+        result = scan_broken_links(self.tmpdir)
+        broken = result["broken_links"]
+        self.assertEqual(len(broken), 2)  # both broken: alias hint ≠ auto-fix
+        broken_links_map = {b["link"]: b for b in broken}
+        self.assertIn("Transformer Architecture", broken_links_map)
+        self.assertEqual(broken_links_map["Transformer Architecture"]["alias_hint"], "Transformer")
+        self.assertIn("Nonexistent", broken_links_map)
+        self.assertIsNone(broken_links_map["Nonexistent"]["alias_hint"])
 
-        # Verify the file was rewritten
-        digest = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
-        self.assertIn("[[Transformer]]", digest)
-        self.assertIn("[[Nonexistent]]", digest)
-
-    def test_dry_run(self):
+    def test_existing_pages_include_aliases(self):
         _create_page(self.gen / "concepts", "Transformer.md", (
-            '---\ntitle: "Transformer"\ntype: concept\n---\n\nBody'
+            '---\ntitle: "Transformer"\ntype: concept\n'
+            'aliases:\n  - "Transformer Architecture"\n---\n\nBody'
+        ))
+
+        result = scan_broken_links(self.tmpdir)
+        pages = result["existing_pages"]
+        self.assertEqual(len(pages), 1)
+        self.assertEqual(pages[0]["stem"], "Transformer")
+        self.assertIn("Transformer Architecture", pages[0]["aliases"])
+
+    def test_reports_total_files(self):
+        _create_page(self.gen / "digests", "A.md", (
+            '---\ntitle: "A"\ntype: digest\ntags:\n  - ml\n---\n\nBody'
+        ))
+        _create_page(self.gen / "digests", "B.md", (
+            '---\ntitle: "B"\ntype: digest\ntags:\n  - ml\n---\n\nBody'
+        ))
+        result = scan_broken_links(self.tmpdir)
+        self.assertEqual(result["total_files"], 2)
+
+
+class TestApplyLinkFixes(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.gen = Path(self.tmpdir) / "gen-notes"
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_replaces_broken_link(self):
+        _create_page(self.gen / "digests", "Paper.md", (
+            '---\ntitle: "Paper"\ntype: digest\ntags:\n  - ml\n---\n\n'
+            'Discusses [[Transformer Architecture]] in detail.'
+        ))
+
+        fixes = {"Transformer Architecture": "Transformer"}
+        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes)
+
+        self.assertEqual(len(result["applied"]), 1)
+        self.assertEqual(result["files_modified"], 1)
+
+        content = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
+        self.assertIn("[[Transformer]]", content)
+        self.assertNotIn("[[Transformer Architecture]]", content)
+
+    def test_preserves_display_text(self):
+        _create_page(self.gen / "digests", "Paper.md", (
+            '---\ntitle: "Paper"\ntype: digest\ntags:\n  - ml\n---\n\n'
+            'See [[Transformer Architecture|the architecture]].'
+        ))
+
+        fixes = {"Transformer Architecture": "Transformer"}
+        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes)
+
+        content = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
+        self.assertIn("[[Transformer|the architecture]]", content)
+
+    def test_dry_run_does_not_write(self):
+        _create_page(self.gen / "digests", "Paper.md", (
+            '---\ntitle: "Paper"\ntype: digest\ntags:\n  - ml\n---\n\n'
+            'Discusses [[Transformer Architecture]].'
+        ))
+
+        fixes = {"Transformer Architecture": "Transformer"}
+        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes, dry_run=True)
+
+        self.assertEqual(len(result["applied"]), 1)
+        # File should NOT be modified
+        content = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
+        self.assertIn("[[Transformer Architecture]]", content)
+
+    def test_multiple_fixes_across_files(self):
+        _create_page(self.gen / "digests", "A.md", (
+            '---\ntitle: "A"\ntype: digest\ntags:\n  - ml\n---\n\n'
+            'Uses [[Geoff Hinton]] and [[transformer model]].'
+        ))
+        _create_page(self.gen / "digests", "B.md", (
+            '---\ntitle: "B"\ntype: digest\ntags:\n  - ml\n---\n\n'
+            'Also [[Geoff Hinton]].'
+        ))
+
+        fixes = {
+            "Geoff Hinton": "Geoffrey Hinton",
+            "transformer model": "Transformer",
+        }
+        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes)
+
+        self.assertEqual(result["files_modified"], 2)
+        a = (self.gen / "digests" / "A.md").read_text(encoding="utf-8")
+        b = (self.gen / "digests" / "B.md").read_text(encoding="utf-8")
+        self.assertIn("[[Geoffrey Hinton]]", a)
+        self.assertIn("[[Transformer]]", a)
+        self.assertIn("[[Geoffrey Hinton]]", b)
+
+    def test_no_match_no_change(self):
+        _create_page(self.gen / "digests", "Paper.md", (
+            '---\ntitle: "Paper"\ntype: digest\ntags:\n  - ml\n---\n\n'
+            'Links to [[Transformer]].'
+        ))
+
+        fixes = {"Nonexistent": "Something"}
+        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes)
+
+        self.assertEqual(len(result["applied"]), 0)
+        self.assertEqual(result["files_modified"], 0)
+
+
+class TestEndToEnd(unittest.TestCase):
+    """Test the full scan → apply workflow."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.gen = Path(self.tmpdir) / "gen-notes"
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_scan_then_apply(self):
+        _create_page(self.gen / "concepts", "Transformer.md", (
+            '---\ntitle: "Transformer"\ntype: concept\n'
+            'aliases:\n  - "Transformer Architecture"\n---\n\nBody'
         ))
         _create_page(self.gen / "digests", "Paper.md", (
             '---\ntitle: "Paper"\ntype: digest\ntags:\n  - ml\n---\n\n'
-            'Discusses [[transformer]].'
+            'Discusses [[Transformer Architecture]] and [[Nonexistent]].'
         ))
 
-        result = fix_all_links(self.tmpdir, dry_run=True)
-        self.assertEqual(len(result["fixed"]), 1)
+        # Step 1: Scan
+        scan = scan_broken_links(self.tmpdir)
+        self.assertEqual(len(scan["broken_links"]), 2)
 
-        # File should NOT be rewritten
-        digest = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
-        self.assertIn("[[transformer]]", digest)
+        # Step 2: Build fix mapping from alias hints (simulating agent decision)
+        fixes = {}
+        for bl in scan["broken_links"]:
+            if bl["alias_hint"]:
+                fixes[bl["link"]] = bl["alias_hint"]
+        self.assertEqual(fixes, {"Transformer Architecture": "Transformer"})
+
+        # Step 3: Apply
+        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes)
+        self.assertEqual(len(result["applied"]), 1)
+
+        # Verify
+        content = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
+        self.assertIn("[[Transformer]]", content)
+        self.assertIn("[[Nonexistent]]", content)  # still broken, no fix provided
 
 
 if __name__ == "__main__":

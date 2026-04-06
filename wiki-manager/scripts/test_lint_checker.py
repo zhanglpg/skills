@@ -75,33 +75,15 @@ class TestCheckBrokenLinks(unittest.TestCase):
         self.assertEqual(issues[0].suggested_fix, "Transformer")
         self.assertIn("did you mean", issues[0].message)
 
-    def test_broken_with_auto_fix(self):
-        import tempfile
-        import shutil
-
-        tmpdir = tempfile.mkdtemp()
-        try:
-            gen = Path(tmpdir) / "gen-notes" / "digests"
-            gen.mkdir(parents=True)
-            (gen / "A.md").write_text("Links to [[transformer architecture]].", encoding="utf-8")
-
-            content = {
-                Path("gen-notes/digests/A.md"): "Links to [[transformer architecture]].",
-            }
-            alias_map = {"transformerarchitecture": "Transformer"}
-            issues = check_broken_links(
-                content, {"A", "Transformer"}, {"A", "Transformer"},
-                alias_map=alias_map, auto_fix=True, vault_root=Path(tmpdir),
-            )
-            self.assertEqual(len(issues), 1)
-            self.assertEqual(issues[0].severity, "info")
-            self.assertIn("Auto-fixed", issues[0].message)
-
-            # Verify file was rewritten
-            fixed = (gen / "A.md").read_text(encoding="utf-8")
-            self.assertIn("[[Transformer]]", fixed)
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+    def test_broken_without_alias_no_suggested_fix(self):
+        content = {
+            Path("gen-notes/digests/A.md"): "Links to [[Unknown Thing]].",
+        }
+        alias_map = {"transformer": "Transformer"}
+        issues = check_broken_links(content, {"A"}, {"A"}, alias_map=alias_map)
+        self.assertEqual(len(issues), 1)
+        self.assertIsNone(issues[0].suggested_fix)
+        self.assertNotIn("did you mean", issues[0].message)
 
 
 class TestCheckStaleConcepts(unittest.TestCase):

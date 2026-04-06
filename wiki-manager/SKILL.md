@@ -12,6 +12,7 @@ Maintain a living knowledge wiki in the Obsidian vault. This skill transforms is
 - **After digesting a paper** — run `ingest` to extract concepts and names, create/update their pages, update the index, and log the event
 - **To rebuild the index** — run `index` to regenerate `index.md` from all vault pages
 - **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale concepts, missing concepts
+- **To fix broken wikilinks** — run the `fix-links` workflow (see below) to resolve broken `[[wikilinks]]` across the vault
 - **To run AI compile** — run `compile` for LLM-powered analysis: contradictions between pages, stale claims, missing cross-references, concept gaps, data gaps, and research questions
 - **To view the log** — read `gen-notes/log.md` for a chronological record of all wiki activity
 
@@ -35,6 +36,56 @@ python3 scripts/wiki_manager.py concepts
 
 # List all name pages
 python3 scripts/wiki_manager.py names
+
+# Fix broken wikilinks (scan, then apply — see workflow below)
+python3 scripts/wiki_manager.py fix-links scan
+python3 scripts/wiki_manager.py fix-links apply '{"old link": "correct page"}'
+```
+
+## Fixing Broken Wikilinks
+
+Generated pages often contain broken `[[wikilinks]]` — references to pages that don't exist or use a different name. The `fix-links` workflow lets you resolve these in batch.
+
+### Workflow
+
+**Step 1: Scan** — Get a JSON report of all broken links and existing pages.
+
+```bash
+python3 scripts/wiki_manager.py fix-links scan
+```
+
+Output includes:
+- `existing_pages` — every page in the vault with its stem, title, type, and aliases
+- `broken_links` — every broken wikilink with the file it appears in and an `alias_hint` (a deterministic guess based on alias matching, or `null` if no match)
+
+**Step 2: Decide resolutions** — Review the broken links and the existing pages list. For each broken link, decide:
+- Does an existing page match? Use the page's **stem** (filename without `.md`) as the replacement target.
+- The `alias_hint` field provides a deterministic suggestion when the broken link matches an alias. Accept it if correct, override if not.
+- If no existing page matches, leave it unresolved (don't include it in the apply mapping).
+
+Build a JSON mapping: `{"broken link text": "correct page stem", ...}`
+
+**Step 3: Apply** — Batch-replace all resolved links.
+
+```bash
+python3 scripts/wiki_manager.py fix-links apply '{"Transformer Architecture": "Transformer", "Geoff Hinton": "Geoffrey Hinton"}'
+```
+
+This rewrites all occurrences of `[[old target]]` to `[[new target]]` across every file in the vault, preserving any display text (`[[old|display]]` becomes `[[new|display]]`).
+
+Use `--dry-run` to preview changes without writing files.
+
+### When to run fix-links
+
+- **After `ingest`** — newly created pages may resolve previously-broken links, and LLM-generated pages may introduce new broken links
+- **After `lint`** reports broken-links warnings — use the lint report to identify what needs fixing, then run fix-links to resolve
+- **Periodically** — as the vault grows, more broken links become resolvable
+
+The `link_fixer.py` script can also be called directly for the same scan/apply workflow:
+
+```bash
+python3 scripts/link_fixer.py scan
+python3 scripts/link_fixer.py apply '{"old": "new"}'
 ```
 
 ## Agent Workflow
@@ -85,6 +136,8 @@ gen-notes/
 | `ingest <path>` | Ingest a digest into the wiki (extract concepts and names, update index/log) |
 | `index` | Rebuild `index.md` from all vault pages |
 | `lint` | Run vault health checks |
+| `fix-links scan` | Scan broken wikilinks — JSON report of broken links + existing pages |
+| `fix-links apply <json>` | Batch-replace wikilinks from a JSON mapping |
 | `compile` | Run LLM-powered AI compile (contradictions, stale claims, gaps, cross-refs) |
 | `concepts` | List all concept pages |
 | `names` | List all name pages |
@@ -110,6 +163,7 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | `scripts/concept_manager.py` | Concept page CRUD |
 | `scripts/name_manager.py` | Name page CRUD |
 | `scripts/lint_checker.py` | Vault health checks |
+| `scripts/link_fixer.py` | Broken wikilink scan + batch-apply |
 | `scripts/compile_checker.py` | LLM-powered AI compile |
 | `prompts/concept-page-prompt.md` | Concept page LLM template |
 | `prompts/compile-cross-page-prompt.md` | Cross-page analysis LLM template |

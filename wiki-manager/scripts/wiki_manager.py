@@ -6,7 +6,8 @@ Usage:
     python3 scripts/wiki_manager.py ingest <digest_path>
     python3 scripts/wiki_manager.py index
     python3 scripts/wiki_manager.py lint
-    python3 scripts/wiki_manager.py fix-links [--dry-run]
+    python3 scripts/wiki_manager.py fix-links scan
+    python3 scripts/wiki_manager.py fix-links apply '{"old": "new"}'
     python3 scripts/wiki_manager.py compile
     python3 scripts/wiki_manager.py concepts
 
@@ -14,7 +15,8 @@ Commands:
     ingest <path>   Ingest a digest into the wiki (extract concepts, update index/log)
     index           Rebuild index.md from all vault pages
     lint            Run vault health checks (auto-fixes resolvable broken links)
-    fix-links       Resolve broken wikilinks via alias matching
+    fix-links scan  Scan broken wikilinks (JSON output for agent)
+    fix-links apply Batch-replace wikilinks from agent-provided JSON mapping
     compile         Run LLM-powered AI compile
     concepts        List all concept pages
 """
@@ -53,7 +55,7 @@ from name_manager import (
 )
 from lint_checker import run_full_lint, format_lint_report
 from compile_checker import run_compile, format_compile_report
-from link_fixer import fix_all_links
+from link_fixer import scan_broken_links, apply_link_fixes
 
 
 # ---------------------------------------------------------------------------
@@ -194,13 +196,6 @@ def cmd_ingest(args, config: dict, logger) -> None:
             create_name_page(name, digest_content, names_dir, llm_fn, existing_page_names)
             touched_pages.append(f"Created name: [[{name}]]")
 
-    # 6.5 Fix broken wikilinks across vault
-    fix_result = fix_all_links(vault_root, gen_notes_dir)
-    if fix_result["fixed"]:
-        n_fixed = len(fix_result["fixed"])
-        logger.info(f"  Fixed {n_fixed} broken wikilinks")
-        touched_pages.append(f"Fixed {n_fixed} broken wikilinks")
-
     # 7. Update index
     index_path = update_index(vault_root, gen_notes_dir, concept_dir_rel, names_dir_rel)
     touched_pages.append(f"Updated index: {index_path.name}")
@@ -252,7 +247,7 @@ def cmd_lint(args, config: dict, logger) -> None:
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
 
-    issues = run_full_lint(vault_root, gen_notes_dir, auto_fix=True)
+    issues = run_full_lint(vault_root, gen_notes_dir)
     report = format_lint_report(issues)
 
     # Write report
@@ -276,41 +271,51 @@ def cmd_lint(args, config: dict, logger) -> None:
 
 
 def cmd_fix_links(args, config: dict, logger) -> None:
-    """Resolve broken wikilinks using vault-wide alias matching."""
+    """Scan or apply broken wikilink fixes.
+
+    Subcommands:
+      fix-links scan          — print JSON report of broken links + existing pages
+      fix-links apply <json>  — batch-replace wikilinks from a JSON mapping
+    """
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
-    dry_run = getattr(args, "dry_run", False)
 
-    result = fix_all_links(vault_root, gen_notes_dir, dry_run=dry_run)
+    sub = getattr(args, "fix_sub", None)
 
-    n_fixed = len(result["fixed"])
-    n_unresolved = len(result["unresolved"])
+    if sub == "scan":
+        import json as _json
+        result = scan_broken_links(vault_root, gen_notes_dir)
+        print(_json.dumps(result, indent=2))
 
-    if result["fixed"]:
-        print(f"\n{'Would fix' if dry_run else 'Fixed'} {n_fixed} broken wikilinks:")
-        for file_path, old, new in result["fixed"]:
-            print(f"  {file_path}: [[{old}]] → [[{new}]]")
+    elif sub == "apply":
+        import json as _json
+        try:
+            fixes = _json.loads(args.mapping)
+        except _json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON: {e}", file=sys.stderr)
+            sys.exit(1)
 
-    if result["unresolved"]:
-        print(f"\n{n_unresolved} unresolved broken links remain:")
-        seen = set()
-        for file_path, link in result["unresolved"]:
-            if link not in seen:
-                seen.add(link)
-                print(f"  [[{link}]]")
+        dry_run = getattr(args, "dry_run", False)
+        result = apply_link_fixes(vault_root, gen_notes_dir, fixes, dry_run=dry_run)
 
-    if not result["fixed"] and not result["unresolved"]:
-        print("\nNo broken wikilinks found.")
+        if result["applied"]:
+            verb = "Would replace" if dry_run else "Replaced"
+            for file_path, old, new in result["applied"]:
+                print(f"  {verb}: {file_path}: [[{old}]] → [[{new}]]")
+            print(f"\n{'Would modify' if dry_run else 'Modified'} {result['files_modified']} files")
 
-    if not dry_run and result["fixed"]:
-        append_log(
-            log_path,
-            event_type="fix-links",
-            title=f"Fixed {n_fixed} broken wikilinks ({n_unresolved} unresolved remain)",
-        )
-
-    print(f"\n✓ Scanned {result['total_files']} files")
+            if not dry_run:
+                append_log(
+                    log_path,
+                    event_type="fix-links",
+                    title=f"Fixed {len(result['applied'])} broken wikilinks",
+                )
+        else:
+            print("No replacements applied.")
+    else:
+        print("Usage: wiki_manager.py fix-links {scan|apply <json>}")
+        sys.exit(1)
 
 
 def cmd_compile(args, config: dict, logger) -> None:
@@ -393,9 +398,13 @@ def main() -> None:
     # lint
     sub.add_parser("lint", help="Run vault health checks")
 
-    # fix-links
-    p_fix = sub.add_parser("fix-links", help="Resolve broken wikilinks")
-    p_fix.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
+    # fix-links (with scan/apply subcommands)
+    p_fix = sub.add_parser("fix-links", help="Scan or apply broken wikilink fixes")
+    fix_sub = p_fix.add_subparsers(dest="fix_sub")
+    fix_sub.add_parser("scan", help="Report broken links and existing pages (JSON)")
+    p_apply = fix_sub.add_parser("apply", help="Batch-replace wikilinks from JSON mapping")
+    p_apply.add_argument("mapping", help='JSON string: {"old_target": "new_target", ...}')
+    p_apply.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
 
     # compile
     sub.add_parser("compile", help="Run LLM-powered AI compile")
