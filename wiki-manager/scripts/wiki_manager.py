@@ -54,7 +54,7 @@ from name_manager import (
     list_names,
 )
 from lint_checker import run_full_lint, format_lint_report
-from compile_checker import run_compile, format_compile_report
+from compile_checker import run_compile, format_compile_report, build_page_batches, build_gap_prompt
 from link_fixer import scan_broken_links, apply_link_fixes
 
 
@@ -126,7 +126,7 @@ def cmd_ingest(args, config: dict, logger) -> None:
 
     logger.info(f"Ingesting: {digest_title}")
 
-    # 2. Set up LLM
+    # 2. Get concepts — prefer frontmatter
     llm_fn = _make_llm_fn(config, logger)
 
     # 3. Get concepts — prefer frontmatter, fall back to LLM extraction
@@ -146,28 +146,7 @@ def cmd_ingest(args, config: dict, logger) -> None:
         )
         logger.info(f"Extracted concepts via LLM: {concepts}")
 
-    # 3.5 Build existing page names for wikilink context
-    all_pages = scan_vault(vault_root, gen_notes_dir)
-    existing_page_names = {
-        "concepts": [p.title for p in all_pages if p.page_type == "concept"],
-        "names": [p.title for p in all_pages if p.page_type == "name"],
-        "digests": [p.title for p in all_pages if p.page_type == "digest"],
-    }
-
-    # 4. Create or update concept pages
-    touched_pages: list[str] = []
-    for concept_name in concepts:
-        existing_path = find_concept_page(concept_name, concept_dir)
-        if existing_path:
-            logger.info(f"  Updating concept: {concept_name}")
-            update_concept_page(existing_path, digest_title, digest_content, llm_fn, existing_page_names)
-            touched_pages.append(f"Updated concept: [[{concept_name}]]")
-        else:
-            logger.info(f"  Creating concept: {concept_name}")
-            create_concept_page(concept_name, digest_content, concept_dir, llm_fn, existing_page_names)
-            touched_pages.append(f"Created concept: [[{concept_name}]]")
-
-    # 5. Get names — prefer frontmatter, fall back to LLM extraction
+    # 3.5 Get names — prefer frontmatter, fall back to LLM extraction
     fm_names = fm.get("names", [])
     if isinstance(fm_names, str):
         fm_names = [fm_names]
@@ -184,7 +163,62 @@ def cmd_ingest(args, config: dict, logger) -> None:
         )
         logger.info(f"Extracted names via LLM: {name_list}")
 
-    # 6. Create or update name pages
+    # 3.6 Build existing page names for wikilink context
+    all_pages = scan_vault(vault_root, gen_notes_dir)
+    existing_page_names = {
+        "concepts": [p.title for p in all_pages if p.page_type == "concept"],
+        "names": [p.title for p in all_pages if p.page_type == "name"],
+        "digests": [p.title for p in all_pages if p.page_type == "digest"],
+    }
+
+    # --extract-only: output extracted data as JSON, skip LLM calls
+    if getattr(args, 'extract_only', False) is True:
+        concepts_info = []
+        for c in concepts:
+            existing_path = find_concept_page(c, concept_dir)
+            concepts_info.append({
+                "name": c,
+                "exists": existing_path is not None,
+                "path": str(existing_path) if existing_path else None,
+            })
+        names_info = []
+        for n in name_list:
+            existing_path = find_name_page(n, names_dir)
+            names_info.append({
+                "name": n,
+                "exists": existing_path is not None,
+                "path": str(existing_path) if existing_path else None,
+            })
+        extract_data = {
+            "digest_path": str(digest_path),
+            "digest_title": digest_title,
+            "digest_content": digest_content,
+            "concepts": concepts_info,
+            "names": names_info,
+            "existing_pages": existing_page_names,
+            "vault_root": vault_root,
+            "concept_dir": str(concept_dir),
+            "names_dir": str(names_dir),
+            "gen_notes_dir": gen_notes_dir,
+            "log_path": str(log_path),
+        }
+        print(json.dumps(extract_data, ensure_ascii=False))
+        return
+
+    # 4. Create or update concept pages
+    touched_pages: list[str] = []
+    for concept_name in concepts:
+        existing_path = find_concept_page(concept_name, concept_dir)
+        if existing_path:
+            logger.info(f"  Updating concept: {concept_name}")
+            update_concept_page(existing_path, digest_title, digest_content, llm_fn, existing_page_names)
+            touched_pages.append(f"Updated concept: [[{concept_name}]]")
+        else:
+            logger.info(f"  Creating concept: {concept_name}")
+            create_concept_page(concept_name, digest_content, concept_dir, llm_fn, existing_page_names)
+            touched_pages.append(f"Created concept: [[{concept_name}]]")
+
+    # 5. Create or update name pages
     for name in name_list:
         existing_path = find_name_page(name, names_dir)
         if existing_path:
@@ -324,6 +358,44 @@ def cmd_compile(args, config: dict, logger) -> None:
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
 
+    # --extract-only: output batched page data as JSON, skip LLM calls
+    if getattr(args, 'extract_only', False) is True:
+        from lint_checker import _read_all_pages
+        root = Path(vault_root)
+        pages = scan_vault(vault_root, gen_notes_dir)
+        all_content = _read_all_pages(root, gen_notes_dir)
+        batches = build_page_batches(pages, all_content)
+
+        # Build wiki summary for gap analysis
+        wiki_lines = []
+        for p in sorted(pages, key=lambda p: p.title.lower()):
+            tags_str = ", ".join(p.tags) if p.tags else "none"
+            summary = p.summary[:150] if p.summary else "(no summary)"
+            wiki_lines.append(f"- {p.title} ({p.page_type}) [{tags_str}] — {summary}")
+
+        # Serialize batches
+        batches_json = []
+        for batch in batches:
+            batches_json.append({
+                "label": batch["label"],
+                "page_count": len(batch["pages"]),
+                "pages": [
+                    {"title": p.title, "type": p.page_type,
+                     "tags": p.tags, "stem": p.path.stem}
+                    for p in batch["pages"]
+                ],
+                "contents": batch["contents"],
+            })
+
+        extract_data = {
+            "vault_root": vault_root,
+            "total_pages": len(pages),
+            "batches": batches_json,
+            "wiki_summary": "\n".join(wiki_lines),
+        }
+        print(json.dumps(extract_data, ensure_ascii=False))
+        return
+
     # Run deterministic lint first
     lint_issues = run_full_lint(vault_root, gen_notes_dir)
 
@@ -391,6 +463,8 @@ def main() -> None:
     # ingest
     p_ingest = sub.add_parser("ingest", help="Ingest a digest into the wiki")
     p_ingest.add_argument("digest_path", help="Path to the digest markdown file")
+    p_ingest.add_argument("--extract-only", action="store_true",
+                          help="Output extracted data as JSON (no LLM calls)")
 
     # index
     sub.add_parser("index", help="Rebuild index.md")
@@ -407,7 +481,9 @@ def main() -> None:
     p_apply.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
 
     # compile
-    sub.add_parser("compile", help="Run LLM-powered AI compile")
+    p_compile = sub.add_parser("compile", help="Run LLM-powered AI compile")
+    p_compile.add_argument("--extract-only", action="store_true",
+                           help="Output batched page data as JSON (no LLM calls)")
 
     # concepts
     sub.add_parser("concepts", help="List all concept pages")

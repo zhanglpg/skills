@@ -1,74 +1,76 @@
 ---
 name: digesting-papers
-description: "Digests and summarizes academic papers (PDF, URL, or arXiv ID). Produces a structured summary covering main contributions, key conclusions, relation to prior work, personalized highlights, and further reading recommendations. Use when asked for a paper summary, research digest, arXiv summary, or paper review."
+description: "Digests and summarizes academic papers (PDF, URL, or arXiv ID). Produces a structured summary covering main contributions, key conclusions, relation to prior work, personalized highlights, and further reading recommendations. Use when asked for a paper digest, research digest, arXiv summary, or detailed paper review with structured sections and metadata."
 ---
 
 # Paper Digest Skill
 
 Read and digest academic papers into structured summaries tailored to the reader's interests.
 
-## Quick Start
+## Workflow
+
+1. **Resolve & extract** — Use the helper script for PDF text extraction and HN comment fetching:
+
+   ```bash
+   python3 scripts/digest_paper.py <paper> --extract-only [--config config.json] [--concept_index <path>] [--name_index <path>]
+   ```
+
+   `<paper>` can be a local PDF path, URL, or bare arXiv ID (e.g. `2401.12345`).
+
+   This outputs JSON with: `title`, `source`, `output_dir`, `paper_text`, `user_context`, `hn_comments`, `known_concepts`, `known_names`.
+
+   **Alternative:** For web-accessible content, you can also use `web_fetch` (for HTML/blog posts) or the `pdf` tool directly instead of the script.
+
+2. **Generate the digest** — Read `prompts/digest-prompt.md` for the canonical format specification. Produce a structured summary with YAML frontmatter and these sections:
+   1. Main Idea & Contributions
+   2. Key Conclusions & Insights
+   3. Relation to Prior Work
+   4. Personalized Highlights (tailored to `user_context`)
+   5. Further Reading
+   6. Community Insights (Hacker News) — only if HN comments were found
+
+   **Frontmatter must include:** `title`, `authors`, `year`, `tags`, `categories` (always include `paper-digest`), `related`, `concepts` (up to 3 key concepts), `names` (up to 5 notable names).
+
+   See `prompts/digest-prompt.md` for detailed rules on concept/name extraction, abstraction level, and notability criteria.
+
+3. **Post-process frontmatter** — After generating the digest, add these auto-generated fields to the YAML frontmatter:
+   - `source: "<url or path from extract step>"`
+   - `digested: YYYY-MM-DD` (today's date)
+   - `status: digested`
+
+   These fields are in addition to the LLM-generated frontmatter (`title`, `authors`, `year`, `tags`, `categories`, `related`, `concepts`, `names`). Do NOT include `queue_id` in the frontmatter — that is added separately by paper-queue.
+
+4. **Save** — Write the digest as a Markdown file:
+   - Default directory: `~/paper-digests` (or `output_dir` from config/extract JSON)
+   - Filename: sanitized title (max 60 chars) + `.md`
+   - If a digest already exists at that path, ask before overwriting
+
+5. **Confirm** — Tell the user the note was saved, with a one-line headline of the paper's key contribution.
+
+## Output Format
+
+See `prompts/digest-prompt.md` for the full format specification. Key points:
+
+- Obsidian-compatible YAML frontmatter at the top
+- `[[wikilinks]]` for cross-references to vault concepts and names
+- Specific, cite-able results — no vague summaries
+- Use the `known_concepts` and `known_names` from the extract step to avoid creating duplicates
+
+## Fallback — Script + Gemini Pipeline
+
+If the agent cannot perform the digest (e.g. running headlessly), the full pipeline can be run via:
 
 ```bash
-# Digest from a local PDF
-python3 ~/.openclaw/workspace/skills/custom/paper-digest/scripts/digest_paper.py paper.pdf
-
-# Digest from a URL
-python3 scripts/digest_paper.py https://arxiv.org/abs/2401.12345
-
-# Digest from an arXiv ID
-python3 scripts/digest_paper.py 2401.12345
-
-# Save output to a specific directory
-python3 scripts/digest_paper.py paper.pdf --output_dir ~/digests
-
-# Re-digest a paper even if a digest already exists
-python3 scripts/digest_paper.py paper.pdf --force
+python3 scripts/digest_paper.py <paper> [--config config.json] [--output_dir ~/digests] [--force]
 ```
 
-## How It Works
-
-1. **Resolve Input** — Accepts a local PDF path, a URL (including arXiv abstract pages), or a bare arXiv ID
-2. **Extract Text** — Extracts text from PDFs using `PyMuPDF` (fitz); fetches arXiv PDFs automatically
-3. **Search Hacker News** — Searches HN Algolia API for discussion threads about the paper; fetches and formats insightful comments if found
-4. **Build Prompt** — Assembles the extracted text, HN comments (if any), and a structured prompt template
-5. **Summarize** — Passes content to Gemini CLI for structured analysis
-6. **Check Existing** — Skips if a digest already exists (use `--force` to re-digest)
-7. **Render Output** — Writes the digest as a Markdown file
-
-## Output Format — IMPORTANT
-
-**The default prompt template produces generic academic summaries.** For the Obsidian vault, the output should match the personalized digest style:
-
-- TL;DR upfront (1-2 sentences, direct conclusion)
-- Voice: Narrate with thinking. Clear opinions. 
-- Tables for structured comparisons
-- `[[wikilinks]]` connecting to vault notes
-- Key quotes extracted
-- "Worth thinking" section with personal perspective
-- Obsidian frontmatter at bottom (date, status, tags, categories, related)
-
-**To use the default academic format**, keep current prompt. **To match the personalized style**, update `prompts/digest-prompt.md` with instructions for the format above.
-
-## Output Sections (Default Template)
-
-Each digest includes five sections (defined in `prompts/digest-prompt.md`):
-
-1. **Main Idea & Contributions**
-2. **Key Conclusions & Insights**
-3. **Relation to Prior Work**
-4. **Personalized Highlights**
-5. **Further Reading**
-6. **Community Insights (Hacker News)** — included only when HN discussion is found
-
-See the prompt file for detailed section guidelines.
+This runs extraction, Gemini CLI summarization, and file output in one step. Requires `gemini` CLI (`brew install gemini-cli`).
 
 ## Dependencies
 
 | Tool | Purpose | Install |
 |------|---------|---------|
 | **Python 3** | Script runtime | Built-in on macOS/Linux |
-| **gemini** | LLM summarization | `brew install gemini-cli` |
 | **PyMuPDF** | PDF text extraction | `pip install PyMuPDF` |
 | **httpx** (optional) | HTTP fetching | `pip install httpx` |
 
@@ -76,72 +78,20 @@ If `httpx` is not installed, the script falls back to `urllib`.
 
 ## Configuration
 
-The skill can be personalized via a JSON config file:
-
-```bash
-python3 scripts/digest_paper.py paper.pdf --config config.json
-```
-
 ```json
 {
-  "user_context": "ML researcher working on LLM agents and code generation. Interested in training efficiency, tool use, and reasoning.",
+  "user_context": "ML researcher working on LLM agents and code generation.",
   "output_dir": "~/paper-digests",
   "gemini_timeout": 180,
-  "log_file": "~/.openclaw/logs/skills/paper-digest/digest.log"
+  "concept_index_path": "~/notes/gen-notes/concept_index.md",
+  "name_index_path": "~/notes/gen-notes/name_index.md"
 }
 ```
-
-**user_context** — A description of your background and interests. Used to generate the "Personalized Highlights" section. If omitted, this section gives general highlights instead.
-
-### `--force`
-
-By default, the script skips papers that already have a digest file in the output directory. Pass `--force` to re-digest and overwrite the existing file.
-
-## Output
-
-Digests are saved as Markdown files in the output directory. Each file has a metadata header (title, source, date) followed by the five sections above.
-
-## Testing
-
-```bash
-cd skills/paper-digest
-
-# Run unit tests
-python3 -m unittest scripts/test_digest_paper.py -v
-
-# Test with a real paper
-python3 scripts/digest_paper.py 2401.12345 --output_dir /tmp/
-```
-
-## Troubleshooting
-
-### PyMuPDF not installed
-```bash
-pip3 install PyMuPDF
-```
-
-### Gemini CLI timeout
-1. Check your internet connection
-2. Try running `gemini "test"` manually
-3. Increase timeout: `--gemini_timeout 300`
-
-### PDF text extraction fails
-- Some PDFs are image-based (scanned). PyMuPDF extracts text layers only.
-- Try converting with OCR first if the PDF is scanned.
-
-### arXiv download fails
-- Check your internet connection
-- Verify the arXiv ID is valid (e.g., `2401.12345`)
-- arXiv may rate-limit; wait and retry
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `scripts/digest_paper.py` | Main script — CLI entry point |
-| `scripts/test_digest_paper.py` | Unit tests |
-| `prompts/digest-prompt.md` | LLM prompt template (single source of truth for section structure) |
+| `scripts/digest_paper.py` | Extraction script (PDF, arXiv, HN) + Gemini fallback |
+| `prompts/digest-prompt.md` | Canonical format spec for digest output |
 | `SKILL.md` | This documentation |
-
----
-
