@@ -54,7 +54,7 @@ from name_manager import (
     list_names,
 )
 from lint_checker import run_full_lint, format_lint_report
-from compile_checker import run_compile, format_compile_report, build_page_batches, build_gap_prompt
+from compile_checker import format_compile_report, build_page_batches, parse_llm_findings
 from link_fixer import scan_broken_links, apply_link_fixes
 
 
@@ -353,13 +353,14 @@ def cmd_fix_links(args, config: dict, logger) -> None:
 
 
 def cmd_compile(args, config: dict, logger) -> None:
-    """Run LLM-powered AI compile."""
+    """Agent-powered wiki compile with extract/save-report subcommands."""
     vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
     gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
     log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
 
-    # --extract-only: output batched page data as JSON, skip LLM calls
-    if getattr(args, 'extract_only', False) is True:
+    sub = getattr(args, "compile_sub", None)
+
+    if sub == "extract":
         from lint_checker import _read_all_pages
         root = Path(vault_root)
         pages = scan_vault(vault_root, gen_notes_dir)
@@ -387,36 +388,48 @@ def cmd_compile(args, config: dict, logger) -> None:
                 "contents": batch["contents"],
             })
 
+        # Run deterministic lint
+        lint_issues = run_full_lint(vault_root, gen_notes_dir)
+        lint_json = [
+            {"severity": i.severity, "check": i.check,
+             "page": i.page, "message": i.message}
+            for i in lint_issues
+        ]
+
         extract_data = {
             "vault_root": vault_root,
             "total_pages": len(pages),
             "batches": batches_json,
             "wiki_summary": "\n".join(wiki_lines),
+            "lint_issues": lint_json,
         }
         print(json.dumps(extract_data, ensure_ascii=False))
-        return
 
-    # Run deterministic lint first
-    lint_issues = run_full_lint(vault_root, gen_notes_dir)
+    elif sub == "save-report":
+        # Parse agent-provided findings JSON
+        findings = parse_llm_findings(args.findings_json)
 
-    # Run LLM compile
-    llm_fn = _make_llm_fn(config, logger)
-    findings = run_compile(vault_root, gen_notes_dir, llm_fn, logger=logger)
+        # Re-run lint fresh for current state
+        lint_issues = run_full_lint(vault_root, gen_notes_dir)
 
-    # Format and write report
-    report = format_compile_report(findings, lint_issues)
-    report_path = Path(vault_root) / gen_notes_dir / "_compile-report.md"
-    report_path.write_text(report, encoding="utf-8")
+        # Format and write report
+        report = format_compile_report(findings, lint_issues)
+        report_path = Path(vault_root) / gen_notes_dir / "_compile-report.md"
+        report_path.write_text(report, encoding="utf-8")
 
-    # Log it
-    append_log(
-        log_path,
-        event_type="compile",
-        title=f"AI compile: {len(findings)} findings, {len(lint_issues)} lint issues",
-    )
+        # Log it
+        append_log(
+            log_path,
+            event_type="compile",
+            title=f"AI compile: {len(findings)} findings, {len(lint_issues)} lint issues",
+        )
 
-    print(report)
-    print(f"\n✓ Report saved: {report_path}")
+        print(report)
+        print(f"\n✓ Report saved: {report_path}")
+
+    else:
+        print("Usage: wiki_manager.py compile {extract|save-report <json>}")
+        sys.exit(1)
 
 
 def cmd_concepts(args, config: dict, logger) -> None:
@@ -480,10 +493,12 @@ def main() -> None:
     p_apply.add_argument("mapping", help='JSON string: {"old_target": "new_target", ...}')
     p_apply.add_argument("--dry-run", action="store_true", help="Show fixes without applying")
 
-    # compile
-    p_compile = sub.add_parser("compile", help="Run LLM-powered AI compile")
-    p_compile.add_argument("--extract-only", action="store_true",
-                           help="Output batched page data as JSON (no LLM calls)")
+    # compile (with extract/save-report subcommands)
+    p_compile = sub.add_parser("compile", help="Agent-powered wiki compile")
+    compile_sub = p_compile.add_subparsers(dest="compile_sub")
+    compile_sub.add_parser("extract", help="Extract batched data + lint (JSON)")
+    p_save = compile_sub.add_parser("save-report", help="Format and save compile report")
+    p_save.add_argument("findings_json", help="JSON array of findings")
 
     # concepts
     sub.add_parser("concepts", help="List all concept pages")
