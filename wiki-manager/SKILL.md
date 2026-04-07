@@ -104,6 +104,14 @@ The ingest step:
 6. Updates `gen-notes/index.md` with the new digest and any new concept/name pages
 7. Appends to `gen-notes/log.md` with a record of all touched pages
 
+## ⏱️ Performance Notes
+
+**Ingest makes sequential Gemini CLI calls** — one per concept and one per name. Each call can take up to 180s (3 retries × 60s). With 3 concepts + 5 names, expect ~5–10 minutes total.
+
+**Use `timeout=600` or higher** when calling `exec` for ingest. The default OpenClaw exec timeout (1800s) is generous, but agent turn timeouts may kill long-running processes. Use a single long `process poll` rather than multiple short polls — interrupting mid-Gemini-call can cause SIGTERM.
+
+**Workaround for slow Gemini:** If Gemini CLI is rate-limited (429), each call burns through retries before failing. Consider running ingest during off-peak hours, or reducing `max_concepts_per_ingest` / `max_names_per_ingest` in config.
+
 ## Vault Structure
 
 All wiki pages live under flat subfolders in `gen-notes/`:
