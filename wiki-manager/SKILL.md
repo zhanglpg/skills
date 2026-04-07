@@ -1,6 +1,6 @@
 ---
-name: wiki-manager
-description: "Maintain a living knowledge wiki in the Obsidian vault. After any paper is digested (via paper-digest or paper-summarizer), run the wiki-manager ingest step to extract concepts and names, update concept/name pages, rebuild the index, and append to the log. Also use for periodic lint checks, AI compile, rebuilding the index, and querying the wiki. Triggers: wiki update, wiki ingest, update concepts, rebuild index, lint wiki, wiki lint, wiki compile, health check, knowledge graph."
+name: managing-wiki
+description: "Maintains a living knowledge wiki in the Obsidian vault. After any paper is digested, extracts concepts and names, updates concept/name pages, rebuilds the index, and appends to the log. Also supports periodic lint checks, LLM-powered compile analysis, index rebuilding, and broken wikilink repair. Use for wiki updates, ingestion, lint checks, compile analysis, or knowledge graph maintenance."
 ---
 
 # Wiki Manager

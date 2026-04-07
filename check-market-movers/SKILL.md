@@ -1,11 +1,11 @@
 ---
-name: check-market-movers
-description: "Hourly portfolio monitoring for significant price moves. Checks YOUR holdings (GOOG, NVDA, TSMC, BABA, SPY, FXI, KWEB) using Yahoo Finance data. Only interrupts for portfolio-relevant events. Use when setting up automated portfolio alerts, hourly market checks, or significant move notifications."
+name: checking-market-movers
+description: "Monitors portfolio holdings (GOOG, NVDA, TSMC, BABA, SPY, FXI, KWEB) hourly for significant price moves using Yahoo Finance data. Only interrupts for portfolio-relevant events exceeding configurable thresholds. Use when setting up automated portfolio alerts, hourly market checks, or significant move notifications."
 ---
 
 # Check Market Movers Skill
 
-Hourly portfolio monitoring that checks for significant price moves in YOUR holdings. Only interrupts when events matter to your portfolio.
+Hourly portfolio monitoring that checks for significant price moves in tracked holdings. Only interrupts when events exceed configured thresholds.
 
 ## Quick Start
 
@@ -100,7 +100,7 @@ Report saved to: ~/.openclaw/workspace/briefs/investment/hourly-checks/2026-03-0
 - **GOOG** (Alphabet): -5.20%
   - Sector: Tech | Severity: medium
 
-## Your Portfolio
+## Portfolio Holdings
 | Ticker | Name | Sector | Price | Change |
 |--------|------|--------|-------|--------|
 | GOOG | Alphabet | Tech | $300.91 | 🔴 -0.72% |
@@ -173,7 +173,4 @@ openclaw cron runs --id hourly-market-movers --limit 5
 
 ---
 
-**Version:** 1.0
-**Author:** Liping (via OpenClaw)
-**Last Updated:** March 6, 2026
 **Data Source:** Yahoo Finance (yfinance)
