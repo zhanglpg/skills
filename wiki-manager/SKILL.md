@@ -82,15 +82,16 @@ Runs the complete ingest with Gemini CLI for page generation. No agent involveme
 
 Analyze the wiki for semantic issues: contradictions between pages, stale claims, missing cross-references, concept gaps, and research questions.
 
-### Step 1: Extract batched data
+### Step 1: Extract data and lint issues
 
 ```bash
-python3 scripts/wiki_manager.py compile --extract-only
+python3 scripts/wiki_manager.py compile extract
 ```
 
 This outputs JSON with:
 - `batches` — page batches grouped by tag, each with `label`, `pages`, and `contents` (truncated page text)
 - `wiki_summary` — compact one-line-per-page summary of the entire wiki
+- `lint_issues` — structural issues found by deterministic lint checks
 - `total_pages`, `vault_root`
 
 ### Step 2: Cross-page analysis
@@ -101,6 +102,7 @@ For each batch, analyze the pages for:
 - **Missing cross-references** — pages that should link to each other but don't
 
 See `prompts/compile-cross-page-prompt.md` for the detailed analysis instructions.
+Output findings as a JSON array with `category`, `pages`, `description` fields.
 
 ### Step 3: Gap analysis
 
@@ -110,18 +112,21 @@ Using the `wiki_summary`, analyze the wiki as a whole for:
 - **Research questions** — new directions worth investigating
 
 See `prompts/compile-gap-analysis-prompt.md` and `references/schema.md` for instructions.
+Output findings in the same JSON array format.
 
-### Step 4: Report
+### Step 4: Save report
 
-Produce a structured report with findings grouped by category. The report format follows the same structure as `_compile-report.md` (see `compile_checker.py:format_compile_report` for the template).
-
-### Fallback — Full Gemini Pipeline
+Combine all findings from steps 2 and 3 into a single JSON array and pass to:
 
 ```bash
-python3 scripts/wiki_manager.py compile
+python3 scripts/wiki_manager.py compile save-report '<json_array>'
 ```
 
-Runs lint + LLM compile via Gemini CLI and writes `_compile-report.md`.
+The script formats the report, saves `_compile-report.md`, and logs the event.
+
+### Step 5: Review
+
+Read the saved report and summarize key findings for the user.
 
 ---
 
@@ -211,7 +216,7 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 |------|---------|
 | **Python 3.10+** | Runtime |
 
-Gemini CLI is only needed for the fallback pipeline (`ingest` or `compile` without `--extract-only`).
+Gemini CLI is only needed for the ingest fallback pipeline (`ingest` without `--extract-only`).
 
 ## Files
 
