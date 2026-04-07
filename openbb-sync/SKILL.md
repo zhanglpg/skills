@@ -1,6 +1,6 @@
 ---
-name: openbb-sync
-description: "Sync OpenBB repo from GitHub, rerun data pipeline on changes, restart and verify the dashboard. Silent by default — reporting is the caller's responsibility."
+name: syncing-openbb
+description: "Syncs the OpenBB repo from GitHub, reruns the data pipeline on changes, and restarts and verifies the dashboard. Silent by default -- reporting is the caller's responsibility. Use when the dashboard needs a data refresh or repo synchronization."
 ---
 
 # OpenBB Sync Skill
@@ -22,7 +22,7 @@ tail -f ~/.openclaw/logs/skills/openbb-sync/sync.log
 
 ## How It Works
 
-1. **Safety Check:** Skips if you have uncommitted changes (detects active development)
+1. **Safety Check:** Skips if uncommitted changes are detected (detects active development)
 2. **Sync:** Pulls latest from GitHub
 3. **Pipeline:** Runs full data refresh if repo changed
 4. **Restart:** Restarts dashboard via launchctl
@@ -42,7 +42,7 @@ tail -f ~/.openclaw/logs/skills/openbb-sync/sync.log
 
 | Check | Action |
 |-------|--------|
-| Uncommitted git changes | Skip silently (you're coding) |
+| Uncommitted git changes | Skip silently (active development detected) |
 | No remote changes | Skip silently (nothing new) |
 | Pipeline fails | Exit with code 1 |
 | Dashboard fails health check | Exit with code 2 |
@@ -93,7 +93,7 @@ Variables at the top of `sync.sh`:
 [2026-03-20 15:31:12] === Sync Complete ===
 ```
 
-## Example: Add Reporting in Your Workflow
+## Example: Add Reporting to the Workflow
 
 ```bash
 # Run sync and report result

@@ -1,6 +1,6 @@
 ---
-name: paper-queue
-description: "Manage a reading queue of academic papers with priority scoring, progress tracking, and suggestions. Add papers from arXiv IDs, URLs, or Twitter/X links. Track reading status (to-read, reading, digested). Auto-score by citations, recency, and topic affinity. To digest a paper, use the paper-digest skill directly (python3 paper-digest/scripts/digest_paper.py <arXiv ID or URL>), then mark it digested with: python3 paper-queue/scripts/paper_queue.py status <id> digested. Triggers: paper queue, reading list, add paper, paper backlog, track paper."
+name: managing-paper-queue
+description: "Manages a reading queue of academic papers with priority scoring, progress tracking, and suggestions. Adds papers from arXiv IDs, URLs, or Twitter/X links. Tracks reading status (to-read, reading, digested) and auto-scores by citations, recency, and topic affinity. Integrates with the digesting-papers skill for processing queued papers. Use when managing a paper queue, reading list, or paper backlog."
 ---
 
 # Paper Queue Manager
@@ -22,7 +22,7 @@ python3 scripts/paper_queue.py add https://x.com/karpathy/status/123456
 # Add manually
 python3 scripts/paper_queue.py add --manual --title "Paper Title" --url "https://..."
 
-# View your queue
+# View the queue
 python3 scripts/paper_queue.py list --top 10
 
 # Mark as reading
@@ -46,14 +46,14 @@ python3 scripts/paper_queue.py stats
 2. **Score** — Each paper is automatically scored on three dimensions:
    - **Citations** (30%) — From Semantic Scholar API (log scale)
    - **Recency** (30%) — How recently published (decay over time)
-   - **Queue affinity** (40%) — Topic overlap with papers already in your queue. Your reading history defines your interests — no manual configuration needed.
+   - **Queue affinity** (40%) — Topic overlap with papers already in the queue. The reading history defines interests — no manual configuration needed.
 3. **Track** — Papers move through statuses: `to-read` → `reading` → `digested`
 4. **Digest** — Use the paper-digest skill directly (`python3 paper-digest/scripts/digest_paper.py <arXiv ID or URL>`), then mark the paper as digested with `status <id> digested`
-5. **Suggest** — Get recommendations for new papers based on your queue's topic profile
+5. **Suggest** — Get recommendations for new papers based on the queue's topic profile
 
 ## Priority Scoring
 
-The scoring system learns from your queue itself — no need to configure interests or authors. When you add papers, the "queue affinity" component checks how well each paper's arXiv categories match the categories of papers you've already queued, read, or digested. An empty queue gives neutral affinity scores; as it grows, scoring becomes more personalized.
+The scoring system learns from the queue itself — no need to configure interests or authors. When papers are added, the "queue affinity" component checks how well each paper's arXiv categories match the categories of papers already queued, read, or digested. An empty queue gives neutral affinity scores; as it grows, scoring becomes more personalized.
 
 Re-score papers anytime with:
 ```bash
@@ -132,6 +132,3 @@ python3 -m unittest test_storage.py test_sources.py test_scorer.py test_paper_qu
 
 ---
 
-**Version:** 1.0
-**Author:** Liping (via OpenClaw)
-**Last Updated:** March 22, 2026

@@ -1,11 +1,11 @@
 ---
-name: paper-digest
-description: "Digest and summarize academic papers (PDF, URL, or arXiv ID). Produces a structured summary covering main contributions, key conclusions, relation to prior work, personalized highlights, and further reading recommendations. Triggers: paper summary, research digest, arXiv summary, paper review, read paper."
+name: digesting-papers
+description: "Digests and summarizes academic papers (PDF, URL, or arXiv ID). Produces a structured summary covering main contributions, key conclusions, relation to prior work, personalized highlights, and further reading recommendations. Use when asked for a paper summary, research digest, arXiv summary, or paper review."
 ---
 
 # Paper Digest Skill
 
-Read and digest academic papers into structured summaries tailored to your interests.
+Read and digest academic papers into structured summaries tailored to the reader's interests.
 
 ## Quick Start
 
@@ -38,7 +38,7 @@ python3 scripts/digest_paper.py paper.pdf --force
 
 ## Output Format — IMPORTANT
 
-**The default prompt template produces generic academic summaries.** For Liping's Obsidian vault, the output should match his personal digest style:
+**The default prompt template produces generic academic summaries.** For the Obsidian vault, the output should match the personalized digest style:
 
 - TL;DR upfront (1-2 sentences, direct conclusion)
 - Voice: Narrate with thinking. Clear opinions. 
@@ -48,7 +48,7 @@ python3 scripts/digest_paper.py paper.pdf --force
 - "Worth thinking" section with personal perspective
 - Obsidian frontmatter at bottom (date, status, tags, categories, related)
 
-**To use the default academic format**, keep current prompt. **To match Liping's style**, update `prompts/digest-prompt.md` with instructions for the format above.
+**To use the default academic format**, keep current prompt. **To match the personalized style**, update `prompts/digest-prompt.md` with instructions for the format above.
 
 ## Output Sections (Default Template)
 
@@ -145,6 +145,3 @@ pip3 install PyMuPDF
 
 ---
 
-**Version:** 1.0
-**Author:** Liping (via OpenClaw)
-**Last Updated:** April 5, 2026

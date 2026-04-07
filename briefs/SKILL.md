@@ -1,6 +1,6 @@
 ---
-name: briefs
-description: "Generate daily briefs (AI tech or investment/portfolio) from curated sources. Reads a config JSON for source lists, fetches content via web tools, and produces a structured markdown brief. Triggers: daily brief, AI news brief, portfolio brief, market brief, investment brief, morning brief."
+name: generating-briefs
+description: "Generates daily briefs (AI tech or investment/portfolio) from curated sources. Reads a config JSON for source lists, fetches content via web tools, and produces a structured markdown brief. Use when asked for a daily brief, AI news brief, portfolio brief, market brief, or morning briefing."
 ---
 
 # Daily Brief Generator

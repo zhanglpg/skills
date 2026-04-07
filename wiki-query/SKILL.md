@@ -1,6 +1,6 @@
 ---
-name: wiki-query
-description: "Answer research questions by searching the knowledge wiki (gen-notes/index.md), synthesizing answers from digest, concept, and name pages, and optionally filing valuable answers back as synthesis pages. Use when: user asks a research question about topics covered in their reading, wants cross-paper analysis, or asks to search/query their wiki. Triggers: wiki query, search wiki, research question, cross-paper, compare papers."
+name: querying-wiki
+description: "Answers research questions by searching the knowledge wiki (gen-notes/index.md), synthesizing answers from digest, concept, and name pages, and optionally filing valuable answers as synthesis or comparison pages. Use for research questions, cross-paper analysis, or wiki searches."
 ---
 
 # Wiki Query

@@ -2,6 +2,14 @@
 
 This document codifies the conventions for the knowledge wiki in the Obsidian vault. It serves as both human documentation and injectable LLM context.
 
+## Contents
+- Page Types (Digest, Concept, Name, Synthesis, Comparison)
+- Frontmatter Conventions
+- Wikilink Conventions
+- Tag Taxonomy
+- Status Conventions
+- Index Conventions
+
 ## Page Types
 
 ### Digest

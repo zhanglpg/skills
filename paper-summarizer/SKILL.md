@@ -1,6 +1,6 @@
 ---
-name: paper-summarizer
-description: "Summarize academic papers, articles, blog posts, and essays, then save structured notes to Liping's Obsidian vault (gen-notes/ folder). Use when: user shares an arXiv link, paper URL, blog post URL, or paper title and wants it summarized and saved. Also use when asked to work through Liping's reading backlog from his Obsidian AI.md note."
+name: summarizing-papers
+description: "Summarizes academic papers, articles, blog posts, and essays, then saves structured notes to the Obsidian vault (gen-notes/ folder). Use when an arXiv link, paper URL, blog post URL, or paper title is shared and needs summarizing. Also handles processing the reading backlog from the Obsidian AI.md note."
 ---
 
 # Paper Summarizer
@@ -16,8 +16,8 @@ Fetch, read, and summarize a paper or article, then save a structured note to Ob
    - Title only: search for it first with `web_search`, then fetch the best result
 
 2. **Generate the note** using the template in `references/note-template.md`
-   - Be substantive — Liping reads deeply, so the summary should too
-   - Optional: Only when there is clear correlation, add a "Liping's likely take" section: use what you know about him (engineering culture, complexity, long-termism, AI systems focus, DeepSeek-style resource constraints, skepticism of hype) to anticipate what would resonate or what he'd push back on
+   - Be substantive — the reader reads deeply, so the summary should too
+   - Optional: Only when there is clear correlation, add a "Personal take" section: apply the perspective of engineering culture, complexity, long-termism, AI systems focus, resource constraints, and skepticism of hype to anticipate what would resonate or what he'd push back on
    - Keep it honest — note limitations and open questions, don't just celebrate the paper
 
 3. **Save to Obsidian**
@@ -38,7 +38,7 @@ Fetch, read, and summarize a paper or article, then save a structured note to Ob
 
 - TL;DR should be 1-2 sentences max — if you can't summarize it that crisply, you haven't understood it yet
 - "What's novel" should be specific, not generic ("introduces a new method" is not useful)
-- Tags should reflect Liping's existing categories: `AI`, `LLM`, `systems`, `management`, `engineering`, `physics`, `history`, `philosophy`, `scaling`, `inference`, `hardware`, etc.
+- Tags should reflect the vault's existing categories: `AI`, `LLM`, `systems`, `management`, `engineering`, `physics`, `history`, `philosophy`, `scaling`, `inference`, `hardware`, etc.
 
 ## Reading backlog mode
 
@@ -46,4 +46,4 @@ When asked to work through the reading backlog:
 1. Read `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/notes/AI.md`
 2. Find unchecked items `- [ ]` that have a URL or title
 3. Process them one by one (or a batch if specified), saving each note to `gen-notes/`
-4. Do NOT mark items as done in AI.md — let Liping decide when he's satisfied with a note
+4. Do NOT mark items as done in AI.md — let the user decide when he's satisfied with a note
