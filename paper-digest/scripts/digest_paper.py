@@ -449,6 +449,8 @@ def parse_args(argv=None):
                         help="Path to name_index.md from wiki-manager")
     parser.add_argument('--force', action='store_true',
                         help="Re-digest even if a digest file already exists")
+    parser.add_argument('--extract-only', action='store_true',
+                        help="Extract text and metadata only (JSON output, no LLM call)")
     return parser.parse_args(argv)
 
 
@@ -535,9 +537,7 @@ def main(argv=None):
     except Exception as e:
         logger.warning(f"HN search failed (non-fatal): {e}")
 
-    # Step 3: Build prompt
-    prompt_template = load_template(str(prompt_path))
-
+    # Step 3: Build context for prompt
     user_context_text = user_context if user_context else (
         "No specific user context provided. "
         "Highlight the most broadly impactful and interesting aspects."
@@ -575,6 +575,22 @@ def main(argv=None):
     else:
         known_names_block = ""
 
+    # --extract-only: output extracted data as JSON, skip LLM call
+    if getattr(args, 'extract_only', False):
+        extract_data = {
+            "title": title,
+            "source": source_label,
+            "output_dir": output_dir,
+            "paper_text": paper_text,
+            "user_context": user_context_text,
+            "hn_comments": hn_comments_block,
+            "known_concepts": known_concepts_block,
+            "known_names": known_names_block,
+        }
+        print(json.dumps(extract_data, ensure_ascii=False))
+        return 0
+
+    prompt_template = load_template(str(prompt_path))
     prompt = build_prompt(prompt_template, {
         'paper_text': paper_text,
         'user_context': user_context_text,
@@ -583,7 +599,7 @@ def main(argv=None):
         'hn_comments': hn_comments_block,
     })
 
-    # Step 4: Summarize with Gemini
+    # Step 4: Summarize with Gemini (fallback path)
     logger.info("Sending paper to Gemini for digestion...")
     gemini_output = run_gemini(prompt, timeout=gemini_timeout, logger=logger)
 

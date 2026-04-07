@@ -1,6 +1,6 @@
 ---
 name: managing-wiki
-description: "Maintains a living knowledge wiki in the Obsidian vault. After any paper is digested, extracts concepts and names, updates concept/name pages, rebuilds the index, and appends to the log. Also supports periodic lint checks, LLM-powered compile analysis, index rebuilding, and broken wikilink repair. Use for wiki updates, ingestion, lint checks, compile analysis, or knowledge graph maintenance."
+description: "Maintains a living knowledge wiki in the Obsidian vault. After any paper is digested, extracts concepts and names, creates/updates concept and name pages, rebuilds the index, and appends to the log. Also supports periodic lint checks, LLM-powered compile analysis, index rebuilding, and broken wikilink repair. Use for wiki updates, ingestion, lint checks, compile analysis, or knowledge graph maintenance."
 ---
 
 # Wiki Manager
@@ -9,42 +9,141 @@ Maintain a living knowledge wiki in the Obsidian vault. This skill transforms is
 
 ## When to Use
 
-- **After digesting a paper** — run `ingest` to extract concepts and names, create/update their pages, update the index, and log the event
+- **After digesting a paper** — run ingest to create concept and name pages, update the index, and log the event
 - **To rebuild the index** — run `index` to regenerate `index.md` from all vault pages
-- **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale concepts, missing concepts
-- **To fix broken wikilinks** — run the `fix-links` workflow (see below) to resolve broken `[[wikilinks]]` across the vault
-- **To run AI compile** — run `compile` for LLM-powered analysis: contradictions between pages, stale claims, missing cross-references, concept gaps, data gaps, and research questions
+- **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale concepts
+- **To fix broken wikilinks** — run the `fix-links` workflow (see below)
+- **To run AI compile** — analyze the wiki for contradictions, stale claims, gaps, and missing cross-references
 - **To view the log** — read `gen-notes/log.md` for a chronological record of all wiki activity
 
-## Quick Start
+---
+
+## Ingest (Agent-Primary)
+
+After a paper digest is created, ingest it into the wiki to extract concepts and names and create their pages.
+
+### Step 1: Extract metadata
 
 ```bash
-# After digesting a paper, ingest it into the wiki
-python3 scripts/wiki_manager.py ingest gen-notes/digests/Attention-Is-All-You-Need.md
+python3 scripts/wiki_manager.py ingest <digest_path> --extract-only
+```
 
-# Rebuild the index from scratch
+This outputs JSON with:
+- `digest_title`, `digest_content` — the parsed digest
+- `concepts` — list of concepts from frontmatter (each with `name`, `exists`, `path`)
+- `names` — list of names from frontmatter (each with `name`, `exists`, `path`)
+- `existing_pages` — dict of existing page titles by type (`concepts`, `names`, `digests`)
+- `concept_dir`, `names_dir` — directories for writing new pages
+- `vault_root`, `gen_notes_dir`, `log_path` — vault paths
+
+### Step 2: Create/update concept pages
+
+For each concept in the extract output:
+
+- **If new** (`exists: false`): Create a concept page following `prompts/concept-page-prompt.md`. Write to `<concept_dir>/<Concept Name>.md`.
+- **If existing** (`exists: true`): Read the existing page at `path`, then update it to incorporate the new digest (add to Key Papers, update Evolution, add source-digest to frontmatter, update `date-updated`).
+
+Concept page format requirements (see `prompts/concept-page-prompt.md` for full spec):
+- YAML frontmatter: `title`, `type: concept`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`, `status: 🔗`
+- Sections: Overview, Key Papers, Evolution, Open Questions, Related Concepts
+- Use `[[wikilinks]]` for all cross-references; use exact names from `existing_pages`
+
+### Step 3: Create/update name pages
+
+For each name in the extract output:
+
+- **If new** (`exists: false`): Create a name page following `prompts/name-page-prompt.md`. Write to `<names_dir>/<Name>.md`.
+- **If existing** (`exists: true`): Read the existing page at `path`, then update it similarly.
+
+Name page format requirements (see `prompts/name-page-prompt.md` for full spec):
+- YAML frontmatter: `title`, `type: name`, `name-type` (person/dataset/model/place/paper), `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`, `status: 🔗`
+- Sections: Overview, Key Contributions, Timeline, Related Names, Related Concepts
+- Only for independently notable subjects (Wikipedia-worthy)
+
+### Step 4: Update index and log
+
+```bash
+python3 scripts/wiki_manager.py index
+```
+
+Then manually append to `log.md` or note the ingest in the conversation.
+
+### Fallback — Full Gemini Pipeline
+
+```bash
+python3 scripts/wiki_manager.py ingest <digest_path>
+```
+
+Runs the complete ingest with Gemini CLI for page generation. No agent involvement needed.
+
+---
+
+## Compile (Agent-Primary)
+
+Analyze the wiki for semantic issues: contradictions between pages, stale claims, missing cross-references, concept gaps, and research questions.
+
+### Step 1: Extract batched data
+
+```bash
+python3 scripts/wiki_manager.py compile --extract-only
+```
+
+This outputs JSON with:
+- `batches` — page batches grouped by tag, each with `label`, `pages`, and `contents` (truncated page text)
+- `wiki_summary` — compact one-line-per-page summary of the entire wiki
+- `total_pages`, `vault_root`
+
+### Step 2: Cross-page analysis
+
+For each batch, analyze the pages for:
+- **Contradictions** — conflicting claims between pages
+- **Stale claims** — information superseded by newer pages
+- **Missing cross-references** — pages that should link to each other but don't
+
+See `prompts/compile-cross-page-prompt.md` for the detailed analysis instructions.
+
+### Step 3: Gap analysis
+
+Using the `wiki_summary`, analyze the wiki as a whole for:
+- **Concepts needing pages** — important topics that lack dedicated pages
+- **Data gaps** — areas with thin coverage
+- **Research questions** — new directions worth investigating
+
+See `prompts/compile-gap-analysis-prompt.md` and `references/schema.md` for instructions.
+
+### Step 4: Report
+
+Produce a structured report with findings grouped by category. The report format follows the same structure as `_compile-report.md` (see `compile_checker.py:format_compile_report` for the template).
+
+### Fallback — Full Gemini Pipeline
+
+```bash
+python3 scripts/wiki_manager.py compile
+```
+
+Runs lint + LLM compile via Gemini CLI and writes `_compile-report.md`.
+
+---
+
+## Non-LLM Commands (Script-Only)
+
+These commands don't require LLM work — always run via script:
+
+```bash
+# Rebuild index.md from all vault pages
 python3 scripts/wiki_manager.py index
 
-# Run a lint check on the wiki
+# Run vault health checks (deterministic, no LLM)
 python3 scripts/wiki_manager.py lint
-
-# Run LLM-powered AI compile
-python3 scripts/wiki_manager.py compile
 
 # List all concept pages
 python3 scripts/wiki_manager.py concepts
 
 # List all name pages
 python3 scripts/wiki_manager.py names
-
-# Fix broken wikilinks (scan, then apply — see workflow below)
-python3 scripts/wiki_manager.py fix-links scan
-python3 scripts/wiki_manager.py fix-links apply '{"old link": "correct page"}'
 ```
 
 ## Fixing Broken Wikilinks
-
-Generated pages often contain broken `[[wikilinks]]` — references to pages that don't exist or use a different name. The `fix-links` workflow lets you resolve these in batch.
 
 ### Workflow
 
@@ -54,77 +153,42 @@ Generated pages often contain broken `[[wikilinks]]` — references to pages tha
 python3 scripts/wiki_manager.py fix-links scan
 ```
 
-Output includes:
-- `existing_pages` — every page in the vault with its stem, title, type, and aliases
-- `broken_links` — every broken wikilink with the file it appears in and an `alias_hint` (a deterministic guess based on alias matching, or `null` if no match)
+Output includes `existing_pages` (every page with stem, title, type, aliases) and `broken_links` (every broken wikilink with file and `alias_hint`).
 
-**Step 2: Decide resolutions** — Review the broken links and the existing pages list. For each broken link, decide:
-- Does an existing page match? Use the page's **stem** (filename without `.md`) as the replacement target.
-- The `alias_hint` field provides a deterministic suggestion when the broken link matches an alias. Accept it if correct, override if not.
-- If no existing page matches, leave it unresolved (don't include it in the apply mapping).
-
-Build a JSON mapping: `{"broken link text": "correct page stem", ...}`
+**Step 2: Decide resolutions** — Review the broken links against existing pages. Build a JSON mapping: `{"broken link text": "correct page stem", ...}`
 
 **Step 3: Apply** — Batch-replace all resolved links.
 
 ```bash
-python3 scripts/wiki_manager.py fix-links apply '{"Transformer Architecture": "Transformer", "Geoff Hinton": "Geoffrey Hinton"}'
+python3 scripts/wiki_manager.py fix-links apply '{"Transformer Architecture": "Transformer"}'
 ```
 
-This rewrites all occurrences of `[[old target]]` to `[[new target]]` across every file in the vault, preserving any display text (`[[old|display]]` becomes `[[new|display]]`).
-
-Use `--dry-run` to preview changes without writing files.
+Use `--dry-run` to preview changes.
 
 ### When to run fix-links
 
-- **After `ingest`** — newly created pages may resolve previously-broken links, and LLM-generated pages may introduce new broken links
-- **After `lint`** reports broken-links warnings — use the lint report to identify what needs fixing, then run fix-links to resolve
-- **Periodically** — as the vault grows, more broken links become resolvable
-
-The `link_fixer.py` script can also be called directly for the same scan/apply workflow:
-
-```bash
-python3 scripts/link_fixer.py scan
-python3 scripts/link_fixer.py apply '{"old": "new"}'
-```
+- After `ingest` — new pages may resolve previously-broken links
+- After `lint` reports broken-links warnings
+- Periodically as the vault grows
 
 ## Agent Workflow
 
 When the user asks to digest or summarize a paper, the natural workflow is:
 
 1. Use `paper-digest` or `paper-summarizer` to create the digest note
-2. Then use `wiki-manager ingest <digest_path>` to integrate it into the knowledge wiki
-
-The ingest step:
-1. Parses the digest — extracts frontmatter, TL;DR, wikilinks, tags
-2. Reads concepts from the digest frontmatter (added by paper-digest). Falls back to LLM extraction for older digests without a `concepts` field
-3. For each concept: creates a new concept page or updates an existing one
-4. Reads names from the digest frontmatter (added by paper-digest). Falls back to LLM extraction for older digests without a `names` field
-5. For each name: creates a new name page or updates an existing one
-6. Updates `gen-notes/index.md` with the new digest and any new concept/name pages
-7. Appends to `gen-notes/log.md` with a record of all touched pages
-
-## ⏱️ Performance Notes
-
-**Ingest makes sequential Gemini CLI calls** — one per concept and one per name. Each call can take up to 180s (3 retries × 60s). With 3 concepts + 5 names, expect ~5–10 minutes total.
-
-**Use `timeout=600` or higher** when calling `exec` for ingest. The default OpenClaw exec timeout (1800s) is generous, but agent turn timeouts may kill long-running processes. Use a single long `process poll` rather than multiple short polls — interrupting mid-Gemini-call can cause SIGTERM.
-
-**Workaround for slow Gemini:** If Gemini CLI is rate-limited (429), each call burns through retries before failing. Consider running ingest during off-peak hours, or reducing `max_concepts_per_ingest` / `max_names_per_ingest` in config.
+2. Then use this skill to ingest it into the knowledge wiki
 
 ## Vault Structure
-
-All wiki pages live under flat subfolders in `gen-notes/`:
 
 ```
 gen-notes/
   index.md          — auto-generated catalog of all pages
   log.md            — append-only chronological record
-  digests/          — paper digest notes (managed by paper-digest/paper-summarizer)
+  digests/          — paper digest notes
   concepts/         — concept pages (Transformer.md, RLHF.md, etc.)
   names/            — name pages (Geoffrey Hinton.md, ImageNet.md, etc.)
   syntheses/        — filed query answers and cross-paper analyses
-  comparisons/      — side-by-side comparisons of papers, methods, or approaches
+  comparisons/      — side-by-side comparisons
 ```
 
 ## Page Types
@@ -132,23 +196,10 @@ gen-notes/
 | Type | Directory | Created by |
 |------|-----------|------------|
 | Digest | `digests/` | paper-digest, paper-summarizer |
-| Concept | `concepts/` | wiki-manager ingest (auto) |
-| Name | `names/` | wiki-manager ingest (auto) |
+| Concept | `concepts/` | wiki-manager ingest |
+| Name | `names/` | wiki-manager ingest |
 | Synthesis | `syntheses/` | wiki-query skill or manual |
 | Comparison | `comparisons/` | wiki-query skill or manual |
-
-## Commands Reference
-
-| Command | Description |
-|---------|-------------|
-| `ingest <path>` | Ingest a digest into the wiki (extract concepts and names, update index/log) |
-| `index` | Rebuild `index.md` from all vault pages |
-| `lint` | Run vault health checks |
-| `fix-links scan` | Scan broken wikilinks — JSON report of broken links + existing pages |
-| `fix-links apply <json>` | Batch-replace wikilinks from a JSON mapping |
-| `compile` | Run LLM-powered AI compile (contradictions, stale claims, gaps, cross-refs) |
-| `concepts` | List all concept pages |
-| `names` | List all name pages |
 
 ## Configuration
 
@@ -159,7 +210,8 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | Tool | Purpose |
 |------|---------|
 | **Python 3.10+** | Runtime |
-| **Gemini CLI** | LLM calls for concept/name page generation (and extraction fallback for older digests) |
+
+Gemini CLI is only needed for the fallback pipeline (`ingest` or `compile` without `--extract-only`).
 
 ## Files
 
@@ -173,10 +225,10 @@ See `config.json` for vault paths. All paths are relative to `vault_root`.
 | `scripts/lint_checker.py` | Vault health checks |
 | `scripts/link_fixer.py` | Broken wikilink scan + batch-apply |
 | `scripts/compile_checker.py` | LLM-powered AI compile |
-| `prompts/concept-page-prompt.md` | Concept page LLM template |
-| `prompts/compile-cross-page-prompt.md` | Cross-page analysis LLM template |
-| `prompts/compile-gap-analysis-prompt.md` | Wiki-wide gap analysis LLM template |
-| `prompts/name-page-prompt.md` | Name page LLM template |
-| `prompts/index-update-prompt.md` | Index summary LLM template |
+| `prompts/concept-page-prompt.md` | Concept page format spec |
+| `prompts/name-page-prompt.md` | Name page format spec |
+| `prompts/compile-cross-page-prompt.md` | Cross-page analysis instructions |
+| `prompts/compile-gap-analysis-prompt.md` | Gap analysis instructions |
+| `prompts/index-update-prompt.md` | Index summary format |
 | `references/schema.md` | Vault conventions reference |
 | `config.json` | Default configuration |
