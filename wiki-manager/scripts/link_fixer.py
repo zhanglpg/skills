@@ -125,7 +125,6 @@ def scan_broken_links(
 
     # Build existing pages list with aliases
     existing_pages = []
-    gen_path = root / gen_notes_dir
     for p in pages:
         entry: dict = {
             "stem": p.path.stem,
