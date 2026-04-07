@@ -1,11 +1,11 @@
 ---
 name: managing-wiki
-description: "Maintains a living knowledge wiki in the Obsidian vault. After any paper is digested, extracts concepts and names, creates/updates concept and name pages, rebuilds the index, and appends to the log. Also supports periodic lint checks, LLM-powered compile analysis, index rebuilding, and broken wikilink repair. Use for wiki updates, ingestion, lint checks, compile analysis, or knowledge graph maintenance."
+description: "Maintains a living knowledge wiki in a configurable vault folder (see config.json). After any paper is digested, extracts concepts and names, creates/updates concept and name pages, rebuilds the index, and appends to the log. Also supports periodic lint checks, LLM-powered compile analysis, index rebuilding, and broken wikilink repair. Use for wiki updates, ingestion, lint checks, compile analysis, or knowledge graph maintenance."
 ---
 
 # Wiki Manager
 
-Maintain a living knowledge wiki in the Obsidian vault. This skill transforms isolated paper digests into an interconnected knowledge graph by managing concept pages, name pages, a content index, and a chronological log.
+Maintain a living knowledge wiki. This skill transforms isolated paper digests into an interconnected knowledge graph by managing concept pages, name pages, a content index, and a chronological log. All paths are configured in `config.json` — change `vault_root` and `gen_notes_dir` to point at a different vault/folder.
 
 ## When to Use
 
@@ -14,7 +14,7 @@ Maintain a living knowledge wiki in the Obsidian vault. This skill transforms is
 - **To check vault health** — run `lint` to find orphan pages, broken wikilinks, stale concepts
 - **To fix broken wikilinks** — run the `fix-links` workflow (see below)
 - **To run AI compile** — analyze the wiki for contradictions, stale claims, gaps, and missing cross-references
-- **To view the log** — read `gen-notes/log.md` for a chronological record of all wiki activity
+- **To view the log** — read `<gen_notes_dir>/log.md` for a chronological record of all wiki activity
 
 ---
 
@@ -185,8 +185,10 @@ When the user asks to digest or summarize a paper, the natural workflow is:
 
 ## Vault Structure
 
+The wiki lives under `<vault_root>/<gen_notes_dir>/` (configured in `config.json`):
+
 ```
-gen-notes/
+<gen_notes_dir>/
   index.md          — auto-generated catalog of all pages
   log.md            — append-only chronological record
   digests/          — paper digest notes
@@ -198,17 +200,17 @@ gen-notes/
 
 ## Page Types
 
-| Type | Directory | Created by |
-|------|-----------|------------|
-| Digest | `digests/` | paper-digest, paper-summarizer |
-| Concept | `concepts/` | wiki-manager ingest |
-| Name | `names/` | wiki-manager ingest |
-| Synthesis | `syntheses/` | wiki-query skill or manual |
-| Comparison | `comparisons/` | wiki-query skill or manual |
+| Type | Sub-directory | Created by |
+|------|---------------|------------|
+| Digest | `<gen_notes_dir>/digests/` | paper-digest, paper-summarizer |
+| Concept | `<gen_notes_dir>/concepts/` | wiki-manager ingest |
+| Name | `<gen_notes_dir>/names/` | wiki-manager ingest |
+| Synthesis | `<gen_notes_dir>/syntheses/` | wiki-query skill or manual |
+| Comparison | `<gen_notes_dir>/comparisons/` | wiki-query skill or manual |
 
 ## Configuration
 
-See `config.json` for vault paths. All paths are relative to `vault_root`.
+See `config.json` for vault paths. `vault_root` is the top-level vault directory, `gen_notes_dir` is the wiki folder within the vault, and all other directory/path keys are relative to `gen_notes_dir`. To add a second wiki on a different topic, duplicate `config.json` with a different `gen_notes_dir` value.
 
 ## Dependencies
 

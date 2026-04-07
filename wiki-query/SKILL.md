@@ -1,6 +1,6 @@
 ---
 name: querying-wiki
-description: "Answers research questions by searching the knowledge wiki (gen-notes/index.md), synthesizing answers from digest, concept, and name pages, and optionally filing valuable answers as synthesis or comparison pages. Use for research questions, cross-paper analysis, or wiki searches."
+description: "Answers research questions by searching the knowledge wiki index, synthesizing answers from digest, concept, and name pages, and optionally filing valuable answers as synthesis or comparison pages. Vault paths are configured in wiki-manager/config.json. Use for research questions, cross-paper analysis, or wiki searches."
 ---
 
 # Wiki Query
@@ -9,7 +9,9 @@ Answer research questions by searching the knowledge wiki, synthesizing answers 
 
 ## Workflow
 
-1. **Read the index** — Start by reading `gen-notes/index.md` to understand what pages exist and find relevant ones
+> **Paths note:** All folder references below use `<gen_notes_dir>` as a placeholder. Read `wiki-manager/config.json` for the actual `vault_root` and `gen_notes_dir` values.
+
+1. **Read the index** — Start by reading `<gen_notes_dir>/index.md` to understand what pages exist and find relevant ones
 2. **Read relevant pages** — Open the digest, concept, and name pages most relevant to the question
 3. **Synthesize an answer** — Draw from multiple sources, cite pages with `[[wikilinks]]`
 4. **File back if valuable** — If the answer is substantive (not a trivial lookup), save it as a synthesis page
@@ -18,7 +20,7 @@ Answer research questions by searching the knowledge wiki, synthesizing answers 
 
 When an answer merits permanent storage:
 
-1. Save to `gen-notes/syntheses/<Descriptive Title>.md`
+1. Save to `<gen_notes_dir>/syntheses/<Descriptive Title>.md`
 2. Use this format:
 
 ```markdown
@@ -54,10 +56,10 @@ status: 📥
 
 ## When to File vs Not File
 
-**File as comparison** (to `gen-notes/comparisons/`):
+**File as comparison** (to `<gen_notes_dir>/comparisons/`):
 - Side-by-side comparisons of papers, methods, or approaches
 
-**File as synthesis** (to `gen-notes/syntheses/`):
+**File as synthesis** (to `<gen_notes_dir>/syntheses/`):
 - Answers that required reading 3+ wiki pages
 - Insights that connect concepts in non-obvious ways
 - Answers the user is likely to want again
@@ -69,7 +71,7 @@ status: 📥
 
 ## Notes
 
-- Always check `gen-notes/index.md` first — it has one-line summaries of every page
+- Always check `<gen_notes_dir>/index.md` first — it has one-line summaries of every page
 - Prefer existing concept/name pages over raw digests when available
 - If the wiki doesn't cover the topic, say so — don't hallucinate from outside the wiki
 - Cross-reference with concept and name pages to provide broader context

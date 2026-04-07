@@ -74,6 +74,37 @@ def _load_config() -> dict:
     return json.loads(expanded)
 
 
+def _resolve_paths(config: dict) -> dict:
+    """Resolve all vault paths from config.
+
+    Sub-directory keys (concept_dir, names_dir, etc.) are relative to
+    gen_notes_dir, which is itself relative to vault_root.  This helper
+    returns a dict with fully-resolved Path objects and the relative
+    strings needed by vault_index helpers.
+    """
+    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
+    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
+
+    concept_sub = config.get("concept_dir", "concepts")
+    names_sub = config.get("names_dir", "names")
+    log_sub = config.get("log_path", "log.md")
+
+    root = Path(vault_root)
+    gen = root / gen_notes_dir
+
+    return {
+        "vault_root": vault_root,
+        "gen_notes_dir": gen_notes_dir,
+        # Absolute paths
+        "concept_dir": gen / concept_sub,
+        "names_dir": gen / names_sub,
+        "log_path": gen / log_sub,
+        # Relative to vault_root (for vault_index helpers)
+        "concept_dir_rel": str(Path(gen_notes_dir) / concept_sub),
+        "names_dir_rel": str(Path(gen_notes_dir) / names_sub),
+    }
+
+
 # ---------------------------------------------------------------------------
 # LLM wrapper
 # ---------------------------------------------------------------------------
@@ -106,13 +137,14 @@ def cmd_ingest(args, config: dict, logger) -> None:
         logger.error(f"Digest not found: {digest_path}")
         sys.exit(1)
 
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    concept_dir_rel = config.get("concept_dir", "gen-notes/concepts")
-    concept_dir = Path(vault_root) / concept_dir_rel
-    names_dir_rel = config.get("names_dir", "gen-notes/names")
-    names_dir = Path(vault_root) / names_dir_rel
-    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
-    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+    paths = _resolve_paths(config)
+    vault_root = paths["vault_root"]
+    gen_notes_dir = paths["gen_notes_dir"]
+    concept_dir = paths["concept_dir"]
+    concept_dir_rel = paths["concept_dir_rel"]
+    names_dir = paths["names_dir"]
+    names_dir_rel = paths["names_dir_rel"]
+    log_path = paths["log_path"]
     max_concepts = config.get("max_concepts_per_ingest", 8)
     max_names = config.get("max_names_per_ingest", 5)
 
@@ -255,11 +287,12 @@ def cmd_ingest(args, config: dict, logger) -> None:
 
 def cmd_index(args, config: dict, logger) -> None:
     """Rebuild index.md, concept_index.md, and name_index.md from all vault pages."""
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
-    concept_dir_rel = config.get("concept_dir", "gen-notes/concepts")
-    names_dir_rel = config.get("names_dir", "gen-notes/names")
-    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+    paths = _resolve_paths(config)
+    vault_root = paths["vault_root"]
+    gen_notes_dir = paths["gen_notes_dir"]
+    concept_dir_rel = paths["concept_dir_rel"]
+    names_dir_rel = paths["names_dir_rel"]
+    log_path = paths["log_path"]
 
     pages = scan_vault(vault_root, gen_notes_dir)
     index_path = update_index(vault_root, gen_notes_dir, concept_dir_rel, names_dir_rel)
@@ -277,9 +310,10 @@ def cmd_index(args, config: dict, logger) -> None:
 
 def cmd_lint(args, config: dict, logger) -> None:
     """Run vault health checks."""
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
-    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+    paths = _resolve_paths(config)
+    vault_root = paths["vault_root"]
+    gen_notes_dir = paths["gen_notes_dir"]
+    log_path = paths["log_path"]
 
     issues = run_full_lint(vault_root, gen_notes_dir)
     report = format_lint_report(issues)
@@ -311,9 +345,10 @@ def cmd_fix_links(args, config: dict, logger) -> None:
       fix-links scan          — print JSON report of broken links + existing pages
       fix-links apply <json>  — batch-replace wikilinks from a JSON mapping
     """
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
-    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+    paths = _resolve_paths(config)
+    vault_root = paths["vault_root"]
+    gen_notes_dir = paths["gen_notes_dir"]
+    log_path = paths["log_path"]
 
     sub = getattr(args, "fix_sub", None)
 
@@ -354,9 +389,10 @@ def cmd_fix_links(args, config: dict, logger) -> None:
 
 def cmd_compile(args, config: dict, logger) -> None:
     """Agent-powered wiki compile with extract/save-report subcommands."""
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    gen_notes_dir = config.get("gen_notes_dir", "gen-notes")
-    log_path = Path(vault_root) / config.get("log_path", "gen-notes/log.md")
+    paths = _resolve_paths(config)
+    vault_root = paths["vault_root"]
+    gen_notes_dir = paths["gen_notes_dir"]
+    log_path = paths["log_path"]
 
     sub = getattr(args, "compile_sub", None)
 
@@ -434,8 +470,8 @@ def cmd_compile(args, config: dict, logger) -> None:
 
 def cmd_concepts(args, config: dict, logger) -> None:
     """List all concept pages."""
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    concept_dir = Path(vault_root) / config.get("concept_dir", "gen-notes/concepts")
+    paths = _resolve_paths(config)
+    concept_dir = paths["concept_dir"]
 
     concepts = list_concepts(concept_dir)
     if not concepts:
@@ -449,8 +485,8 @@ def cmd_concepts(args, config: dict, logger) -> None:
 
 def cmd_names(args, config: dict, logger) -> None:
     """List all name pages."""
-    vault_root = os.path.expanduser(config.get("vault_root", "~/notes"))
-    names_dir = Path(vault_root) / config.get("names_dir", "gen-notes/names")
+    paths = _resolve_paths(config)
+    names_dir = paths["names_dir"]
 
     names = list_names(names_dir)
     if not names:
