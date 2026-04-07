@@ -156,7 +156,7 @@ class TestApplyLinkFixes(unittest.TestCase):
         ))
 
         fixes = {"Transformer Architecture": "Transformer"}
-        result = apply_link_fixes(self.tmpdir, "gen-notes", fixes)
+        apply_link_fixes(self.tmpdir, "gen-notes", fixes)
 
         content = (self.gen / "digests" / "Paper.md").read_text(encoding="utf-8")
         self.assertIn("[[Transformer|the architecture]]", content)
