@@ -1,4 +1,4 @@
-"""Scan the Obsidian vault and build/update gen-notes/index.md."""
+"""Scan the Obsidian vault and build/update the wiki index."""
 
 from __future__ import annotations
 
@@ -162,7 +162,7 @@ def _infer_page_type(path: Path, frontmatter: dict) -> str:
 
 
 def scan_vault(vault_root: str, gen_notes_dir: str = "gen-notes") -> list[PageInfo]:
-    """Recursively scan gen-notes/ for markdown files and extract metadata."""
+    """Recursively scan the wiki folder for markdown files and extract metadata."""
     root = Path(os.path.expanduser(vault_root))
     gen_path = root / gen_notes_dir
     if not gen_path.exists():

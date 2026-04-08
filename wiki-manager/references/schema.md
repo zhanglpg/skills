@@ -1,6 +1,6 @@
 # Wiki Schema
 
-This document codifies the conventions for the knowledge wiki in the Obsidian vault. It serves as both human documentation and injectable LLM context.
+This document codifies the conventions for the knowledge wiki. Folder paths below use `<gen_notes_dir>` as a placeholder — see `config.json` for the actual value (default: `gen-notes`). It serves as both human documentation and injectable LLM context.
 
 ## Contents
 - Page Types (Digest, Concept, Name, Synthesis, Comparison)
@@ -13,20 +13,20 @@ This document codifies the conventions for the knowledge wiki in the Obsidian va
 ## Page Types
 
 ### Digest
-- **Directory:** `gen-notes/digests/`
+- **Directory:** `<gen_notes_dir>/digests/`
 - **Created by:** paper-digest, paper-summarizer
 - **Required frontmatter:** `title`, `authors`, `year`, `tags`, `categories`, `related`, `source`, `digested`, `status`
 - **Sections:** TL;DR or Main Idea, Key Ideas/Conclusions, What's Novel, Method, Results, Limitations, Connections
 
 ### Concept
-- **Directory:** `gen-notes/concepts/`
+- **Directory:** `<gen_notes_dir>/concepts/`
 - **Created by:** wiki-manager ingest
 - **Required frontmatter:** `title`, `type: concept`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`
 - **Sections:** Overview, Key Papers, Evolution, Open Questions, Related Concepts
 - **Naming:** Use the canonical concept name (e.g., `Transformer.md`, `RLHF.md`)
 
 ### Name
-- **Directory:** `gen-notes/names/`
+- **Directory:** `<gen_notes_dir>/names/`
 - **Created by:** wiki-manager ingest
 - **Required frontmatter:** `title`, `type: name`, `aliases`, `date-created`, `date-updated`, `source-digests`, `tags`, `name-type`
 - **Sections:** Overview, Key Contributions, Timeline, Related Names, Related Concepts
@@ -34,13 +34,13 @@ This document codifies the conventions for the knowledge wiki in the Obsidian va
 - **name-type values:** `person`, `dataset`, `model`, `place`, `paper`
 
 ### Synthesis
-- **Directory:** `gen-notes/syntheses/`
+- **Directory:** `<gen_notes_dir>/syntheses/`
 - **Created by:** wiki-query or manual
 - **Required frontmatter:** `title`, `type: synthesis`, `date-created`, `sources`, `tags`
 - **Sections:** Query (original question), Answer, Sources Used
 
 ### Comparison
-- **Directory:** `gen-notes/comparisons/`
+- **Directory:** `<gen_notes_dir>/comparisons/`
 - **Created by:** wiki-query or manual
 - **Required frontmatter:** `title`, `type: comparison`, `date-created`, `sources`, `tags`
 - **Sections:** Overview, Side-by-Side Comparison (table), Key Differences, Key Similarities, Verdict/Takeaway
