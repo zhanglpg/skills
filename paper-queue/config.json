@@ -4,7 +4,7 @@
     "recency": 0.30,
     "queue_affinity": 0.40
   },
-  "db_path": "$AGENT_DATA_DIR/paper-queue/queue.db",
+  "db_path": "~/.hermes/skills/openclaw-imports/paper-queue/.paper_queue/queue.db",
   "digest_output_dir": "$AGENT_DATA_DIR/paper-digests",
   "max_suggestions": 10,
   "log_file": "/tmp/logs/skills/paper-queue/queue.log"

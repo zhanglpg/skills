@@ -18,8 +18,9 @@ def get_agent_data_dir() -> str:
         "AGENT_DATA_DIR is not set — falling back to /tmp. "
         "Set AGENT_DATA_DIR to control where skills write output."
     )
-    os.environ['AGENT_DATA_DIR'] = '/tmp'
-    return '/tmp'
+    fallback = os.path.expanduser('~/.openclaw')
+    os.environ['AGENT_DATA_DIR'] = fallback
+    return fallback
 
 
 def setup_logger(
