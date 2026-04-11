@@ -63,7 +63,7 @@ python3 scripts/paper_queue.py score 5      # Re-score paper #5
 
 ## Storage
 
-Papers are stored in a SQLite database at `$AGENT_DATA_DIR/paper-queue/queue.db`. This provides efficient sorting, filtering, and querying while remaining portable (single file, no server).
+Papers are stored in a SQLite database. The path is configured via `db_path` in `config.json`. This provides efficient sorting, filtering, and querying while remaining portable (single file, no server).
 
 ## Dependencies
 
