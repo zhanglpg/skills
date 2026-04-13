@@ -50,7 +50,7 @@ LLM-native skill that fetches and summarizes papers, articles, or blog posts, th
 
 **Location:** `wiki-manager/`
 
-Maintains a living knowledge wiki by transforming isolated paper digests into an interconnected knowledge graph. After digesting a paper, the `ingest` command extracts concepts and names, creates/updates concept and name pages, rebuilds the index, and appends to a chronological log. Also supports `index`, `lint`, `concepts`, and `names` commands for vault maintenance. Main script: `scripts/wiki_manager.py`.
+Maintains a living knowledge wiki by transforming isolated paper digests into an interconnected knowledge graph. After digesting a paper, the `ingest` command extracts concepts and names, creates/updates concept and name pages, rebuilds the index, and appends to a chronological log. Also supports `index`, `lint`, `fix-links`, `compile`, `concepts`, and `names` commands for vault maintenance. Main script: `scripts/wiki_manager.py`.
 
 ### Wiki Query
 
