@@ -17,15 +17,17 @@ class TestGetAgentDataDir(unittest.TestCase):
     """Tests for get_agent_data_dir()."""
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_defaults_to_tmp(self):
+    def test_defaults_to_openclaw(self):
         os.environ.pop('AGENT_DATA_DIR', None)
-        self.assertEqual(get_agent_data_dir(), '/tmp')
+        expected = os.path.expanduser('~/.openclaw')
+        self.assertEqual(get_agent_data_dir(), expected)
 
     @patch.dict(os.environ, {}, clear=True)
     def test_sets_env_when_unset(self):
         os.environ.pop('AGENT_DATA_DIR', None)
         get_agent_data_dir()
-        self.assertEqual(os.environ['AGENT_DATA_DIR'], '/tmp')
+        expected = os.path.expanduser('~/.openclaw')
+        self.assertEqual(os.environ['AGENT_DATA_DIR'], expected)
 
     @patch.dict(os.environ, {}, clear=True)
     def test_warns_when_unset(self):

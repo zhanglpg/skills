@@ -6,9 +6,9 @@ from typing import Optional
 
 
 def get_agent_data_dir() -> str:
-    """Return the agent's data directory from AGENT_DATA_DIR env var, defaulting to /tmp.
+    """Return the agent's data directory from AGENT_DATA_DIR env var, defaulting to ~/.openclaw.
 
-    When AGENT_DATA_DIR is not set, '/tmp' is written into os.environ so that
+    When AGENT_DATA_DIR is not set, ~/.openclaw is written into os.environ so that
     subsequent os.path.expandvars() calls on config paths resolve correctly.
     """
     val = os.environ.get('AGENT_DATA_DIR')
