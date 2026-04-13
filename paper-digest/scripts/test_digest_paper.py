@@ -384,11 +384,12 @@ class TestOutputDirAgentDataDirDefault(unittest.TestCase):
     @patch('digest_paper.load_template')
     @patch('digest_paper.run_gemini')
     @patch('digest_paper.save_output')
-    def test_output_dir_defaults_to_tmp_when_agent_data_dir_unset(
+    def test_output_dir_defaults_to_openclaw_when_agent_data_dir_unset(
         self, mock_save, mock_gemini, mock_template, mock_extract,
         mock_resolve, mock_logger
     ):
         os.environ.pop('AGENT_DATA_DIR', None)
+        fallback = os.path.expanduser('~/.openclaw')
         mock_logger.return_value = MagicMock()
         mock_resolve.return_value = ('/tmp/fake.pdf', 'fake.pdf')
         mock_extract.return_value = "Title\nfake paper text"
@@ -410,7 +411,7 @@ class TestOutputDirAgentDataDirDefault(unittest.TestCase):
             # save_output was called with expanded path
             call_args = mock_save.call_args
             actual_output_dir = call_args[0][2] if len(call_args[0]) > 2 else call_args[1].get('output_dir')
-            self.assertEqual(actual_output_dir, '/tmp/paper-digests')
+            self.assertEqual(actual_output_dir, f'{fallback}/paper-digests')
 
 
 class TestLoadConceptIndex(unittest.TestCase):

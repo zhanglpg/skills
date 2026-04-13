@@ -562,9 +562,10 @@ class TestLoadConfig(unittest.TestCase):
 
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_config_expands_agent_data_dir_defaults_to_tmp(self):
+    def test_config_expands_agent_data_dir_defaults_to_openclaw(self):
         from pathlib import Path
         os.environ.pop('AGENT_DATA_DIR', None)
+        fallback = os.path.expanduser('~/.openclaw')
         original_output = cmm.OUTPUT_DIR
         original_state = cmm.STATE_FILE
         try:
@@ -575,8 +576,8 @@ class TestLoadConfig(unittest.TestCase):
                 }, f)
                 f.flush()
                 cmm.load_config(f.name)
-                self.assertEqual(cmm.OUTPUT_DIR, Path('/tmp/workspace/output'))
-                self.assertEqual(cmm.STATE_FILE, Path('/tmp/state.json'))
+                self.assertEqual(cmm.OUTPUT_DIR, Path(f'{fallback}/workspace/output'))
+                self.assertEqual(cmm.STATE_FILE, Path(f'{fallback}/state.json'))
                 os.unlink(f.name)
         finally:
             cmm.OUTPUT_DIR = original_output
