@@ -85,3 +85,15 @@ jobs:
       - name: Run wiki-manager compile_checker tests
         run: python -m unittest test_compile_checker -v
         working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager name_manager tests
+        run: python -m unittest test_name_manager -v
+        working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager link_fixer tests
+        run: python -m unittest test_link_fixer -v
+        working-directory: wiki-manager/scripts
+
+      - name: Run wiki-manager wiki_manager tests
+        run: python -m unittest test_wiki_manager -v
+        working-directory: wiki-manager/scripts
